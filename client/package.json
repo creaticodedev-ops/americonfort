@@ -12,10 +12,12 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.10",
     "axios": "^1.10.0",
+    "libphonenumber-js": "^1.13.9",
     "motion": "^12.42.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hot-toast": "^2.5.2",
+    "react-phone-number-input": "^3.4.17",
     "react-router-dom": "^7.6.2",
     "tailwindcss": "^4.1.10"
   },

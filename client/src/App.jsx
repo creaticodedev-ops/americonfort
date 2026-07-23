@@ -22,6 +22,8 @@ import ManageLocations from './pages/owner/ManageLocations'
 import Maintenance from './pages/owner/Maintenance'
 import Reports from './pages/owner/Reports'
 import AuditLogs from './pages/owner/AuditLogs'
+import Contracts from './pages/owner/Contracts'
+import ExportTemplates from './pages/owner/ExportTemplates'
 import Login from './components/Login'
 import ErrorBoundary from './components/ErrorBoundary'
 import RequirePermission from './components/owner/RequirePermission'
@@ -83,6 +85,8 @@ const App = () => {
             <Route path="calendar" element={withPerm('calendar', BookingCalendar)} />
             <Route path="maintenance" element={withPerm('maintenance', Maintenance)} />
             <Route path="reports" element={withPerm('reports', Reports)} />
+            <Route path="contracts" element={withPerm('contracts', Contracts)} />
+            <Route path="templates" element={withPerm('templates', ExportTemplates)} />
             <Route path="audit" element={withPerm('audit', AuditLogs)} />
           </Route>
           <Route path="/superadmin/login" element={<SuperAdminLogin />} />

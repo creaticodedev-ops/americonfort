@@ -1,4 +1,5 @@
 import { OWNER_PERMISSIONS } from '../models/User.js';
+import { resolveOwnerPermissions } from '../utils/ownerPermissions.js';
 
 /**
  * Empty permissions[] = full access (default).
@@ -9,7 +10,7 @@ export const requirePermission = (permission) => (req, res, next) => {
     return next();
   }
 
-  const perms = req.user?.permissions;
+  const perms = resolveOwnerPermissions(req.user?.permissions);
   if (!Array.isArray(perms) || perms.length === 0) {
     return next(); // full access
   }

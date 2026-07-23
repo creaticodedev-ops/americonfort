@@ -8,6 +8,7 @@ import {
   serializeLicense,
   createTrialDefaults,
 } from '../services/licenseService.js';
+import { syncOwnerPermissions, resolveOwnerPermissions } from '../utils/ownerPermissions.js';
 
 const generateToken = (user) => {
     const payload = { _id: user._id.toString(), tv: user.tokenVersion || 0 };
@@ -57,6 +58,7 @@ export const loginUser = async (req, res) => {
         }
 
         user.lastLoginAt = new Date();
+        await syncOwnerPermissions(user);
         await user.save();
 
         const token = generateToken(user);
@@ -96,11 +98,13 @@ export const getUserData = async (req, res) => {
         }
 
         await syncLicenseStatus(user);
+        await syncOwnerPermissions(user);
         const license = serializeLicense(user);
 
         // Strip password already done by protect; return user + explicit license snapshot
         const safeUser = user.toObject ? user.toObject() : { ...user };
         delete safeUser.password;
+        safeUser.permissions = resolveOwnerPermissions(safeUser.permissions);
 
         res.json({
             success: true,

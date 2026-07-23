@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 
 const Sidebar = () => {
-  const { user, axios, fetchUser } = useAppContext()
+  const { user, axios, fetchUser, hasPermission } = useAppContext()
   const { t } = useI18n()
   const location = useLocation()
   const [image, setImage] = useState('')
@@ -73,11 +73,7 @@ const Sidebar = () => {
 
       <nav className="w-full mt-2 pb-8">
         {ownerMenuLinks
-          .filter((link) => {
-            const perms = user?.permissions
-            if (!Array.isArray(perms) || perms.length === 0) return true
-            return !link.permission || perms.includes(link.permission)
-          })
+          .filter((link) => hasPermission(link.permission))
           .map((link, index) => {
           const active = isActive(link.path)
           return (

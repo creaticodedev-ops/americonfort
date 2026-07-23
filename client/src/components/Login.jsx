@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
 import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
+import { resolveOwnerPermissions } from '../utils/ownerPermissions'
 
 const Login = () => {
   const {
@@ -44,9 +45,13 @@ const Login = () => {
 
         const profile = await axios.get('/api/user/data')
         if (profile.data.success && profile.data.user?.role === 'owner') {
-          setUser(profile.data.user)
+          const normalizedUser = {
+            ...profile.data.user,
+            permissions: resolveOwnerPermissions(profile.data.user.permissions),
+          }
+          setUser(normalizedUser)
           setIsOwner(true)
-          applyLicense?.(profile.data.license || data.license, profile.data.user)
+          applyLicense?.(profile.data.license || data.license, normalizedUser)
           setToken(token)
           setShowLogin(false)
           const returnTo = sessionStorage.getItem('ownerReturnTo') || '/owner'

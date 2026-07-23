@@ -11,6 +11,8 @@ export const OWNER_PERMISSIONS = [
   'maintenance',
   'reports',
   'audit',
+  'contracts',
+  'templates',
 ];
 
 const userSchema = new mongoose.Schema({

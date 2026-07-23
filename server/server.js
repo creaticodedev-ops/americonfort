@@ -11,6 +11,8 @@ import bookingRouter from "./routes/bookingRoutes.js";
 import pickupLocationRouter from "./routes/pickupLocationRoutes.js";
 import completionRouter from "./routes/bookingCompletionRoutes.js";
 import superAdminRouter from "./routes/superAdminRoutes.js";
+import contractRouter from "./routes/contractRoutes.js";
+import exportTemplateRouter from "./routes/exportTemplateRoutes.js";
 import { protectDocumentUploads } from "./middleware/uploadAccess.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -107,6 +109,8 @@ app.use("/api/bookings", bookingRouter);
 app.use("/api/pickup-locations", pickupLocationRouter);
 app.use("/api/booking-completion", completionRouter);
 app.use("/api/super-admin", superAdminRouter);
+app.use("/api/contracts", contractRouter);
+app.use("/api/export-templates", exportTemplateRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });

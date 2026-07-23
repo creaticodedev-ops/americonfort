@@ -104,6 +104,8 @@ export const ownerMenuLinks = [
     { nameKey: "admin.menu.maintenance", path: "/owner/maintenance", icon: cautionIconColored, coloredIcon: cautionIconColored, permission: "maintenance" },
     { nameKey: "admin.menu.locations", path: "/owner/locations", icon: location_icon, coloredIcon: location_icon_colored, permission: "locations" },
     { nameKey: "admin.menu.reports", path: "/owner/reports", icon: listIcon, coloredIcon: listIconColored, permission: "reports" },
+    { nameKey: "admin.menu.contracts", path: "/owner/contracts", icon: listIcon, coloredIcon: listIconColored, permission: "contracts" },
+    { nameKey: "admin.menu.templates", path: "/owner/templates", icon: edit_icon, coloredIcon: edit_icon, permission: "templates" },
     { nameKey: "admin.menu.audit", path: "/owner/audit", icon: listIcon, coloredIcon: listIconColored, permission: "audit" },
 ]
 

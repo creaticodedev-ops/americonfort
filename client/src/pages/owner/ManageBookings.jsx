@@ -5,6 +5,7 @@ import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { escapeHtml, getErrorMessage } from '../../utils/apiError'
+import PhoneInput, { isPhoneValid } from '../../components/PhoneInput'
 import { Link } from 'react-router-dom'
 
 const emptyFilters = {
@@ -58,7 +59,7 @@ const statusClass = (status) => {
 }
 
 const ManageBookings = () => {
-  const { currency, axios } = useAppContext()
+  const { currency, axios, hasPermission } = useAppContext()
   const { t } = useI18n()
 
   const [bookings, setBookings] = useState([])
@@ -199,6 +200,10 @@ const ManageBookings = () => {
 
   const saveEdit = async (e) => {
     e.preventDefault()
+    if (!isPhoneValid(editForm.customerPhone)) {
+      toast.error(t('admin.bookings.invalidPhone'))
+      return
+    }
     try {
       const { data } = await axios.post('/api/bookings/update', {
         bookingId: editing._id,
@@ -546,6 +551,14 @@ const ManageBookings = () => {
                   {t('admin.bookings.resendLink')}
                 </button>
               )}
+              {hasPermission('contracts') && selectedBooking.status !== 'cancelled' && (
+                <Link
+                  to={`/owner/contracts?bookingId=${selectedBooking._id}`}
+                  className='col-span-2 px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium text-center hover:bg-primary/15'
+                >
+                  {t('admin.bookings.generateContract')}
+                </Link>
+              )}
             </div>
 
             {selectedBooking.completion && (
@@ -601,7 +614,7 @@ const ManageBookings = () => {
               </div>
               <div>
                 <label className={labelClass}>{t('admin.bookings.phone')}</label>
-                <input className={inputClass} value={editForm.customerPhone} onChange={(e) => setEditForm({ ...editForm, customerPhone: e.target.value })} required />
+                <PhoneInput value={editForm.customerPhone} onChange={(customerPhone) => setEditForm({ ...editForm, customerPhone })} required />
               </div>
               <div>
                 <label className={labelClass}>{t('admin.bookings.email')}</label>

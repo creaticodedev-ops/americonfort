@@ -178,3 +178,18 @@ body.nav-open {
     letter-spacing: -0.03em;
   }
 }
+
+.phone-input-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.phone-input-field .PhoneInputCountry {
+  margin-right: 0.25rem;
+}
+
+.phone-input-field .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+}

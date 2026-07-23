@@ -3,6 +3,7 @@ import axios from 'axios'
 import {toast} from 'react-hot-toast'
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from '../utils/apiError';
+import { resolveOwnerPermissions, ownerHasPermission } from '../utils/ownerPermissions';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
 axios.defaults.baseURL = API_BASE_URL
@@ -66,7 +67,11 @@ export const AppProvider = ({ children })=>{
         try {
            const {data} = await axios.get('/api/user/data')
            if (data.success && data.user?.role === 'owner') {
-            setUser(data.user)
+            const normalizedUser = {
+              ...data.user,
+              permissions: resolveOwnerPermissions(data.user.permissions),
+            }
+            setUser(normalizedUser)
             setIsOwner(true)
             applyLicense(data.license, data.user)
            } else {
@@ -101,10 +106,7 @@ export const AppProvider = ({ children })=>{
     }, [navigate, resetOwnerAuth])
 
     const hasPermission = useCallback((permission) => {
-      if (!permission) return true
-      const perms = user?.permissions
-      if (!Array.isArray(perms) || perms.length === 0) return true
-      return perms.includes(permission)
+      return ownerHasPermission(user, permission)
     }, [user])
 
     useEffect(()=>{

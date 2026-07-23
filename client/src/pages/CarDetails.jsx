@@ -9,6 +9,7 @@ import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
 import { formatLocationsDisplay, getCarLocations } from '../utils/carLocations'
 import { calculateBookingPricePreview } from '../utils/pricing'
+import PhoneInput, { isPhoneValid } from '../components/PhoneInput'
 
 const toDateTimeLocal = (value) => {
   if (!value) return ''
@@ -185,6 +186,10 @@ const CarDetails = () => {
       toast.error(t('carDetails.selectLocations'))
       return
     }
+    if (!isPhoneValid(form.phone)) {
+      toast.error(t('carDetails.invalidPhone'))
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -330,7 +335,12 @@ const CarDetails = () => {
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="phone">{t('carDetails.phone')}</label>
-              <input id="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} type="tel" className="border border-borderColor px-3 py-2 rounded-lg w-full" required />
+              <PhoneInput
+                id="phone"
+                value={form.phone}
+                onChange={(phone) => setForm({ ...form, phone })}
+                required
+              />
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="email">{t('carDetails.email')}</label>

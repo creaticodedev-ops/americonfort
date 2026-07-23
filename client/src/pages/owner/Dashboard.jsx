@@ -25,7 +25,7 @@ const KpiCard = ({ label, value, sub, tone = 'default' }) => {
 };
 
 const Dashboard = () => {
-  const { axios, isOwner, currency } = useAppContext();
+  const { axios, isOwner, currency, hasPermission } = useAppContext();
   const { t } = useI18n();
   const [dash, setDash] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -87,6 +87,12 @@ const Dashboard = () => {
         <div className="flex flex-wrap gap-2">
           <Link to="/owner/analytics" className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">{t('admin.dashboard.analytics')}</Link>
           <Link to="/owner/reports" className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">{t('admin.dashboard.reports')}</Link>
+          {hasPermission('contracts') && (
+            <Link to="/owner/contracts" className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">{t('admin.dashboard.contracts')}</Link>
+          )}
+          {hasPermission('templates') && (
+            <Link to="/owner/templates" className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">{t('admin.dashboard.templates')}</Link>
+          )}
           <Link to="/owner/manage-bookings" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary-dull">{t('admin.dashboard.reservations')}</Link>
         </div>
       </div>

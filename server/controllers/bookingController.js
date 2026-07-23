@@ -22,6 +22,7 @@ import {
   carServesCity,
   locationAvailabilityFilter,
 } from "../utils/carLocations.js";
+import { normalizeToE164 } from "../utils/phoneValidation.js";
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'ready_for_pickup', 'active', 'completed', 'cancelled'];
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
@@ -243,6 +244,11 @@ export const createBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
     }
 
+    const phoneCheck = normalizeToE164(phone);
+    if (!phoneCheck.valid) {
+      return res.status(400).json({ success: false, message: phoneCheck.message });
+    }
+
     const dates = parseDateRange(pickupDate, returnDate);
     if (!dates.valid) {
       return res.status(400).json({ success: false, message: dates.message });
@@ -325,7 +331,7 @@ export const createBooking = async (req, res) => {
       priceBreakdown,
       customerName: fullName.trim(),
       customerEmail: email.trim().toLowerCase(),
-      customerPhone: phone.trim(),
+      customerPhone: phoneCheck.e164,
       pickupLocation: pickupLabel,
       returnLocation: returnLabel,
       pickupLocationId: pickupLoc?._id || null,
@@ -453,6 +459,11 @@ export const createWalkInBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
     }
 
+    const phoneCheck = normalizeToE164(phone);
+    if (!phoneCheck.valid) {
+      return res.status(400).json({ success: false, message: phoneCheck.message });
+    }
+
     const dates = parseDateRange(pickupDate, returnDate);
     if (!dates.valid) {
       return res.status(400).json({ success: false, message: dates.message });
@@ -542,7 +553,7 @@ export const createWalkInBooking = async (req, res) => {
 
     const guestEmail =
       normalizedEmail ||
-      `walkin+${phone.replace(/\D/g, '').slice(-9) || Date.now()}@local.hdn`;
+      `walkin+${phoneCheck.e164.replace(/\D/g, '').slice(-9) || Date.now()}@local.hdn`;
 
     const booking = await Booking.create({
       reservationId,
@@ -557,7 +568,7 @@ export const createWalkInBooking = async (req, res) => {
       priceBreakdown,
       customerName: fullName.trim(),
       customerEmail: guestEmail,
-      customerPhone: phone.trim(),
+      customerPhone: phoneCheck.e164,
       pickupLocation: pickupLabel,
       returnLocation: returnLabel,
       pickupLocationId: pickupLoc?._id || null,
@@ -939,7 +950,13 @@ export const updateBooking = async (req, res) => {
       }
       booking.customerEmail = customerEmail.trim().toLowerCase();
     }
-    if (customerPhone) booking.customerPhone = customerPhone.trim();
+    if (customerPhone) {
+      const phoneCheck = normalizeToE164(customerPhone);
+      if (!phoneCheck.valid) {
+        return res.status(400).json({ success: false, message: phoneCheck.message });
+      }
+      booking.customerPhone = phoneCheck.e164;
+    }
     if (notes !== undefined) booking.notes = notes;
     if (status) booking.status = status;
     if (paymentStatus) booking.paymentStatus = paymentStatus;

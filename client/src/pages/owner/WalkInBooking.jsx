@@ -7,6 +7,7 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { getCarLocations } from '../../utils/carLocations'
+import PhoneInput, { isPhoneValid } from '../../components/PhoneInput'
 
 const emptyForm = {
   car: '',
@@ -113,6 +114,10 @@ const WalkInBooking = () => {
       toast.error(t('admin.walkIn.selectLocations'))
       return
     }
+    if (!isPhoneValid(form.phone)) {
+      toast.error(t('admin.walkIn.invalidPhone'))
+      return
+    }
     setSaving(true)
     try {
       const { data } = await axios.post('/api/bookings/owner/walk-in', {
@@ -185,7 +190,7 @@ const WalkInBooking = () => {
             </div>
             <div>
               <label className="text-xs text-gray-500">{t('admin.walkIn.phone')} *</label>
-              <input className={input} required value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
+              <PhoneInput value={form.phone} onChange={(phone) => setField('phone', phone)} required />
             </div>
             <div>
               <label className="text-xs text-gray-500">{t('admin.walkIn.email')}</label>
