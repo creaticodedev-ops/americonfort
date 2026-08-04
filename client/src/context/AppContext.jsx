@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from '../utils/apiError';
 import { resolveOwnerPermissions, ownerHasPermission } from '../utils/ownerPermissions';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
+import { resolveApiBaseUrl } from '../utils/apiBase';
+
+const API_BASE_URL = resolveApiBaseUrl();
 axios.defaults.baseURL = API_BASE_URL
 
 export const AppContext = createContext();
@@ -69,7 +71,7 @@ export const AppProvider = ({ children })=>{
            if (data.success && data.user?.role === 'owner') {
             const normalizedUser = {
               ...data.user,
-              permissions: resolveOwnerPermissions(data.user.permissions),
+              permissions: resolveOwnerPermissions(data.user.permissions || []),
             }
             setUser(normalizedUser)
             setIsOwner(true)

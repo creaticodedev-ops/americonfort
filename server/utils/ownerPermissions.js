@@ -1,7 +1,7 @@
 import { OWNER_PERMISSIONS } from '../models/User.js';
 
 /**
- * Expand legacy owner permission lists when new modules are added.
+ * Normalize owner permission lists by filtering invalid entries.
  * Empty permissions[] remains full access (unchanged).
  */
 export const resolveOwnerPermissions = (permissions) => {
@@ -9,18 +9,10 @@ export const resolveOwnerPermissions = (permissions) => {
     return permissions;
   }
 
-  const missing = OWNER_PERMISSIONS.filter((p) => !permissions.includes(p));
-  if (missing.length === 0) return permissions;
-
-  const priorCatalogSize = OWNER_PERMISSIONS.length - missing.length;
-  if (permissions.length >= priorCatalogSize) {
-    return [...new Set([...permissions, ...missing])];
-  }
-
-  return permissions;
+  return Array.from(new Set(permissions.filter((p) => OWNER_PERMISSIONS.includes(p))));
 };
 
-/** Persist expanded permissions for owners when the catalog grows. */
+/** Persist normalized permissions for owners. */
 export const syncOwnerPermissions = async (user) => {
   if (!user || user.role !== 'owner') return user;
 

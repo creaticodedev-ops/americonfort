@@ -4,7 +4,7 @@ import { assets } from '../assets/assets'
 import CarCard from './CarCard'
 import { useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 import { groupCarsByCategory } from '../utils/vehicleCategories'
 
@@ -26,7 +26,7 @@ const FeaturedSection = () => {
     <section className="relative py-20 md:py-28 page-pad page-shell bg-light">
       <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-sand/60 to-transparent pointer-events-none" />
 
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
@@ -37,7 +37,7 @@ const FeaturedSection = () => {
           title={t('featured.title')}
           subTitle={t('featured.subtitle')}
         />
-      </motion.div>
+      </Motion.div>
 
       <div className="mt-14 md:mt-16 space-y-14 md:space-y-16">
         {sections.map((section) => (
@@ -62,7 +62,7 @@ const FeaturedSection = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
               {section.cars.map((car, index) => (
-                <motion.div
+                <Motion.div
                   key={car._id}
                   initial={{ opacity: 0, y: 28 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -70,14 +70,14 @@ const FeaturedSection = () => {
                   transition={{ duration: 0.5, delay: Math.min(index * 0.08, 0.32), ease: 'easeOut' }}
                 >
                   <CarCard car={car} />
-                </motion.div>
+                </Motion.div>
               ))}
             </div>
           </div>
         ))}
       </div>
 
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
@@ -92,7 +92,7 @@ const FeaturedSection = () => {
           {t('featured.exploreAll')}
           <img src={assets.arrow_icon} alt="" className="h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
         </button>
-      </motion.div>
+      </Motion.div>
     </section>
   )
 }

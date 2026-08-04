@@ -1,6 +1,7 @@
 import express from "express";
 import "dotenv/config";
 import cors from "cors";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
@@ -12,10 +13,14 @@ import pickupLocationRouter from "./routes/pickupLocationRoutes.js";
 import completionRouter from "./routes/bookingCompletionRoutes.js";
 import superAdminRouter from "./routes/superAdminRoutes.js";
 import contractRouter from "./routes/contractRoutes.js";
+import invoiceRouter from "./routes/invoiceRoutes.js";
 import exportTemplateRouter from "./routes/exportTemplateRoutes.js";
 import { protectDocumentUploads } from "./middleware/uploadAccess.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDistPath = path.resolve(__dirname, "../client/dist");
+const clientIndexPath = path.resolve(__dirname, "../client/index.html");
+const hasBuiltClient = fs.existsSync(path.join(clientDistPath, "index.html"));
 
 const requiredEnv = ["MONGODB_URI", "JWT_SECRET"];
 for (const key of requiredEnv) {
@@ -103,6 +108,10 @@ app.get("/health", async (_req, res) => {
   });
 });
 
+if (hasBuiltClient) {
+  app.use(express.static(clientDistPath, { index: false }));
+}
+
 app.use("/api/user", userRouter);
 app.use("/api/owner", ownerRouter);
 app.use("/api/bookings", bookingRouter);
@@ -110,10 +119,37 @@ app.use("/api/pickup-locations", pickupLocationRouter);
 app.use("/api/booking-completion", completionRouter);
 app.use("/api/super-admin", superAdminRouter);
 app.use("/api/contracts", contractRouter);
+app.use("/api/invoices", invoiceRouter);
 app.use("/api/export-templates", exportTemplateRouter);
 
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    return next();
+  }
+
+  if (!req.accepts("html")) {
+    return next();
+  }
+
+  const indexFile = hasBuiltClient ? path.join(clientDistPath, "index.html") : clientIndexPath;
+  if (fs.existsSync(indexFile)) {
+    return res.sendFile(indexFile);
+  }
+
+  return next();
+});
+
 app.use((_req, res) => {
-  res.status(404).json({ success: false, message: "Route not found" });
+  const path = _req.originalUrl || _req.url;
+  let message = "Route not found";
+  if (path.includes("/api/api/")) {
+    message =
+      "Route not found — API base URL likely includes `/api` twice. Set VITE_BASE_URL to the server origin only (e.g. http://localhost:3000), not http://localhost:3000/api";
+  }
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(`[404] ${_req.method} ${path}`);
+  }
+  res.status(404).json({ success: false, message, path: process.env.NODE_ENV !== "production" ? path : undefined });
 });
 
 app.use((err, _req, res, _next) => {
@@ -125,6 +161,11 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(
+    '[routes] Booking workflow: POST /api/booking-completion/owner/ensure-link, /api/bookings/owner/completion/ensure-link',
+  );
+});
 
 export default app;

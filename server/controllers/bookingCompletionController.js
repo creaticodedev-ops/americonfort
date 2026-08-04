@@ -2,6 +2,7 @@ import Booking from "../models/Booking.js";
 import {
   findBookingByCompletionToken,
   initiateBookingCompletion,
+  ensureBookingCompletionLink,
   markCompletionPayment,
   refreshCompletionFlags,
   saveSignatureAndMaybeFinalize,
@@ -17,6 +18,10 @@ import {
 } from "../services/paymentService.js";
 import { cleanupUploadedFile } from "../middleware/multer.js";
 import { appendSignedQuery } from "../middleware/uploadAccess.js";
+import {
+  applyCompletionDetailsToBooking,
+  validateCompletionDetails,
+} from "../utils/applyCompletionDetails.js";
 
 const signIfLocalUpload = (url) => {
   if (!url || typeof url !== "string") return url || "";
@@ -37,6 +42,11 @@ const publicBookingView = (booking) => {
     customerName: booking.customerName,
     customerEmail: booking.customerEmail,
     customerPhone: booking.customerPhone,
+    customerAddress: booking.customerAddress || "",
+    placeOfBirth: booking.placeOfBirth || "",
+    identityDocumentNumber: booking.identityDocumentNumber || "",
+    identityIssuedOn: booking.identityIssuedOn || "",
+    driverLicenseIssuedOn: booking.driverLicenseIssuedOn || "",
     pickupDate: booking.pickupDate,
     returnDate: booking.returnDate,
     pickupLocation: booking.pickupLocation,
@@ -44,6 +54,21 @@ const publicBookingView = (booking) => {
     price: booking.price,
     priceBreakdown: booking.priceBreakdown,
     paymentStatus: booking.paymentStatus,
+    dateOfBirth: booking.dateOfBirth || "",
+    nationality: booking.nationality || "",
+    driverLicenseNumber: booking.driverLicenseNumber || "",
+    driverLicenseExpiry: booking.driverLicenseExpiry || "",
+    passportNumber: booking.passportNumber || "",
+    secondDriver: booking.secondDriver || {
+      enabled: false,
+      fullName: "",
+      dateOfBirth: "",
+      nationality: "",
+      driverLicenseNumber: "",
+      driverLicenseExpiry: "",
+      passportNumber: "",
+      phone: "",
+    },
     car: booking.car
       ? {
           brand: booking.car.brand,
@@ -58,6 +83,7 @@ const publicBookingView = (booking) => {
       identityType: c.identityType || "",
       identityDocumentUrl: signIfLocalUpload(c.identityDocumentUrl || ""),
       signatureUrl: c.signatureUrl ? "on_file" : "",
+      secondDriverSignatureUrl: c.secondDriverSignatureUrl ? "on_file" : "",
       paymentType: c.paymentType || "",
       amountPaid: c.amountPaid || 0,
       amountDue: c.amountDue || 0,
@@ -127,6 +153,8 @@ export const uploadCompletionDocument = async (req, res) => {
     }
 
     refreshCompletionFlags(booking);
+    const { syncCompletionDocumentsToArchive } = await import('../services/customerDocuments.js');
+    syncCompletionDocumentsToArchive(booking);
     await booking.save();
     await tryFinalizeBookingCompletion(booking._id);
     const fresh = await Booking.findById(booking._id).populate("car");
@@ -142,6 +170,35 @@ export const uploadCompletionDocument = async (req, res) => {
     res.status(status).json({ success: false, message: error.message || "Upload failed" });
   } finally {
     cleanupUploadedFile(file);
+  }
+};
+
+export const saveCompletionDetails = async (req, res) => {
+  try {
+    const booking = await findBookingByCompletionToken(req.params.token);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Invalid or expired completion link" });
+    }
+    if (booking.status === "ready_for_pickup") {
+      return res.status(400).json({ success: false, message: "This reservation is already complete" });
+    }
+
+    console.log('[SAVE_DETAILS] Incoming body', req.body);
+    applyCompletionDetailsToBooking(booking, req.body);
+
+    await booking.save();
+    refreshCompletionFlags(booking);
+    const fresh = await Booking.findById(booking._id).populate('car');
+
+    res.json({
+      success: true,
+      message: 'Contract details saved',
+      booking: publicBookingView(fresh),
+    });
+  } catch (error) {
+    console.error(error.message);
+    const status = error.code === 'TOKEN_EXPIRED' ? 410 : error.code === 'VALIDATION' ? 400 : 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to save contract details' });
   }
 };
 
@@ -299,7 +356,7 @@ export const submitCompletionSignature = async (req, res) => {
       return res.status(404).json({ success: false, message: "Invalid or expired completion link" });
     }
 
-    const { signatureDataUrl, agreed } = req.body;
+    const { signatureDataUrl, secondDriverSignatureDataUrl, agreed, ...detailsPayload } = req.body;
     if (!agreed) {
       return res.status(400).json({ success: false, message: "You must agree to the rental terms" });
     }
@@ -307,16 +364,46 @@ export const submitCompletionSignature = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please provide your signature" });
     }
 
-    // Require docs + payment before signature (enterprise order)
+    // Persist any last-minute form fields sent with the signature step
+    const hasDetailFields = [
+      'customerName',
+      'customerEmail',
+      'customerPhone',
+      'dateOfBirth',
+      'nationality',
+      'customerAddress',
+      'placeOfBirth',
+      'identityDocumentNumber',
+      'identityIssuedOn',
+      'driverLicenseNumber',
+      'driverLicenseExpiry',
+      'driverLicenseIssuedOn',
+      'passportNumber',
+      'secondDriver',
+    ].some((k) => detailsPayload[k] !== undefined);
+
+    if (hasDetailFields) {
+      applyCompletionDetailsToBooking(booking, detailsPayload);
+    }
+    validateCompletionDetails(booking);
+    await booking.save();
+
+    // Require docs before signature
     refreshCompletionFlags(booking);
     if (!booking.completion.documentsComplete) {
       return res.status(400).json({ success: false, message: "Upload required documents first" });
     }
-    if (!booking.completion.paymentComplete) {
-      return res.status(400).json({ success: false, message: "Complete payment before signing" });
+
+    if (booking.secondDriver?.enabled) {
+      if (!secondDriverSignatureDataUrl || !String(secondDriverSignatureDataUrl).startsWith("data:image")) {
+        return res.status(400).json({ success: false, message: "Please provide the second driver signature" });
+      }
     }
 
-    const result = await saveSignatureAndMaybeFinalize(booking, signatureDataUrl);
+    const result = await saveSignatureAndMaybeFinalize(booking, {
+      signatureDataUrl,
+      secondDriverSignatureDataUrl,
+    });
     res.json({
       success: true,
       message: result.finalized
@@ -327,7 +414,35 @@ export const submitCompletionSignature = async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
-    res.status(500).json({ success: false, message: error.message || "Signature failed" });
+    const status = error.code === 'VALIDATION' ? 400 : 500;
+    res.status(status).json({ success: false, message: error.message || "Signature failed" });
+  }
+};
+
+/** Owner: ensure a valid completion link exists (no WhatsApp / Meta API). */
+export const ensureCompletionLink = async (req, res) => {
+  try {
+    const { bookingId, refresh } = req.body;
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: "bookingId is required" });
+    }
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+    if (booking.owner?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    const result = await ensureBookingCompletionLink(bookingId, { refresh: Boolean(refresh) });
+    res.status(200).json({
+      success: true,
+      completionUrl: result.completionUrl,
+      shareableCompletionUrl: result.completionUrl,
+      created: result.created,
+      status: result.booking.status,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: error.message || "Failed to ensure completion link" });
   }
 };
 
@@ -343,11 +458,12 @@ export const resendCompletionLink = async (req, res) => {
 
     const result = await initiateBookingCompletion(bookingId, { resend: true });
     const emailOk = Boolean(result.emailResult?.success);
-    res.status(emailOk ? 200 : 502).json({
-      success: emailOk,
+    res.status(200).json({
+      success: true,
+      emailSent: emailOk,
       message: emailOk
         ? `Completion email accepted by SMTP for ${result.emailResult.to}`
-        : `Email NOT delivered: ${result.emailResult?.reason || "unknown error"}`,
+        : `Completion link refreshed. Email NOT delivered: ${result.emailResult?.reason || "unknown error"}`,
       completionUrl: result.completionUrl,
       email: result.emailResult,
     });
@@ -380,8 +496,8 @@ export const sendTestEmail = async (req, res) => {
     }
     const result = await sendEmail({
       to,
-      subject: "HDN Car Rental — SMTP test",
-      html: `<p>This is a test email from HDN Car Rental.</p><p>If you received this, SMTP delivery is working.</p><p>${new Date().toISOString()}</p>`,
+      subject: "Americonfort — SMTP test",
+      html: `<p>This is a test email from Americonfort.</p><p>If you received this, SMTP delivery is working.</p><p>${new Date().toISOString()}</p>`,
     });
     res.status(result.success ? 200 : 502).json({
       success: result.success,
@@ -406,6 +522,7 @@ export default {
   confirmStripePayment,
   submitCompletionSignature,
   resendCompletionLink,
+  ensureCompletionLink,
   emailDiagnostics,
   sendTestEmail,
 };

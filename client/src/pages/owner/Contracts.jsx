@@ -22,23 +22,48 @@ const Contracts = () => {
   const [templates, setTemplates] = useState([])
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
   const [search, setSearch] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [cin, setCin] = useState('')
+  const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [showGenerate, setShowGenerate] = useState(false)
-  const [generateForm, setGenerateForm] = useState({ bookingId: '', templateId: '' })
+  const [generateForm, setGenerateForm] = useState({
+    bookingId: '',
+    templateId: '',
+    includeCompanyStamp: true,
+    dateOfBirth: '',
+    nationality: '',
+    driverLicenseNumber: '',
+    driverLicenseExpiry: '',
+    passportNumber: '',
+    secondDriverEnabled: false,
+    secondDriverFullName: '',
+    secondDriverDob: '',
+    secondDriverNationality: '',
+    secondDriverLicense: '',
+    secondDriverLicenseExpiry: '',
+    secondDriverPassport: '',
+    secondDriverPhone: '',
+  })
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewTitle, setPreviewTitle] = useState('')
 
   const inputClass = 'border border-borderColor px-3 py-2 rounded-lg w-full text-sm'
 
-  const fetchContracts = async () => {
+  const fetchContracts = async (override = {}) => {
     setLoading(true)
     try {
+      const page = override.page ?? pagination.page
+      const limit = override.limit ?? pagination.limit
       const params = new URLSearchParams({
-        page: String(pagination.page),
-        limit: String(pagination.limit),
+        page: String(page),
+        limit: String(limit),
       })
       if (search.trim()) params.set('search', search.trim())
+      if (customerName.trim()) params.set('customerName', customerName.trim())
+      if (cin.trim()) params.set('cin', cin.trim())
+      if (phone.trim()) params.set('phone', phone.trim())
       const { data } = await axios.get(`/api/contracts?${params}`)
       if (data.success) {
         setContracts(data.contracts || [])
@@ -61,6 +86,12 @@ const Contracts = () => {
   }, [prefilledBookingId])
 
   useEffect(() => {
+    if (generateForm.bookingId && bookings.length) {
+      loadBookingDetails(generateForm.bookingId)
+    }
+  }, [generateForm.bookingId, bookings])
+
+  useEffect(() => {
     fetchContracts()
   }, [pagination.page, pagination.limit])
 
@@ -74,15 +105,82 @@ const Contracts = () => {
   }, [axios])
 
   const openGenerate = () => {
-    setGenerateForm({ bookingId: '', templateId: '' })
+    setGenerateForm({
+      bookingId: '',
+      templateId: '',
+      includeCompanyStamp: true,
+      dateOfBirth: '',
+      nationality: '',
+      driverLicenseNumber: '',
+      driverLicenseExpiry: '',
+      passportNumber: '',
+      secondDriverEnabled: false,
+      secondDriverFullName: '',
+      secondDriverDob: '',
+      secondDriverNationality: '',
+      secondDriverLicense: '',
+      secondDriverLicenseExpiry: '',
+      secondDriverPassport: '',
+      secondDriverPhone: '',
+    })
     setShowGenerate(true)
     setPreviewHtml('')
+  }
+
+  const loadBookingDetails = (bookingId) => {
+    const booking = bookings.find((b) => b._id === bookingId)
+    if (!booking) return
+    const sd = booking.secondDriver || {}
+    setGenerateForm((f) => ({
+      ...f,
+      bookingId,
+      dateOfBirth: booking.dateOfBirth || '',
+      nationality: booking.nationality || '',
+      driverLicenseNumber: booking.driverLicenseNumber || '',
+      driverLicenseExpiry: booking.driverLicenseExpiry || '',
+      passportNumber: booking.passportNumber || '',
+      secondDriverEnabled: Boolean(sd.enabled),
+      secondDriverFullName: sd.fullName || '',
+      secondDriverDob: sd.dateOfBirth || '',
+      secondDriverNationality: sd.nationality || '',
+      secondDriverLicense: sd.driverLicenseNumber || '',
+      secondDriverLicenseExpiry: sd.driverLicenseExpiry || '',
+      secondDriverPassport: sd.passportNumber || '',
+      secondDriverPhone: sd.phone || '',
+    }))
+  }
+
+  const saveContractDetails = async () => {
+    if (!generateForm.bookingId) return false
+    const { data } = await axios.post('/api/bookings/update', {
+      bookingId: generateForm.bookingId,
+      dateOfBirth: generateForm.dateOfBirth,
+      nationality: generateForm.nationality,
+      driverLicenseNumber: generateForm.driverLicenseNumber,
+      driverLicenseExpiry: generateForm.driverLicenseExpiry,
+      passportNumber: generateForm.passportNumber,
+      secondDriver: {
+        enabled: generateForm.secondDriverEnabled,
+        fullName: generateForm.secondDriverFullName,
+        dateOfBirth: generateForm.secondDriverDob,
+        nationality: generateForm.secondDriverNationality,
+        driverLicenseNumber: generateForm.secondDriverLicense,
+        driverLicenseExpiry: generateForm.secondDriverLicenseExpiry,
+        passportNumber: generateForm.secondDriverPassport,
+        phone: generateForm.secondDriverPhone,
+      },
+    })
+    if (!data.success) {
+      toast.error(data.message)
+      return false
+    }
+    return true
   }
 
   const runSearch = (e) => {
     e?.preventDefault()
     setPagination((prev) => ({ ...prev, page: 1 }))
-    fetchContracts()
+    fetchContracts({ page: 1 })
   }
 
   const previewFromBooking = async () => {
@@ -91,9 +189,12 @@ const Contracts = () => {
       return
     }
     try {
+      const saved = await saveContractDetails()
+      if (!saved) return
       const { data } = await axios.post('/api/contracts/preview', {
         bookingId: generateForm.bookingId,
         templateId: generateForm.templateId || undefined,
+        includeCompanyStamp: generateForm.includeCompanyStamp,
       })
       if (data.success) {
         setPreviewHtml(data.html)
@@ -113,9 +214,12 @@ const Contracts = () => {
     }
     setGenerating(true)
     try {
+      const saved = await saveContractDetails()
+      if (!saved) return
       const { data } = await axios.post('/api/contracts/generate', {
         bookingId: generateForm.bookingId,
         templateId: generateForm.templateId || undefined,
+        includeCompanyStamp: generateForm.includeCompanyStamp,
       })
       if (data.success) {
         toast.success(data.message)
@@ -172,16 +276,52 @@ const Contracts = () => {
         </button>
       </div>
 
-      <form onSubmit={runSearch} className="flex flex-col sm:flex-row gap-2">
-        <input
-          className={inputClass}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('admin.contracts.searchPlaceholder')}
-        />
-        <button type="submit" className="px-4 py-2 rounded-xl border border-borderColor text-sm whitespace-nowrap">
-          {t('admin.bookings.applyFilters')}
-        </button>
+      <form onSubmit={runSearch} className="rounded-2xl border border-borderColor bg-white p-4 space-y-4">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <input
+            className={inputClass}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('admin.contracts.searchPlaceholder')}
+          />
+          <input
+            className={inputClass}
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder={t('admin.contracts.customerName')}
+          />
+          <input
+            className={inputClass}
+            value={cin}
+            onChange={(e) => setCin(e.target.value)}
+            placeholder={t('admin.contracts.cin')}
+          />
+          <input
+            className={inputClass}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder={t('admin.contracts.phone')}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-white text-sm whitespace-nowrap">
+            {t('admin.bookings.applyFilters')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('')
+              setCustomerName('')
+              setCin('')
+              setPhone('')
+              setPagination((prev) => ({ ...prev, page: 1 }))
+              fetchContracts({ page: 1 })
+            }}
+            className="px-4 py-2 rounded-xl border border-borderColor text-sm whitespace-nowrap"
+          >
+            {t('admin.bookings.clear')}
+          </button>
+        </div>
       </form>
 
       {showGenerate && (
@@ -197,7 +337,7 @@ const Contracts = () => {
               <select
                 className={inputClass}
                 value={generateForm.bookingId}
-                onChange={(e) => setGenerateForm((f) => ({ ...f, bookingId: e.target.value }))}
+                onChange={(e) => loadBookingDetails(e.target.value)}
                 required
               >
                 <option value="">{t('admin.contracts.selectBooking')}</option>
@@ -221,6 +361,86 @@ const Contracts = () => {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="border-t border-borderColor pt-4 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">{t('admin.contracts.tenantDetails')}</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.contracts.dateOfBirth')}</label>
+                <input type="date" className={inputClass} value={generateForm.dateOfBirth} onChange={(e) => setGenerateForm((f) => ({ ...f, dateOfBirth: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.contracts.nationality')}</label>
+                <input className={inputClass} value={generateForm.nationality} onChange={(e) => setGenerateForm((f) => ({ ...f, nationality: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.contracts.driverLicense')}</label>
+                <input className={inputClass} value={generateForm.driverLicenseNumber} onChange={(e) => setGenerateForm((f) => ({ ...f, driverLicenseNumber: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.contracts.licenseExpiry')}</label>
+                <input type="date" className={inputClass} value={generateForm.driverLicenseExpiry} onChange={(e) => setGenerateForm((f) => ({ ...f, driverLicenseExpiry: e.target.value }))} />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-medium text-gray-600">{t('admin.contracts.passport')}</label>
+                <input className={inputClass} value={generateForm.passportNumber} onChange={(e) => setGenerateForm((f) => ({ ...f, passportNumber: e.target.value }))} />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={generateForm.secondDriverEnabled}
+                onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverEnabled: e.target.checked }))}
+              />
+              {t('admin.contracts.secondDriverYes')}
+            </label>
+
+            {generateForm.secondDriverEnabled && (
+              <div className="grid md:grid-cols-2 gap-4 pl-1">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">{t('admin.contracts.secondDriverName')}</label>
+                  <input className={inputClass} value={generateForm.secondDriverFullName} onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverFullName: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">{t('admin.contracts.secondDriverDob')}</label>
+                  <input type="date" className={inputClass} value={generateForm.secondDriverDob} onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverDob: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">{t('admin.contracts.secondDriverNationality')}</label>
+                  <input className={inputClass} value={generateForm.secondDriverNationality} onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverNationality: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">{t('admin.contracts.secondDriverPhone')}</label>
+                  <input className={inputClass} value={generateForm.secondDriverPhone} onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverPhone: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">{t('admin.contracts.driverLicense')}</label>
+                  <input className={inputClass} value={generateForm.secondDriverLicense} onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverLicense: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">{t('admin.contracts.licenseExpiry')}</label>
+                  <input type="date" className={inputClass} value={generateForm.secondDriverLicenseExpiry} onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverLicenseExpiry: e.target.value }))} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-xs font-medium text-gray-600">{t('admin.contracts.passport')}</label>
+                  <input className={inputClass} value={generateForm.secondDriverPassport} onChange={(e) => setGenerateForm((f) => ({ ...f, secondDriverPassport: e.target.value }))} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-borderColor bg-gray-50 p-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={generateForm.includeCompanyStamp}
+                onChange={(e) => setGenerateForm((f) => ({ ...f, includeCompanyStamp: e.target.checked }))}
+              />
+              {t('admin.contracts.includeStamp')}
+            </label>
+            <p className="text-xs text-gray-500">{t('admin.contracts.includeStampHint')}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">

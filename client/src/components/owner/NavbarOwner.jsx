@@ -2,6 +2,7 @@ import React from 'react'
 import { assets } from '../../assets/assets'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
+import { BRAND_NAME } from '../../constants/brand'
 import { useI18n } from '../../i18n/I18nContext'
 import LanguageSwitcher from '../LanguageSwitcher'
 import NotificationBell from './NotificationBell'
@@ -19,7 +20,7 @@ const NavbarOwner = () => {
   return (
     <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 lg:px-10 py-3 text-gray-500 border-b border-borderColor bg-white min-h-[57px]">
       <Link to="/" className="shrink-0">
-        <img src={assets.logo} alt="HDN Car Rental" className="block h-7 w-auto max-h-7 object-contain" />
+        <img src={assets.logo} alt={BRAND_NAME} className="block h-8 sm:h-9 w-auto max-h-9 object-contain" />
       </Link>
 
       {!licenseLocked && (

@@ -1,6 +1,6 @@
 import React from 'react'
 import Navbar from './components/Navbar'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
 import CarDetails from './pages/CarDetails'
 import Cars from './pages/Cars'
@@ -14,6 +14,8 @@ import Analytics from './pages/owner/Analytics'
 import AddCar from './pages/owner/AddCar'
 import EditCar from './pages/owner/EditCar'
 import ManageCars from './pages/owner/ManageCars'
+import VehicleStatsPage from './pages/owner/VehicleStatsPage'
+import VehicleStatsListPage from './pages/owner/VehicleStatsListPage'
 import ManageBookings from './pages/owner/ManageBookings'
 import WalkInBooking from './pages/owner/WalkInBooking'
 import Customers from './pages/owner/Customers'
@@ -23,6 +25,7 @@ import Maintenance from './pages/owner/Maintenance'
 import Reports from './pages/owner/Reports'
 import AuditLogs from './pages/owner/AuditLogs'
 import Contracts from './pages/owner/Contracts'
+import Invoices from './pages/owner/Invoices'
 import ExportTemplates from './pages/owner/ExportTemplates'
 import Login from './components/Login'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -37,10 +40,8 @@ import SuperAdminAdminDetail from './pages/superadmin/AdminDetail'
 import SuperAdminActivity from './pages/superadmin/Activity'
 import SuperAdminAudit from './pages/superadmin/AuditLogs'
 
-const withPerm = (permission, Element) => (
-  <RequirePermission permission={permission}>
-    <Element />
-  </RequirePermission>
+const withPerm = (permission, Component) => (
+  <RequirePermission permission={permission}>{React.createElement(Component)}</RequirePermission>
 )
 
 const App = () => {
@@ -72,12 +73,15 @@ const App = () => {
           <Route path="/cars" element={<Cars />} />
           <Route path="/booking-confirmation" element={<BookingConfirmation />} />
           <Route path="/complete-booking/:token" element={<CompleteBooking />} />
+          <Route path="/admin" element={<Navigate to="/owner" replace />} />
           <Route path="/owner" element={<Layout />}>
             <Route index element={withPerm('dashboard', Dashboard)} />
             <Route path="analytics" element={withPerm('analytics', Analytics)} />
             <Route path="add-car" element={withPerm('fleet', AddCar)} />
             <Route path="edit-car/:id" element={withPerm('fleet', EditCar)} />
             <Route path="manage-cars" element={withPerm('fleet', ManageCars)} />
+            <Route path="vehicle-stats" element={withPerm('fleet', VehicleStatsListPage)} />
+            <Route path="vehicle-stats/:id" element={withPerm('fleet', VehicleStatsPage)} />
             <Route path="manage-bookings" element={withPerm('bookings', ManageBookings)} />
             <Route path="walk-in" element={withPerm('bookings', WalkInBooking)} />
             <Route path="customers" element={withPerm('customers', Customers)} />
@@ -86,6 +90,7 @@ const App = () => {
             <Route path="maintenance" element={withPerm('maintenance', Maintenance)} />
             <Route path="reports" element={withPerm('reports', Reports)} />
             <Route path="contracts" element={withPerm('contracts', Contracts)} />
+            <Route path="invoices" element={withPerm('contracts', Invoices)} />
             <Route path="templates" element={withPerm('templates', ExportTemplates)} />
             <Route path="audit" element={withPerm('audit', AuditLogs)} />
           </Route>

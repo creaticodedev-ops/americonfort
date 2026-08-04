@@ -19,15 +19,7 @@ export const resolveOwnerPermissions = (permissions) => {
     return permissions;
   }
 
-  const missing = OWNER_PERMISSIONS.filter((p) => !permissions.includes(p));
-  if (missing.length === 0) return permissions;
-
-  const priorCatalogSize = OWNER_PERMISSIONS.length - missing.length;
-  if (permissions.length >= priorCatalogSize) {
-    return [...new Set([...permissions, ...missing])];
-  }
-
-  return permissions;
+  return Array.from(new Set(permissions.filter((p) => OWNER_PERMISSIONS.includes(p))));
 };
 
 export const ownerHasPermission = (user, permission) => {

@@ -5,7 +5,7 @@ import CarCard from '../components/CarCard'
 import { useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
 import { VEHICLE_CATEGORIES, groupCarsByCategory } from '../utils/vehicleCategories'
@@ -111,7 +111,7 @@ const Cars = () => {
 
   return (
     <div className="pb-20 sm:pb-28">
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -130,7 +130,7 @@ const Cars = () => {
         />
         <Title title={t('cars.title')} subTitle={t('cars.subtitle')} />
 
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, duration: 0.5 }}
@@ -144,7 +144,7 @@ const Cars = () => {
             placeholder={t('cars.searchPlaceholder')}
             className="w-full min-w-0 h-full outline-none text-gray-500 text-sm sm:text-base"
           />
-        </motion.div>
+        </Motion.div>
 
         {availableCategories.length > 0 && (
           <div className="relative z-10 mt-8 w-full max-w-4xl flex flex-wrap justify-center gap-2">
@@ -175,7 +175,7 @@ const Cars = () => {
             ))}
           </div>
         )}
-      </motion.div>
+      </Motion.div>
 
       <div className="page-pad page-shell mt-4 sm:mt-6">
         <p className="text-gray-500 text-sm sm:text-base mb-8">
@@ -195,7 +195,7 @@ const Cars = () => {
         ) : (
           <div className="space-y-16 sm:space-y-20">
             {sections.map((section, sIdx) => (
-              <motion.section
+              <Motion.section
                 key={section.category}
                 id={`category-${section.category.toLowerCase()}`}
                 initial={{ opacity: 0, y: 24 }}
@@ -219,7 +219,7 @@ const Cars = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                   {section.cars.map((car, index) => (
-                    <motion.div
+                    <Motion.div
                       key={car._id}
                       initial={{ opacity: 0, y: 16 }}
                       whileInView={{ opacity: 1, y: 0 }}
@@ -227,10 +227,10 @@ const Cars = () => {
                       transition={{ duration: 0.4, delay: Math.min(index * 0.06, 0.24) }}
                     >
                       <CarCard car={car} />
-                    </motion.div>
+                    </Motion.div>
                   ))}
                 </div>
-              </motion.section>
+              </Motion.section>
             ))}
           </div>
         )}

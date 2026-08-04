@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { NavLink, Outlet, Navigate } from 'react-router-dom'
 import { useSuperAdmin } from '../../context/SuperAdminContext'
+import { BRAND_NAME } from '../../constants/brand'
 
 const links = [
   { to: '/superadmin', end: true, label: 'Overview' },
@@ -36,7 +37,7 @@ const SuperAdminLayout = () => {
         <div className="page-pad py-3 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-4 min-w-0">
             <div className="min-w-0">
-              <p className="font-display text-2xl leading-none text-white">HDN</p>
+              <p className="font-display text-2xl leading-none text-white">{BRAND_NAME}</p>
               <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-500/90 mt-0.5">Super Admin</p>
             </div>
             <nav className="hidden sm:flex items-center gap-1 ml-2">

@@ -23,6 +23,7 @@ const emptyForm = {
   markPaid: false,
   sendCompletionLink: false,
   nationality: '',
+  dateOfBirth: '',
   driverLicenseNumber: '',
   driverLicenseExpiry: '',
   passportNumber: '',
@@ -37,6 +38,12 @@ const WalkInBooking = () => {
   const [quote, setQuote] = useState(null)
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState(null)
+  const [docFiles, setDocFiles] = useState({
+    driving_license: null,
+    national_id: null,
+    passport: null,
+  })
+  const [uploadingDoc, setUploadingDoc] = useState('')
 
   useEffect(() => {
     ;(async () => {
@@ -104,6 +111,39 @@ const WalkInBooking = () => {
     })
   }, [selectedCar, form.pickupDate, form.returnDate, form.pickupLocationId, form.returnLocationId, pickupLocations])
 
+  const uploadDocument = async (bookingId, file, docType, identityType) => {
+    if (!file || !bookingId) return
+    setUploadingDoc(docType)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('docType', docType)
+      if (docType === 'identity') formData.append('identityType', identityType || 'national_id')
+      const { data } = await axios.post(`/api/bookings/owner/${bookingId}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      if (data.success) toast.success(data.message)
+      else toast.error(data.message)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setUploadingDoc('')
+    }
+  }
+
+  const uploadPendingDocuments = async (bookingId) => {
+    if (docFiles.driving_license) {
+      await uploadDocument(bookingId, docFiles.driving_license, 'driving_license')
+    }
+    if (docFiles.national_id) {
+      await uploadDocument(bookingId, docFiles.national_id, 'identity', 'national_id')
+    }
+    if (docFiles.passport) {
+      await uploadDocument(bookingId, docFiles.passport, 'passport')
+    }
+    setDocFiles({ driving_license: null, national_id: null, passport: null })
+  }
+
   const onSubmit = async (e) => {
     e.preventDefault()
     if (!form.car || !form.fullName || !form.phone || !form.pickupDate || !form.returnDate) {
@@ -126,6 +166,9 @@ const WalkInBooking = () => {
       })
       if (data.success) {
         toast.success(data.message)
+        if (data.booking?._id) {
+          await uploadPendingDocuments(data.booking._id)
+        }
         setCreated(data)
         setForm(emptyForm)
         setQuote(null)
@@ -160,6 +203,51 @@ const WalkInBooking = () => {
             <p className="mt-2 break-all text-xs">
               Completion link: {created.completion.completionUrl}
             </p>
+          )}
+          {created.booking?._id && (
+            <div className="mt-4 rounded-lg border border-emerald-300 bg-white p-3 space-y-2">
+              <p className="font-medium text-sm">{t('admin.walkIn.uploadDocuments')}</p>
+              <p className="text-xs text-gray-500">{t('admin.walkIn.uploadDocumentsHint')}</p>
+              <div>
+                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadLicense')}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingDoc === 'driving_license'}
+                  className="block text-xs mt-1"
+                  onChange={(e) => {
+                    uploadDocument(created.booking._id, e.target.files?.[0], 'driving_license')
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadNationalId')}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingDoc === 'identity'}
+                  className="block text-xs mt-1"
+                  onChange={(e) => {
+                    uploadDocument(created.booking._id, e.target.files?.[0], 'identity', 'national_id')
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadPassport')}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingDoc === 'passport'}
+                  className="block text-xs mt-1"
+                  onChange={(e) => {
+                    uploadDocument(created.booking._id, e.target.files?.[0], 'passport')
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+            </div>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -201,12 +289,20 @@ const WalkInBooking = () => {
               <input className={input} value={form.nationality} onChange={(e) => setField('nationality', e.target.value)} />
             </div>
             <div>
+              <label className="text-xs text-gray-500">{t('admin.walkIn.dateOfBirth')}</label>
+              <input type="date" className={input} value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
+            </div>
+            <div>
               <label className="text-xs text-gray-500">{t('admin.walkIn.license')}</label>
               <input className={input} value={form.driverLicenseNumber} onChange={(e) => setField('driverLicenseNumber', e.target.value)} />
             </div>
             <div>
               <label className="text-xs text-gray-500">{t('admin.walkIn.licenseExpiry')}</label>
               <input type="date" className={input} value={form.driverLicenseExpiry} onChange={(e) => setField('driverLicenseExpiry', e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">{t('admin.walkIn.passport')}</label>
+              <input className={input} value={form.passportNumber} onChange={(e) => setField('passportNumber', e.target.value)} />
             </div>
           </div>
 
@@ -254,6 +350,43 @@ const WalkInBooking = () => {
             <div className="sm:col-span-2">
               <label className="text-xs text-gray-500">{t('admin.walkIn.notes')}</label>
               <textarea rows={2} className={input} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-borderColor bg-gray-50 p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">{t('admin.walkIn.uploadDocuments')}</h2>
+            <p className="text-xs text-gray-500">{t('admin.walkIn.uploadDocumentsHint')}</p>
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadLicense')} *</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block text-xs mt-1 w-full"
+                  onChange={(e) => setDocFiles((d) => ({ ...d, driving_license: e.target.files?.[0] || null }))}
+                />
+                {docFiles.driving_license && <p className="text-[11px] text-emerald-700 mt-1 truncate">{docFiles.driving_license.name}</p>}
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadNationalId')} *</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block text-xs mt-1 w-full"
+                  onChange={(e) => setDocFiles((d) => ({ ...d, national_id: e.target.files?.[0] || null }))}
+                />
+                {docFiles.national_id && <p className="text-[11px] text-emerald-700 mt-1 truncate">{docFiles.national_id.name}</p>}
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadPassport')}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block text-xs mt-1 w-full"
+                  onChange={(e) => setDocFiles((d) => ({ ...d, passport: e.target.files?.[0] || null }))}
+                />
+                {docFiles.passport && <p className="text-[11px] text-emerald-700 mt-1 truncate">{docFiles.passport.name}</p>}
+              </div>
             </div>
           </div>
         </div>

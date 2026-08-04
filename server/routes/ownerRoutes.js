@@ -11,6 +11,7 @@ import {
   getDashboardData,
   getOwnerCarById,
   getOwnerCars,
+  getVehicleStats,
   toggleCarAvailability,
   updateCar,
   updateUserImage,
@@ -46,6 +47,9 @@ const gate = (perm) => [protect, requireOwner, requirePermission(perm)];
 ownerRouter.post("/add-car", ...gate('fleet'), upload.single("image"), handleMulterError, addCar);
 ownerRouter.get("/cars", ...gate('fleet'), getOwnerCars);
 ownerRouter.get("/cars/:id", ...gate('fleet'), getOwnerCarById);
+ownerRouter.get("/cars/:id/stats", ...gate('fleet'), getVehicleStats);
+ownerRouter.get("/vehicles/:id", ...gate('fleet'), getOwnerCarById);
+ownerRouter.get("/vehicles/:id/stats", ...gate('fleet'), getVehicleStats);
 ownerRouter.post("/update-car", ...gate('fleet'), upload.single("image"), handleMulterError, updateCar);
 ownerRouter.post("/toggle-car", ...gate('fleet'), toggleCarAvailability);
 ownerRouter.post("/delete-car", ...gate('fleet'), deleteCar);

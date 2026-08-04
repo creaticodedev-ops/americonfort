@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import imagekit from "../configs/imageKit.js";
 import Booking from "../models/Booking.js";
 import Car from "../models/Car.js";
+import MaintenanceRecord from "../models/MaintenanceRecord.js";
 import User from "../models/User.js";
 import { cleanupUploadedFile } from "../middleware/multer.js";
 import { escapeRegex } from "../utils/helpers.js";
@@ -232,6 +233,292 @@ export const getOwnerCarById = async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to fetch car' });
+  }
+};
+
+export const getVehicleStats = async (req, res) => {
+  try {
+    const car = await assertOwnerCar(req.params.id, req.user._id);
+    if (!car) {
+      return res.status(404).json({ success: false, message: 'Car not found' });
+    }
+
+    const ownerId = req.user._id;
+    const [bookings, maintenanceRecords] = await Promise.all([
+      Booking.find({ owner: ownerId, car: car._id }).sort({ pickupDate: 1 }).lean(),
+      MaintenanceRecord.find({ owner: ownerId, car: car._id }).sort({ scheduledDate: -1, completedDate: -1 }).lean(),
+    ]);
+
+    const now = new Date();
+    const twelveMonthsAgo = new Date(now);
+    twelveMonthsAgo.setFullYear(now.getFullYear() - 1);
+
+    const activeStatuses = ['pending', 'confirmed', 'ready_for_pickup', 'active'];
+    const nonCancelledBookings = bookings.filter((booking) => booking.status !== 'cancelled');
+    const rentalDays = nonCancelledBookings.reduce((sum, booking) => {
+      if (booking.priceBreakdown?.days > 0) return sum + Number(booking.priceBreakdown.days);
+      if (!booking.pickupDate || !booking.returnDate) return sum;
+      const start = new Date(booking.pickupDate);
+      const end = new Date(booking.returnDate);
+      const diffDays = Math.max(1, Math.ceil((end - start) / 86400000));
+      return sum + diffDays;
+    }, 0);
+
+    const consideredBookings = bookings.filter((booking) => booking.status !== 'cancelled');
+    const revenue = consideredBookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0);
+    const totalBookings = bookings.length;
+    const completedBookings = bookings.filter((booking) => booking.status === 'completed').length;
+    const cancelledBookings = bookings.filter((booking) => booking.status === 'cancelled').length;
+    const revenueToday = consideredBookings.reduce((sum, booking) => {
+      if (!booking.pickupDate) return sum;
+      const pickup = new Date(booking.pickupDate);
+      if (pickup.toDateString() !== now.toDateString()) return sum;
+      return sum + Number(booking.price || 0);
+    }, 0);
+    const revenueThisWeek = consideredBookings.reduce((sum, booking) => {
+      if (!booking.pickupDate) return sum;
+      const pickup = new Date(booking.pickupDate);
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      if (pickup < weekStart || pickup > weekEnd) return sum;
+      return sum + Number(booking.price || 0);
+    }, 0);
+    const currentMonthRevenue = consideredBookings.reduce((sum, booking) => {
+      if (!booking.pickupDate) return sum;
+      const pickup = new Date(booking.pickupDate);
+      if (pickup.getFullYear() !== now.getFullYear() || pickup.getMonth() !== now.getMonth()) return sum;
+      return sum + Number(booking.price || 0);
+    }, 0);
+    const currentYearRevenue = consideredBookings.reduce((sum, booking) => {
+      if (!booking.pickupDate) return sum;
+      const pickup = new Date(booking.pickupDate);
+      if (pickup.getFullYear() !== now.getFullYear()) return sum;
+      return sum + Number(booking.price || 0);
+    }, 0);
+    const averageRevenuePerBooking = consideredBookings.length ? Number(revenue / consideredBookings.length).toFixed(2) : '0.00';
+    const outstandingBalance = bookings.reduce((sum, booking) => {
+      const amountDue = Number(booking.completion?.amountDue || booking.price || 0);
+      const amountPaid = Number(booking.completion?.amountPaid || 0);
+      const due = Math.max(0, amountDue - amountPaid);
+      if (booking.paymentStatus === 'paid' || due <= 0) return sum;
+      return sum + due;
+    }, 0);
+    const firstBookingDate = consideredBookings
+      .map((booking) => (booking.pickupDate ? new Date(booking.pickupDate) : null))
+      .filter(Boolean)
+      .sort((a, b) => a - b)[0];
+    const activeDaysWindow = firstBookingDate ? Math.max(1, Math.round((now - firstBookingDate) / 86400000) + 1) : 1;
+    const averageDailyRevenue = Number(revenue / activeDaysWindow).toFixed(2);
+    const revenuePerRentalDay = rentalDays > 0 ? Number(revenue / rentalDays).toFixed(2) : '0.00';
+    const maintenanceCostTotal = maintenanceRecords.reduce((sum, record) => sum + Number(record.cost || 0), 0) + Number(car.totalMaintenanceCost || 0);
+    const estimatedProfit = Math.max(0, revenue - maintenanceCostTotal);
+    const profitMargin = revenue > 0 ? Number((estimatedProfit / revenue) * 100).toFixed(1) : 0;
+
+    const overlapDays = (bookingStart, bookingEnd, periodStart, periodEnd) => {
+      const start = bookingStart > periodStart ? bookingStart : periodStart;
+      const end = bookingEnd < periodEnd ? bookingEnd : periodEnd;
+      if (start > end) return 0;
+      return Math.max(0, Math.round((end - start) / 86400000) + 1);
+    };
+
+    const buildPeriodSeries = (periods) => periods.map((period) => {
+      const periodBookings = consideredBookings.filter((booking) => {
+        if (!booking.pickupDate) return false;
+        const bookingStart = new Date(booking.pickupDate);
+        const bookingEnd = booking.returnDate ? new Date(booking.returnDate) : bookingStart;
+        return bookingStart <= period.end && bookingEnd >= period.start;
+      });
+      const bookedDays = periodBookings.reduce((sum, booking) => {
+        if (!booking.pickupDate) return sum;
+        const bookingStart = new Date(booking.pickupDate);
+        const bookingEnd = booking.returnDate ? new Date(booking.returnDate) : bookingStart;
+        return sum + overlapDays(bookingStart, bookingEnd, period.start, period.end);
+      }, 0);
+      const periodDays = Math.max(1, Math.round((period.end - period.start) / 86400000) + 1);
+      return {
+        label: period.label,
+        bookings: periodBookings.length,
+        revenue: periodBookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0),
+        occupancyRate: Number((bookedDays / periodDays) * 100).toFixed(1),
+        bookedDays,
+        totalDays: periodDays,
+      };
+    });
+
+    const weeklyPeriods = Array.from({ length: 8 }, (_, index) => {
+      const start = new Date(now);
+      start.setDate(now.getDate() - ((now.getDay() + 6) % 7) - (index * 7));
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { label: `W${index + 1}`, start, end };
+    }).reverse();
+    const monthlyPeriods = Array.from({ length: 6 }, (_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { label: monthDate.toLocaleString('en', { month: 'short' }), start, end };
+    }).reverse();
+    const yearlyPeriods = Array.from({ length: 5 }, (_, index) => {
+      const year = now.getFullYear() - index;
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31, 23, 59, 59, 999);
+      return { label: String(year), start, end };
+    }).reverse();
+
+    const weeklySeries = buildPeriodSeries(weeklyPeriods);
+    const monthlySeries = buildPeriodSeries(monthlyPeriods);
+    const yearlySeries = buildPeriodSeries(yearlyPeriods);
+    const weeklyGrowth = weeklySeries.length > 1 ? Number(((weeklySeries[weeklySeries.length - 1].revenue - weeklySeries[weeklySeries.length - 2].revenue) / Math.max(1, weeklySeries[weeklySeries.length - 2].revenue)) * 100).toFixed(1) : 0;
+    const monthlyGrowth = monthlySeries.length > 1 ? Number(((monthlySeries[monthlySeries.length - 1].revenue - monthlySeries[monthlySeries.length - 2].revenue) / Math.max(1, monthlySeries[monthlySeries.length - 2].revenue)) * 100).toFixed(1) : 0;
+    const yearlyGrowth = yearlySeries.length > 1 ? Number(((yearlySeries[yearlySeries.length - 1].revenue - yearlySeries[yearlySeries.length - 2].revenue) / Math.max(1, yearlySeries[yearlySeries.length - 2].revenue)) * 100).toFixed(1) : 0;
+    const bestPerformingPeriod = monthlySeries.reduce((best, item) => (item.revenue > best.revenue ? item : best), monthlySeries[0] || { label: '-', revenue: 0, bookings: 0, occupancyRate: 0 });
+    const upcomingReservations = bookings
+      .filter((booking) => booking.status !== 'cancelled' && booking.status !== 'completed' && new Date(booking.pickupDate) >= now)
+      .sort((a, b) => new Date(a.pickupDate) - new Date(b.pickupDate))
+      .slice(0, 6);
+
+    const recentPeriodBookings = bookings.filter((booking) => {
+      if (!booking.pickupDate) return false;
+      const pickup = new Date(booking.pickupDate);
+      return pickup >= twelveMonthsAgo && pickup <= now;
+    });
+    const periodDays = Math.max(1, Math.round((now - twelveMonthsAgo) / 86400000));
+    const bookedDays = recentPeriodBookings.reduce((sum, booking) => {
+      if (!booking.pickupDate || !booking.returnDate) return sum;
+      const start = new Date(booking.pickupDate);
+      const end = new Date(booking.returnDate);
+      const diffDays = Math.max(0, Math.round((end - start) / 86400000));
+      return sum + diffDays;
+    }, 0);
+    const utilizationRate = Number((bookedDays / periodDays) * 100).toFixed(1);
+    const averageRentalDuration = nonCancelledBookings.length
+      ? Number(rentalDays / nonCancelledBookings.length).toFixed(1)
+      : '0.0';
+
+    const monthlyPerformance = Array.from({ length: 12 }, (_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      const label = monthDate.toLocaleString('en', { month: 'short' });
+      const monthBookings = bookings.filter((booking) => {
+        if (!booking.pickupDate) return false;
+        const pickup = new Date(booking.pickupDate);
+        return pickup.getFullYear() === monthDate.getFullYear() && pickup.getMonth() === monthDate.getMonth();
+      });
+      const monthRevenue = monthBookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0);
+      return {
+        label,
+        bookings: monthBookings.length,
+        revenue: monthRevenue,
+      };
+    }).reverse();
+
+    const yearlyPerformance = Array.from({ length: 3 }, (_, index) => {
+      const year = now.getFullYear() - index;
+      const yearBookings = bookings.filter((booking) => {
+        if (!booking.pickupDate) return false;
+        const pickup = new Date(booking.pickupDate);
+        return pickup.getFullYear() === year;
+      });
+      return {
+        label: String(year),
+        bookings: yearBookings.length,
+        revenue: yearBookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0),
+      };
+    }).reverse();
+
+    const availabilityCalendar = Array.from({ length: 30 }, (_, index) => {
+      const day = new Date(now);
+      day.setDate(now.getDate() + index);
+      const dayStart = new Date(day);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(day);
+      dayEnd.setHours(23, 59, 59, 999);
+      const isBooked = bookings.some((booking) => {
+        if (!booking.pickupDate || !booking.returnDate) return false;
+        const start = new Date(booking.pickupDate);
+        const end = new Date(booking.returnDate);
+        return start <= dayEnd && end >= dayStart && activeStatuses.includes(booking.status);
+      });
+      return {
+        label: day.toLocaleDateString('en', { weekday: 'short' }),
+        date: day.toISOString().slice(0, 10),
+        isBooked,
+      };
+    });
+
+    const safeMaintenanceRecords = maintenanceRecords.map((record) => ({
+      ...record,
+      scheduledDate: record.scheduledDate || null,
+      completedDate: record.completedDate || null,
+    }));
+
+    const analyticsPayload = {
+      revenueToday,
+      revenueThisWeek,
+      revenueThisMonth: currentMonthRevenue,
+      revenueThisYear: currentYearRevenue,
+      lifetimeRevenue: revenue,
+      averageRevenuePerBooking,
+      averageDailyRevenue,
+      revenuePerRentalDay,
+      bookingsByWeek: weeklySeries,
+      bookingsByMonth: monthlySeries,
+      bookingsByYear: yearlySeries,
+      occupancyByWeek: weeklySeries.map((item) => ({ ...item, occupancyRate: item.occupancyRate })),
+      occupancyByMonth: monthlySeries.map((item) => ({ ...item, occupancyRate: item.occupancyRate })),
+      occupancyByYear: yearlySeries.map((item) => ({ ...item, occupancyRate: item.occupancyRate })),
+      estimatedProfit,
+      operatingCosts: maintenanceCostTotal,
+      profitMargin,
+      bestPerformingPeriod,
+      growth: {
+        weekly: weeklyGrowth,
+        monthly: monthlyGrowth,
+        yearly: yearlyGrowth,
+      },
+    };
+
+    res.json({
+      success: true,
+      stats: {
+        vehicle: {
+          brand: car.brand,
+          model: car.model,
+          licensePlate: car.licensePlate || '',
+          fleetId: car.fleetId || '',
+          status: car.status,
+          availability: car.isAvaliable,
+        },
+        overview: {
+          totalBookings,
+          totalRevenue: revenue,
+          monthlyRevenue: currentMonthRevenue,
+          yearlyRevenue: currentYearRevenue,
+          averageRevenuePerBooking,
+          outstandingBalance,
+          utilizationRate: `${utilizationRate}%`,
+          rentalDays,
+          averageRentalDuration: `${averageRentalDuration} days`,
+          completedBookings,
+          cancelledBookings,
+          activeBookings: bookings.filter((booking) => activeStatuses.includes(booking.status)).length,
+        },
+        analytics: analyticsPayload,
+        upcomingReservations,
+        maintenanceHistory: safeMaintenanceRecords,
+        monthlyPerformance,
+        yearlyPerformance,
+        availabilityCalendar,
+      },
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to load vehicle statistics' });
   }
 };
 

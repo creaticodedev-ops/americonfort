@@ -8,7 +8,7 @@
  *   node scripts/manageLicense.js extend [--days 7]
  *   node scripts/manageLicense.js expire
  *
- * Optional env: ADMIN_EMAIL (defaults to first owner or admin@hdncar.com)
+ * Optional env: ADMIN_EMAIL (defaults to first owner or admin@americonfort.com)
  */
 import 'dotenv/config';
 import mongoose from 'mongoose';
@@ -25,7 +25,7 @@ import {
 
 const usage = () => {
   console.log(`
-HDN Car Rental — License Manager (single agency)
+Americonfort — License Manager (single agency)
 
   status              Show current license / trial
   activate            Grant permanent full access (licenseStatus=active)

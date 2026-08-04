@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { defaultAgencyName } from "../utils/brand.js";
 
 let transporter = null;
 let verifiedOk = false;
@@ -44,7 +45,7 @@ export const getSmtpConfigSummary = () => {
  * match the authenticated mailbox (or a verified alias).
  */
 export const resolveFromAddress = () => {
-  const agency = process.env.AGENCY_NAME || "HDN Car Rental";
+  const agency = defaultAgencyName();
   const user = stripQuotes(process.env.SMTP_USER);
   const rawFrom = stripQuotes(process.env.SMTP_FROM);
 
@@ -258,7 +259,7 @@ export const sendCompletionInviteEmail = async ({
   total,
   currency = "MAD",
 }) => {
-  const agency = process.env.AGENCY_NAME || "HDN Car Rental";
+  const agency = defaultAgencyName();
   const subject = `${agency} — Complete your reservation ${reservationId}`;
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#161210">
@@ -297,7 +298,7 @@ export const sendFinalConfirmationEmail = async ({
   contractPath,
   invoicePath,
 }) => {
-  const agency = process.env.AGENCY_NAME || "HDN Car Rental";
+  const agency = defaultAgencyName();
   const subject = `${agency} — Ready for pickup · ${reservationId}`;
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#161210">
@@ -306,7 +307,7 @@ export const sendFinalConfirmationEmail = async ({
       <p>Thank you. Your reservation <strong>${reservationId}</strong> is now <strong>Ready for Pickup</strong>.</p>
       <p><strong>Vehicle:</strong> ${vehicle || "—"}</p>
       ${detailsHtml || ""}
-      <p>Your signed rental contract and invoice are attached.</p>
+      <p>Your signed rental contract is attached.</p>
       <p style="font-size:12px;color:#6B6560">Please bring your original documents when collecting the vehicle.</p>
     </div>
   `;
@@ -314,9 +315,6 @@ export const sendFinalConfirmationEmail = async ({
   const attachments = [];
   if (contractPath) {
     attachments.push({ filename: `contract-${reservationId}.pdf`, path: contractPath });
-  }
-  if (invoicePath) {
-    attachments.push({ filename: `invoice-${reservationId}.pdf`, path: invoicePath });
   }
 
   return sendEmail({ to, subject, html, attachments });

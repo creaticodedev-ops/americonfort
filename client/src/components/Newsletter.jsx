@@ -1,5 +1,5 @@
 import React from 'react'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 import toast from 'react-hot-toast'
 
@@ -14,7 +14,7 @@ const Newsletter = () => {
 
   return (
     <section className="page-pad page-shell pb-20 sm:pb-28 md:pb-36">
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
@@ -48,7 +48,7 @@ const Newsletter = () => {
             {t('newsletter.subscribe')}
           </button>
         </form>
-      </motion.div>
+      </Motion.div>
     </section>
   )
 }

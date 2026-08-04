@@ -1,8 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import PDFDocument from 'pdfkit';
 import { fileURLToPath } from 'url';
-import { buildDocumentHtml, buildTemplateVariables, renderTemplate } from './templateEngine.js';
+import puppeteer from 'puppeteer';
+import {
+  buildDocumentHtml,
+  buildTemplateVariables,
+  renderTemplate,
+} from './templateEngine.js';
 import { publicUploadUrl } from './pdfDocuments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,7 +16,6 @@ const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
 
-/** Strip HTML tags and decode basic entities for PDF text rendering */
 const htmlToPlainText = (html) => {
   if (!html) return '';
   return String(html)
@@ -30,35 +33,63 @@ const htmlToPlainText = (html) => {
     .trim();
 };
 
-/**
- * Generate PDF from rendered HTML content using PDFKit.
- * Converts HTML to structured plain text for reliable PDF output.
- */
-export const generatePdfFromHtml = async (html, { filePath, title = 'Document' } = {}) => {
-  ensureDir(path.dirname(filePath));
-  const plainText = htmlToPlainText(html);
-
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
-    const stream = fs.createWriteStream(filePath);
-    doc.pipe(stream);
-
-    doc.fillColor('#8F1F1F').fontSize(18).text(title, { align: 'left' });
-    doc.moveDown(0.5);
-    doc.fillColor('#333').fontSize(9).text(plainText, { align: 'left', lineGap: 3 });
-
-    doc.end();
-    stream.on('finish', () => resolve(filePath));
-    stream.on('error', reject);
+const renderHtmlToPdf = async (html, filePath, pageSize = 'A4') => {
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.emulateMediaType('print');
+    await page.pdf({
+      path: filePath,
+      format: pageSize === 'Letter' ? 'Letter' : 'A4',
+      printBackground: true,
+      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+    });
+  } finally {
+    await browser.close();
+  }
 };
 
-/**
- * Generate contract PDF from template + booking data.
- */
-export const generateContractPdf = async ({ template, booking, contractNumber, owner }) => {
-  const variables = buildTemplateVariables(booking, { contractNumber, owner });
+export const generatePdfFromTemplate = async ({ template, variables, filePath, title = 'Document' }) => {
+  ensureDir(path.dirname(filePath));
   const fullHtml = buildDocumentHtml(template, variables);
+  const html = fullHtml.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
+  await renderHtmlToPdf(html, filePath, template?.pageSize || 'A4');
+  return filePath;
+};
+
+export const generatePdfFromHtml = async (html, { filePath, title = 'Document', template, variables } = {}) => {
+  if (template && variables) {
+    return generatePdfFromTemplate({ template, variables, filePath, title });
+  }
+
+  ensureDir(path.dirname(filePath));
+  const plainText = htmlToPlainText(html);
+  const fallbackHtml = `<!DOCTYPE html><html><head><meta charset=\"utf-8\"/><title>${title}</title></head><body><pre>${plainText}</pre></body></html>`;
+  await renderHtmlToPdf(fallbackHtml, filePath, 'A4');
+  return filePath;
+};
+
+export const generateContractPdf = async ({ template, booking, contractNumber, owner, includeCompanyStamp = true }) => {
+  console.log('[PDF_GEN] Starting contract generation for:', contractNumber);
+  console.log('[PDF_GEN] Booking signature URL:', booking?.completion?.signatureUrl);
+  
+  const variables = buildTemplateVariables(booking, { contractNumber, owner, template, includeCompanyStamp });
+  console.log('[PDF_GEN] Template variables built. Signature HTML:', 
+    variables.customer_signature_html?.substring(0, 100));
+  
+  const fullHtml = buildDocumentHtml(template, variables);
+  console.log('[PDF_GEN] HTML built. Checking for signature img tag...');
+  
+  if (fullHtml.includes('Customer signature') || fullHtml.includes('customer_signature_html')) {
+    console.log('[PDF_GEN] ✓ Signature placeholder found in HTML');
+    const sigMatch = fullHtml.match(/<img[^>]*alt="Customer signature"[^>]*>/);
+    console.log('[PDF_GEN] Signature img tag:', sigMatch ? sigMatch[0].substring(0, 150) : 'NOT FOUND');
+  }
 
   const dir = path.join(CONTRACTS_ROOT, String(owner._id || owner));
   ensureDir(dir);
@@ -66,7 +97,15 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
   const fileName = `contract-${contractNumber.replace(/[^a-zA-Z0-9-]/g, '')}-${token}.pdf`;
   const filePath = path.join(dir, fileName);
 
-  await generatePdfFromHtml(fullHtml, { filePath, title: `Contract ${contractNumber}` });
+  console.log('[PDF_GEN] Rendering HTML to PDF at:', filePath);
+  await generatePdfFromTemplate({
+    template,
+    variables,
+    filePath,
+    title: `Contract ${contractNumber}`,
+  });
+  
+  console.log('[PDF_GEN] PDF generated successfully');
 
   return {
     filePath,
@@ -76,11 +115,8 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
   };
 };
 
-/**
- * Generate invoice PDF from template + booking (reusable export path).
- */
-export const generateDocumentFromTemplate = async ({ template, booking, owner, documentTitle }) => {
-  const variables = buildTemplateVariables(booking, { owner });
+export const generateDocumentFromTemplate = async ({ template, booking, owner, documentTitle, includeCompanyStamp = true }) => {
+  const variables = buildTemplateVariables(booking, { owner, template, includeCompanyStamp });
   const fullHtml = buildDocumentHtml(template, variables);
 
   const dir = path.join(CONTRACTS_ROOT, String(owner._id || owner), 'exports');
@@ -89,7 +125,12 @@ export const generateDocumentFromTemplate = async ({ template, booking, owner, d
   const fileName = `${template.type || 'doc'}-${token}.pdf`;
   const filePath = path.join(dir, fileName);
 
-  await generatePdfFromHtml(fullHtml, { filePath, title: documentTitle || template.name });
+  await generatePdfFromTemplate({
+    template,
+    variables,
+    filePath,
+    title: documentTitle || template.name,
+  });
 
   return {
     filePath,
@@ -105,4 +146,5 @@ export default {
   generateContractPdf,
   generateDocumentFromTemplate,
   generatePdfFromHtml,
+  generatePdfFromTemplate,
 };

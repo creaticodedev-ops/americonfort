@@ -47,7 +47,7 @@ const Login = () => {
         if (profile.data.success && profile.data.user?.role === 'owner') {
           const normalizedUser = {
             ...profile.data.user,
-            permissions: resolveOwnerPermissions(profile.data.user.permissions),
+            permissions: resolveOwnerPermissions(profile.data.user.permissions || []),
           }
           setUser(normalizedUser)
           setIsOwner(true)

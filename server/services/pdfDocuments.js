@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import { fileURLToPath } from "url";
+import { defaultAgencyName } from "../utils/brand.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_ROOT = path.join(__dirname, "..", "uploads", "documents");
@@ -24,30 +25,63 @@ const writePdfToFile = (filePath, buildFn) =>
     const doc = new PDFDocument({ margin: 50, size: "A4" });
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
-    try {
-      buildFn(doc);
-      doc.end();
-    } catch (err) {
-      reject(err);
-      return;
-    }
+    const finalize = async () => {
+      try {
+        await buildFn(doc);
+        doc.end();
+      } catch (err) {
+        reject(err);
+        return;
+      }
+    };
+    finalize();
     stream.on("finish", () => resolve(filePath));
     stream.on("error", reject);
   });
 
+const getSignatureBuffer = async (signaturePath, signatureUrl) => {
+  if (signaturePath && fs.existsSync(signaturePath)) {
+    return fs.readFileSync(signaturePath);
+  }
+
+  if (!signatureUrl) return null;
+  if (signatureUrl.startsWith('data:image')) {
+    const matches = signatureUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    if (!matches) return null;
+    return Buffer.from(matches[2], 'base64');
+  }
+
+  if (/^https?:\/\//.test(signatureUrl)) {
+    try {
+      const res = await fetch(signatureUrl);
+      if (!res.ok) return null;
+      return Buffer.from(await res.arrayBuffer());
+    } catch {
+      return null;
+    }
+  }
+
+  const localPath = path.join(__dirname, '..', signatureUrl.replace(/^\//, ''));
+  if (fs.existsSync(localPath)) {
+    return fs.readFileSync(localPath);
+  }
+
+  return null;
+};
+
 /**
  * Generate rental contract PDF. Returns absolute file path.
  */
-export const generateRentalContractPdf = async (booking, { signaturePath } = {}) => {
+export const generateRentalContractPdf = async (booking, { signaturePath, signatureUrl } = {}) => {
   const reservationId = booking.reservationId || booking._id.toString();
   const dir = path.join(UPLOAD_ROOT, reservationId);
   const token = Math.random().toString(36).slice(2, 10);
   const filePath = path.join(dir, `contract-${token}.pdf`);
   const car = booking.car || {};
   const currency = process.env.CURRENCY || "MAD";
-  const agency = process.env.AGENCY_NAME || "HDN Car Rental";
+  const agency = defaultAgencyName();
 
-  await writePdfToFile(filePath, (doc) => {
+  await writePdfToFile(filePath, async (doc) => {
     doc.fillColor("#8F1F1F").fontSize(22).text(agency, { align: "left" });
     doc.moveDown(0.3);
     doc.fillColor("#161210").fontSize(16).text("Vehicle Rental Agreement", { align: "left" });
@@ -101,9 +135,10 @@ export const generateRentalContractPdf = async (booking, { signaturePath } = {})
     doc.fillColor("#161210").fontSize(11).text("Digital signature");
     doc.moveDown(0.5);
 
-    if (signaturePath && fs.existsSync(signaturePath)) {
+    const signatureBuffer = await getSignatureBuffer(signaturePath, signatureUrl || booking.completion?.signatureUrl);
+    if (signatureBuffer) {
       try {
-        doc.image(signaturePath, { fit: [220, 80] });
+        doc.image(signatureBuffer, { fit: [220, 80] });
       } catch {
         doc.fontSize(10).text("[Signature on file]");
       }
@@ -123,14 +158,14 @@ export const generateRentalContractPdf = async (booking, { signaturePath } = {})
 /**
  * Generate invoice PDF. Returns absolute file path.
  */
-export const generateInvoicePdf = async (booking) => {
+export const generateInvoicePdf = async (booking, { includeCompanyStamp = true } = {}) => {
   const reservationId = booking.reservationId || booking._id.toString();
   const dir = path.join(UPLOAD_ROOT, reservationId);
   const token = Math.random().toString(36).slice(2, 10);
   const filePath = path.join(dir, `invoice-${token}.pdf`);
   const car = booking.car || {};
   const currency = process.env.CURRENCY || "MAD";
-  const agency = process.env.AGENCY_NAME || "HDN Car Rental";
+  const agency = defaultAgencyName();
   const b = booking.priceBreakdown || {};
   const invoiceNo = `INV-${reservationId.replace(/^RES-/, "")}`;
 
@@ -177,7 +212,11 @@ export const generateInvoicePdf = async (booking) => {
       `Paid (${booking.completion?.paymentType || "payment"}): ${money(booking.completion?.amountPaid || booking.price, currency)}`,
       { align: "right" }
     );
-    doc.moveDown(2);
+    if (includeCompanyStamp) {
+      doc.moveDown(1);
+      doc.fontSize(10).fillColor("#6B6560").text("Stamp and signature: included");
+    }
+    doc.moveDown(1);
     doc.fontSize(9).fillColor("#6B6560").text("Thank you for choosing us.");
   });
 

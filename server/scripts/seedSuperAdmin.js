@@ -15,7 +15,7 @@ const seed = async () => {
     process.exit(1);
   }
 
-  const email = (process.env.SUPERADMIN_EMAIL || 'superadmin@hdncar.com').trim().toLowerCase();
+  const email = (process.env.SUPERADMIN_EMAIL || 'superadmin@americonfort.com').trim().toLowerCase();
   const password = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin123!';
   const name = process.env.SUPERADMIN_NAME || 'Super Admin';
 
@@ -56,7 +56,7 @@ const seed = async () => {
       password: hashed,
       role: 'superadmin',
       accountStatus: 'active',
-      agencyName: 'HDN Platform',
+      agencyName: 'Americonfort',
       licenseStatus: 'active',
       licensedAt: new Date(),
     });

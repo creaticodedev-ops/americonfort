@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useSuperAdmin, saError } from '../../context/SuperAdminContext'
+import { BRAND_NAME } from '../../constants/brand'
 
 const SuperAdminLogin = () => {
   const { login, isSuperAdmin, authReady } = useSuperAdmin()
@@ -53,7 +54,7 @@ const SuperAdminLogin = () => {
 
       <main className="relative z-10 flex-1 flex items-center justify-center page-pad pb-16">
         <div className="w-full max-w-md">
-          <p className="font-display text-4xl sm:text-5xl text-white mb-2">HDN</p>
+          <p className="font-display text-4xl sm:text-5xl text-white mb-2">{BRAND_NAME}</p>
           <h1 className="text-lg sm:text-xl text-slate-300 font-medium mb-1">Super Admin</h1>
           <p className="text-sm text-slate-500 mb-8 max-w-sm">
             Platform control for licenses, admin accounts, and system activity. Agency admins cannot access this area.

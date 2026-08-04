@@ -25,10 +25,20 @@ const endOfDay = (d = new Date()) => {
   return x;
 };
 
+const endOfMonth = (d = new Date()) => {
+  const x = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  x.setHours(23, 59, 59, 999);
+  return x;
+};
+
 const monthKey = (date) => {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
+
+const hasOperationalStatus = (status) => ['pending', 'confirmed', 'ready_for_pickup', 'active'].includes(status);
+const hasRevenueStatus = (status) => ['confirmed', 'ready_for_pickup', 'active', 'completed'].includes(status);
+const hasReturnStatus = (status) => ['confirmed', 'ready_for_pickup', 'active'].includes(status);
 
 const weekKey = (date) => {
   const d = new Date(date);
@@ -51,7 +61,7 @@ export const getOpsDashboard = async (req, res) => {
     const cars = await Car.find({ owner: ownerId });
     const bookings = await Booking.find({ owner: ownerId }).populate('car', 'brand model').sort({ createdAt: -1 });
 
-    const revenueStatuses = ['confirmed', 'active', 'completed'];
+    const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
     const monthlyRevenue = bookings
       .filter((b) => revenueStatuses.includes(b.status) && new Date(b.createdAt) >= monthStart)
       .reduce((s, b) => s + (b.price || 0), 0);
@@ -61,21 +71,21 @@ export const getOpsDashboard = async (req, res) => {
     const pendingBookings = bookings.filter((b) => b.status === 'pending').length;
 
     const upcomingPickups = bookings
-      .filter((b) => ['pending', 'confirmed'].includes(b.status)
+      .filter((b) => hasOperationalStatus(b.status)
         && new Date(b.pickupDate) >= today
         && new Date(b.pickupDate) <= next7)
       .sort((a, b) => new Date(a.pickupDate) - new Date(b.pickupDate))
       .slice(0, 8);
 
     const upcomingReturns = bookings
-      .filter((b) => ['confirmed', 'active'].includes(b.status)
+      .filter((b) => hasReturnStatus(b.status)
         && new Date(b.returnDate) >= today
         && new Date(b.returnDate) <= next7)
       .sort((a, b) => new Date(a.returnDate) - new Date(b.returnDate))
       .slice(0, 8);
 
     const overdueRentals = bookings.filter((b) =>
-      ['confirmed', 'active'].includes(b.status) && new Date(b.returnDate) < today,
+      hasReturnStatus(b.status) && new Date(b.returnDate) < today,
     );
 
     const availableVehicles = cars.filter((c) => c.isAvaliable && c.status !== 'maintenance').length;
@@ -88,7 +98,7 @@ export const getOpsDashboard = async (req, res) => {
     // Fleet utilization: days booked this month / (cars * days elapsed)
     const daysElapsed = Math.max(1, today.getDate());
     const bookedDays = bookings
-      .filter((b) => revenueStatuses.includes(b.status))
+      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.returnDate) >= monthStart)
       .reduce((sum, b) => {
         const start = new Date(Math.max(new Date(b.pickupDate), monthStart));
         const end = new Date(Math.min(new Date(b.returnDate), endOfDay()));
@@ -195,8 +205,16 @@ export const getRevenueAnalytics = async (req, res) => {
     const byChannel = await Booking.aggregate([
       { $match: { owner: asObjectId(ownerId), status: { $in: revenueStatuses } } },
       {
+        $project: {
+          price: 1,
+          normalizedChannel: {
+            $cond: [{ $eq: ['$channel', 'walk_in'] }, 'walk_in', 'online'],
+          },
+        },
+      },
+      {
         $group: {
-          _id: { $ifNull: ['$channel', 'online'] },
+          _id: '$normalizedChannel',
           count: { $sum: 1 },
           revenue: { $sum: '$price' },
         },
@@ -216,7 +234,7 @@ export const getRevenueAnalytics = async (req, res) => {
         yearlyTrend,
         byStatus,
         byChannel,
-        onlineRevenue: bookings.filter((b) => (b.channel || 'online') === 'online').reduce((s, b) => s + (b.price || 0), 0),
+        onlineRevenue: bookings.filter((b) => ['online', 'whatsapp'].includes(b.channel || 'online')).reduce((s, b) => s + (b.price || 0), 0),
         walkInRevenue: bookings.filter((b) => b.channel === 'walk_in').reduce((s, b) => s + (b.price || 0), 0),
       },
     });

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { escapeHtml, getErrorMessage } from '../../utils/apiError'
 import PhoneInput, { isPhoneValid } from '../../components/PhoneInput'
 import { Link } from 'react-router-dom'
+import { buildOwnerCompletionWaUrl, buildWaMeUrl } from '../../utils/whatsapp'
 
 const emptyFilters = {
   customerName: '',
@@ -14,6 +15,7 @@ const emptyFilters = {
   email: '',
   reservationId: '',
   vehicle: '',
+  licensePlate: '',
   status: '',
   paymentStatus: '',
   channel: '',
@@ -33,6 +35,7 @@ const emptyEdit = {
   notes: '',
   status: 'pending',
   paymentStatus: 'pending',
+  carId: '',
 }
 
 const toInputDateTime = (value) => {
@@ -71,6 +74,23 @@ const ManageBookings = () => {
   const [editForm, setEditForm] = useState(emptyEdit)
   const [loading, setLoading] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
+  const [fleetCars, setFleetCars] = useState([])
+  const [assigningVehicle, setAssigningVehicle] = useState(false)
+  const [uploadingDoc, setUploadingDoc] = useState('')
+  const [identityType, setIdentityType] = useState('national_id')
+  const [completionLinkCache, setCompletionLinkCache] = useState({})
+  const [openingWhatsApp, setOpeningWhatsApp] = useState(false)
+
+  const resolveCompletionUrl = (booking) =>
+    booking?.completion?.shareableCompletionUrl ||
+    booking?.completion?.completionUrl ||
+    completionLinkCache[booking?._id] ||
+    ''
+
+  const cacheCompletionUrl = (bookingId, url) => {
+    if (!bookingId || !url) return
+    setCompletionLinkCache((prev) => ({ ...prev, [bookingId]: url }))
+  }
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams()
@@ -109,6 +129,30 @@ const ManageBookings = () => {
     fetchOwnerBookings()
   }, [queryString])
 
+  useEffect(() => {
+    axios.get('/api/owner/cars')
+      .then(({ data }) => { if (data.success) setFleetCars(data.cars || []) })
+      .catch(() => {})
+  }, [axios])
+
+  const compatibleVehicles = useMemo(() => {
+    if (!selectedBooking?.car) return []
+    const brand = selectedBooking.car.brand
+    const model = selectedBooking.car.model
+    return fleetCars.filter(
+      (c) => c.brand === brand && c.model === model && c.status !== 'maintenance' && c.isAvaliable !== false,
+    )
+  }, [fleetCars, selectedBooking])
+
+  const editVehicleOptions = useMemo(() => {
+    if (!editing?.car) return []
+    const brand = editing.car.brand
+    const model = editing.car.model
+    return fleetCars.filter(
+      (c) => c.brand === brand && c.model === model && c.status !== 'maintenance' && c.isAvaliable !== false,
+    )
+  }, [fleetCars, editing])
+
   const applyFilters = (e) => {
     e?.preventDefault()
     setPagination((prev) => ({ ...prev, page: 1 }))
@@ -126,6 +170,9 @@ const ManageBookings = () => {
       const { data } = await axios.post('/api/bookings/change-status', { bookingId, status })
       if (data.success) {
         if (status === 'confirmed') {
+          if (data.completion?.completionUrl) {
+            cacheCompletionUrl(bookingId, data.completion.completionUrl)
+          }
           if (data.completion?.emailSent) {
             toast.success(data.message)
           } else {
@@ -158,13 +205,64 @@ const ManageBookings = () => {
         toast.error(data.message || t('admin.bookings.emailFailed'), { duration: 8000 })
       }
       if (data.completionUrl) {
+        cacheCompletionUrl(bookingId, data.completionUrl)
         try {
           await navigator.clipboard.writeText(data.completionUrl)
           toast.success(t('admin.bookings.linkCopied'))
         } catch { /* ignore */ }
       }
+      fetchOwnerBookings()
     } catch (error) {
       toast.error(getErrorMessage(error), { duration: 8000 })
+    }
+  }
+
+  const ensureCompletionUrl = async (booking) => {
+    const cached = resolveCompletionUrl(booking)
+    if (cached) return cached
+
+    const bookingId = booking._id
+    const tryEnsure = async (url) => {
+      const { data } = await axios.post(url, { bookingId })
+      return data
+    }
+
+    let data
+    try {
+      data = await tryEnsure('/api/booking-completion/owner/ensure-link')
+    } catch (err) {
+      if (err.response?.status === 404) {
+        data = await tryEnsure('/api/bookings/owner/completion/ensure-link')
+      } else {
+        throw err
+      }
+    }
+
+    const url = data.shareableCompletionUrl || data.completionUrl
+    if (!data.success || !url) {
+      throw new Error(data.message || t('admin.bookings.noCompletionLink'))
+    }
+    cacheCompletionUrl(bookingId, url)
+    return url
+  }
+
+  const openCompletionWaMe = (booking, completionUrl) => {
+    const url = buildOwnerCompletionWaUrl(booking, completionUrl, { currency })
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  /** Ensures completion link exists, then opens wa.me (no WhatsApp send API). */
+  const confirmViaWhatsApp = async (booking) => {
+    if (!booking?._id) return
+    setOpeningWhatsApp(true)
+    try {
+      const completionUrl = await ensureCompletionUrl(booking)
+      openCompletionWaMe(booking, completionUrl)
+      fetchOwnerBookings()
+    } catch (error) {
+      toast.error(getErrorMessage(error), { duration: 8000 })
+    } finally {
+      setOpeningWhatsApp(false)
     }
   }
 
@@ -195,6 +293,7 @@ const ManageBookings = () => {
       notes: booking.notes || '',
       status: booking.status || 'pending',
       paymentStatus: booking.paymentStatus || 'pending',
+      carId: booking.car?._id || booking.car || '',
     })
   }
 
@@ -235,6 +334,99 @@ const ManageBookings = () => {
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
+  }
+
+  const downloadDocument = async (bookingId, docType) => {
+    try {
+      const { data } = await axios.get(`/api/bookings/owner/${bookingId}/documents/${docType}`)
+      if (data.success && data.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer')
+      } else {
+        toast.error(data.message || t('admin.bookings.documentMissing'))
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }
+
+  const uploadDocument = async (bookingId, file, docType) => {
+    if (!file) return
+    setUploadingDoc(docType)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('docType', docType)
+      if (docType === 'identity') formData.append('identityType', identityType)
+
+      const { data } = await axios.post(`/api/bookings/owner/${bookingId}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      if (data.success) {
+        toast.success(data.message)
+        fetchOwnerBookings()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setUploadingDoc('')
+    }
+  }
+
+  const assignVehicle = async (bookingId, carId) => {
+    if (!carId) return
+    setAssigningVehicle(true)
+    try {
+      const { data } = await axios.post('/api/bookings/assign-vehicle', { bookingId, carId })
+      if (data.success) {
+        toast.success(data.message)
+        setSelectedBooking(data.booking)
+        fetchOwnerBookings()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setAssigningVehicle(false)
+    }
+  }
+
+  const generateInvoiceForBooking = async (booking) => {
+    try {
+      const { data } = await axios.post('/api/invoices/generate', {
+        bookingId: booking._id,
+        includeCompanyStamp: true,
+      })
+      if (data.success) {
+        toast.success(data.message)
+        if (data.invoice?.pdfUrl) {
+          window.open(data.invoice.pdfUrl, '_blank', 'noopener,noreferrer')
+        }
+        fetchOwnerBookings()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }
+
+  const openWhatsApp = (booking) => {
+    const vehicle = booking.car
+      ? `${booking.car.brand} ${booking.car.model}`
+      : '—'
+    const text = [
+      'Hello, regarding this reservation:',
+      '',
+      `ID: ${booking.reservationId || '—'}`,
+      `Customer: ${booking.customerName || '—'}`,
+      `Phone: ${booking.customerPhone || '—'}`,
+      `Vehicle: ${vehicle}`,
+      `Status: ${booking.status || '—'}`,
+    ].join('\n')
+    window.open(buildWaMeUrl(text), '_blank', 'noopener,noreferrer')
   }
 
   const exportCsv = async () => {
@@ -356,6 +548,10 @@ const ManageBookings = () => {
             <input className={inputClass} value={filters.vehicle} onChange={(e) => setFilters({ ...filters, vehicle: e.target.value })} placeholder="Brand or model" />
           </div>
           <div>
+            <label className={labelClass}>{t('admin.bookings.licensePlate')}</label>
+            <input className={inputClass} value={filters.licensePlate} onChange={(e) => setFilters({ ...filters, licensePlate: e.target.value })} placeholder={t('admin.bookings.licensePlatePlaceholder')} />
+          </div>
+          <div>
             <label className={labelClass}>{t('admin.bookings.status')}</label>
             <select className={inputClass} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
               <option value="">All statuses</option>
@@ -434,6 +630,9 @@ const ManageBookings = () => {
                       <button type="button" onClick={() => setSelectedBooking(booking)} className='text-left cursor-pointer'>
                         <p className='font-medium text-primary'>{booking.reservationId || `RES-${booking._id.toString().slice(-8).toUpperCase()}`}</p>
                         <p className='text-xs text-gray-500'>{booking.car?.brand} {booking.car?.model}</p>
+                        {booking.car?.licensePlate && (
+                          <p className='text-[10px] text-gray-400'>{booking.car.licensePlate}</p>
+                        )}
                         <ChannelBadge channel={booking.channel || 'online'} className="mt-1" />
                       </button>
                     </td>
@@ -459,12 +658,45 @@ const ManageBookings = () => {
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
-                      <p className='text-[11px] mt-1 capitalize text-gray-400'>Pay: {booking.paymentStatus}</p>
+                      <p className='text-[11px] mt-1 capitalize text-gray-400'>
+                        Pay: {booking.paymentStatus}
+                      </p>
                     </td>
                     <td className='p-3'>
                       <div className='flex flex-wrap gap-1'>
                         <button onClick={() => setSelectedBooking(booking)} className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'>{t('admin.bookings.view')}</button>
                         <button onClick={() => startEdit(booking)} className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'>{t('admin.bookings.edit')}</button>
+                        <button
+                          type="button"
+                          title={t('admin.bookings.downloadLicense')}
+                          onClick={() => downloadDocument(booking._id, 'driving_license')}
+                          className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'
+                        >
+                          {t('admin.bookings.downloadLicense')}
+                        </button>
+                        <button
+                          type="button"
+                          title={t('admin.bookings.downloadId')}
+                          onClick={() => downloadDocument(booking._id, 'identity')}
+                          className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'
+                        >
+                          {t('admin.bookings.downloadId')}
+                        </button>
+                        <button
+                          type="button"
+                          title={t('admin.bookings.downloadPassport')}
+                          onClick={() => downloadDocument(booking._id, 'passport')}
+                          className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'
+                        >
+                          {t('admin.bookings.downloadPassport')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openWhatsApp(booking)}
+                          className='px-2 py-1 text-xs border border-green-200 text-green-700 rounded hover:bg-green-50 cursor-pointer'
+                        >
+                          {t('admin.bookings.whatsapp')}
+                        </button>
                         <button onClick={() => printBooking(booking)} className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'>{t('admin.bookings.print')}</button>
                         <button onClick={() => deleteBooking(booking._id)} className='px-2 py-1 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 cursor-pointer'>{t('admin.bookings.delete')}</button>
                       </div>
@@ -516,6 +748,27 @@ const ManageBookings = () => {
               <p><span className='font-medium'>{t('admin.bookings.email')}:</span> {selectedBooking.customerEmail || '-'}</p>
               <p><span className='font-medium'>{t('admin.bookings.phone')}:</span> {selectedBooking.customerPhone || '-'}</p>
               <p><span className='font-medium'>{t('admin.bookings.vehicle')}:</span> {selectedBooking.car?.brand} {selectedBooking.car?.model}</p>
+              {selectedBooking.car?.licensePlate && (
+                <p><span className='font-medium'>{t('admin.bookings.licensePlate')}:</span> {selectedBooking.car.licensePlate}</p>
+              )}
+              {compatibleVehicles.length > 0 && (
+                <div className='rounded-lg border border-borderColor bg-gray-50 p-3'>
+                  <label className={labelClass}>{t('admin.bookings.assignVehicle')}</label>
+                  <select
+                    className={inputClass}
+                    disabled={assigningVehicle}
+                    value={selectedBooking.car?._id || ''}
+                    onChange={(e) => assignVehicle(selectedBooking._id, e.target.value)}
+                  >
+                    {compatibleVehicles.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.licensePlate || c.fleetId || c._id.slice(-6)} — {c.brand} {c.model}
+                      </option>
+                    ))}
+                  </select>
+                  <p className='mt-2 text-[11px] text-gray-500'>Same-model vehicles available for the selected dates are shown.</p>
+                </div>
+              )}
               <p><span className='font-medium'>Pickup:</span> {formatDateTime(selectedBooking.pickupDate)}</p>
               <p><span className='font-medium'>Return:</span> {formatDateTime(selectedBooking.returnDate)}</p>
               <p><span className='font-medium'>{t('admin.bookings.pickupLocation')}:</span> {selectedBooking.pickupLocation || '-'}</p>
@@ -551,13 +804,32 @@ const ManageBookings = () => {
                   {t('admin.bookings.resendLink')}
                 </button>
               )}
-              {hasPermission('contracts') && selectedBooking.status !== 'cancelled' && (
-                <Link
-                  to={`/owner/contracts?bookingId=${selectedBooking._id}`}
-                  className='col-span-2 px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium text-center hover:bg-primary/15'
+              {(selectedBooking.status === 'confirmed' || selectedBooking.status === 'pending') && (
+                <button
+                  type="button"
+                  disabled={openingWhatsApp}
+                  onClick={() => confirmViaWhatsApp(selectedBooking)}
+                  className='col-span-2 px-3 py-2 rounded-lg bg-green-50 text-green-800 text-xs font-medium cursor-pointer disabled:opacity-50'
                 >
-                  {t('admin.bookings.generateContract')}
-                </Link>
+                  {openingWhatsApp ? '…' : t('admin.bookings.confirmViaWhatsApp')}
+                </button>
+              )}
+              {hasPermission('contracts') && selectedBooking.status !== 'cancelled' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => generateInvoiceForBooking(selectedBooking)}
+                    className='col-span-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium cursor-pointer'
+                  >
+                    {t('admin.bookings.generateInvoice')}
+                  </button>
+                  <Link
+                    to={`/owner/contracts?bookingId=${selectedBooking._id}`}
+                    className='col-span-2 px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium text-center hover:bg-primary/15'
+                  >
+                    {t('admin.bookings.generateContract')}
+                  </Link>
+                </>
               )}
             </div>
 
@@ -569,6 +841,78 @@ const ManageBookings = () => {
                 <p>{t('admin.bookings.sign')}: {selectedBooking.completion.signatureComplete ? '✓' : '—'}</p>
               </div>
             )}
+
+            <div className='mt-4 rounded-lg border border-borderColor bg-gray-50 px-3 py-3 space-y-2'>
+              <p className='font-medium text-gray-800 text-xs'>{t('admin.bookings.uploadDocuments')}</p>
+              <div className='flex flex-wrap gap-2'>
+                <button
+                  type="button"
+                  onClick={() => downloadDocument(selectedBooking._id, 'driving_license')}
+                  className='px-2 py-1 text-xs border rounded bg-white hover:bg-gray-50'
+                >
+                  ↓ {t('admin.bookings.downloadLicense')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadDocument(selectedBooking._id, 'identity')}
+                  className='px-2 py-1 text-xs border rounded bg-white hover:bg-gray-50'
+                >
+                  ↓ {t('admin.bookings.downloadId')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadDocument(selectedBooking._id, 'passport')}
+                  className='px-2 py-1 text-xs border rounded bg-white hover:bg-gray-50'
+                >
+                  ↓ {t('admin.bookings.downloadPassport')}
+                </button>
+              </div>
+              <div className='grid gap-2 pt-1'>
+                <label className='text-xs text-gray-500'>{t('admin.bookings.uploadLicense')}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingDoc === 'driving_license'}
+                  onChange={(e) => {
+                    uploadDocument(selectedBooking._id, e.target.files?.[0], 'driving_license')
+                    e.target.value = ''
+                  }}
+                  className='text-xs'
+                />
+                <div className='flex flex-wrap items-center gap-2'>
+                  <select
+                    className='border border-borderColor rounded px-2 py-1 text-xs'
+                    value={identityType}
+                    onChange={(e) => setIdentityType(e.target.value)}
+                  >
+                    <option value="national_id">{t('admin.bookings.nationalId')}</option>
+                    <option value="passport">{t('admin.bookings.passport')}</option>
+                  </select>
+                  <label className='text-xs text-gray-500'>{t('admin.bookings.uploadIdentity')}</label>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingDoc === 'identity'}
+                  onChange={(e) => {
+                    uploadDocument(selectedBooking._id, e.target.files?.[0], 'identity')
+                    e.target.value = ''
+                  }}
+                  className='text-xs'
+                />
+                <label className='text-xs text-gray-500'>{t('admin.bookings.downloadPassport')} (upload)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingDoc === 'passport'}
+                  onChange={(e) => {
+                    uploadDocument(selectedBooking._id, e.target.files?.[0], 'passport')
+                    e.target.value = ''
+                  }}
+                  className='text-xs'
+                />
+              </div>
+            </div>
 
             <div className='mt-3'>
               <label className={labelClass}>{t('admin.bookings.paymentStatus')}</label>
@@ -586,6 +930,7 @@ const ManageBookings = () => {
 
             <div className='mt-4 flex flex-wrap gap-2'>
               <button onClick={() => startEdit(selectedBooking)} className='px-3 py-2 text-xs border rounded-lg cursor-pointer'>{t('admin.bookings.edit')}</button>
+              <button onClick={() => openWhatsApp(selectedBooking)} className='px-3 py-2 text-xs border border-green-200 text-green-700 rounded-lg cursor-pointer'>{t('admin.bookings.whatsapp')}</button>
               <button onClick={() => printBooking(selectedBooking)} className='px-3 py-2 text-xs border rounded-lg cursor-pointer'>{t('admin.bookings.print')}</button>
               <button onClick={() => deleteBooking(selectedBooking._id)} className='px-3 py-2 text-xs border border-red-200 text-red-600 rounded-lg cursor-pointer'>{t('admin.bookings.delete')}</button>
             </div>
@@ -654,6 +999,20 @@ const ManageBookings = () => {
                   <option value="paid">Paid</option>
                   <option value="failed">Failed</option>
                   <option value="refunded">Refunded</option>
+                </select>
+              </div>
+              <div className='sm:col-span-2'>
+                <label className={labelClass}>{t('admin.bookings.assignVehicle')}</label>
+                <select className={inputClass} value={editForm.carId} onChange={(e) => setEditForm({ ...editForm, carId: e.target.value })}>
+                  {editVehicleOptions.length === 0 ? (
+                    <option value="">No compatible vehicle available</option>
+                  ) : (
+                    editVehicleOptions.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.licensePlate || c.fleetId || c._id.slice(-6)} — {c.brand} {c.model}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
               <div className='sm:col-span-2'>

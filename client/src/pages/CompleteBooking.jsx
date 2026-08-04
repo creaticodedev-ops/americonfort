@@ -1,32 +1,55 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+import { resolveApiBaseUrl } from '../utils/apiBase'
 import SignaturePad from '../components/SignaturePad'
 import { useI18n } from '../i18n/I18nContext'
 import { useAppContext } from '../context/AppContext'
 import { getErrorMessage } from '../utils/apiError'
 import Loader from '../components/Loader'
+import {
+  FormField,
+  SectionCard,
+  formInputOnLightClass,
+} from '../components/forms/PremiumFormUI'
 
-const STEPS = ['documents', 'payment', 'signature', 'done']
+const STEPS = ['documents', 'signature', 'done']
 
 /** Guest completion must not reuse the owner Bearer token */
 const guestApi = axios.create({
-  baseURL: import.meta.env.VITE_BASE_URL || 'http://localhost:3000',
+  baseURL: resolveApiBaseUrl(),
 })
 
-const StepPill = ({ index, label, active, done }) => (
-  <div className={`flex items-center gap-2 min-w-[5.5rem] md:min-w-0 shrink-0 md:shrink ${active ? 'opacity-100' : 'opacity-55'}`}>
-    <span
-      className={`h-7 w-7 shrink-0 rounded-full text-xs font-semibold flex items-center justify-center ${
-        done ? 'bg-primary text-white' : active ? 'bg-ink text-white' : 'bg-sand text-muted'
-      }`}
-    >
-      {done ? '✓' : index}
-    </span>
-    <span className={`text-xs md:text-sm whitespace-nowrap md:truncate ${active ? 'text-ink font-medium' : 'text-muted'}`}>{label}</span>
-  </div>
+const Field = FormField
+
+const StepRail = ({ steps, current, labels, doneFlags }) => (
+  <ol className="grid grid-cols-3 gap-2 sm:gap-4">
+    {steps.map((key, i) => {
+      const active = current === key
+      const done = doneFlags[i]
+      return (
+        <li
+          key={key}
+          className={`relative rounded-2xl border px-3 py-3 sm:px-4 transition ${
+            active ? 'border-primary bg-primary/5 shadow-sm' : done ? 'border-emerald-200 bg-emerald-50/60' : 'border-borderColor bg-white'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                done ? 'bg-emerald-600 text-white' : active ? 'bg-ink text-white' : 'bg-sand text-muted'
+              }`}
+            >
+              {done ? '✓' : i + 1}
+            </span>
+            <span className={`text-xs sm:text-sm font-medium leading-tight ${active ? 'text-ink' : 'text-muted'}`}>{labels[i]}</span>
+          </div>
+        </li>
+      )
+    })}
+  </ol>
 )
 
 const CompleteBooking = () => {
@@ -42,26 +65,72 @@ const CompleteBooking = () => {
   const [step, setStep] = useState('documents')
   const [identityType, setIdentityType] = useState('national_id')
   const [uploading, setUploading] = useState('')
-  const [paymentType, setPaymentType] = useState('deposit')
-  const [paying, setPaying] = useState(false)
   const [signature, setSignature] = useState('')
+  const [secondDriverSignature, setSecondDriverSignature] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [signing, setSigning] = useState(false)
+  const [details, setDetails] = useState({
+    customerFullName: '',
+    customerEmail: '',
+    customerPhone: '',
+    dateOfBirth: '',
+    nationality: '',
+    customerAddress: '',
+    placeOfBirth: '',
+    identityDocumentNumber: '',
+    identityIssuedOn: '',
+    driverLicenseNumber: '',
+    driverLicenseExpiry: '',
+    driverLicenseIssuedOn: '',
+    passportNumber: '',
+    secondDriverEnabled: false,
+    secondDriverFullName: '',
+    secondDriverDob: '',
+    secondDriverNationality: '',
+    secondDriverPhone: '',
+    secondDriverLicenseNumber: '',
+    secondDriverLicenseExpiry: '',
+    secondDriverPassportNumber: '',
+  })
+  const [detailsSaved, setDetailsSaved] = useState(true)
+  const [savingDetails, setSavingDetails] = useState(false)
 
   const c = booking?.completion
 
-  const load = async () => {
+  const load = React.useCallback(async () => {
     try {
       const { data } = await api.get(`/api/booking-completion/${token}`)
       if (!data.success) throw new Error(data.message)
       setBooking(data.booking)
+      setDetails({
+        customerFullName: data.booking.customerName || '',
+        customerEmail: data.booking.customerEmail || '',
+        customerPhone: data.booking.customerPhone || '',
+        dateOfBirth: data.booking.dateOfBirth || '',
+        nationality: data.booking.nationality || '',
+        customerAddress: data.booking.customerAddress || '',
+        placeOfBirth: data.booking.placeOfBirth || '',
+        identityDocumentNumber: data.booking.identityDocumentNumber || '',
+        identityIssuedOn: data.booking.identityIssuedOn || '',
+        driverLicenseNumber: data.booking.driverLicenseNumber || '',
+        driverLicenseExpiry: data.booking.driverLicenseExpiry || '',
+        driverLicenseIssuedOn: data.booking.driverLicenseIssuedOn || '',
+        passportNumber: data.booking.passportNumber || '',
+        secondDriverEnabled: data.booking.secondDriver?.enabled || false,
+        secondDriverFullName: data.booking.secondDriver?.fullName || '',
+        secondDriverDob: data.booking.secondDriver?.dateOfBirth || '',
+        secondDriverNationality: data.booking.secondDriver?.nationality || '',
+        secondDriverPhone: data.booking.secondDriver?.phone || '',
+        secondDriverLicenseNumber: data.booking.secondDriver?.driverLicenseNumber || '',
+        secondDriverLicenseExpiry: data.booking.secondDriver?.driverLicenseExpiry || '',
+        secondDriverPassportNumber: data.booking.secondDriver?.passportNumber || '',
+      })
+      setDetailsSaved(true)
       setError('')
       if (data.booking.status === 'ready_for_pickup' || data.booking.completion?.completedAt) {
         setStep('done')
       } else if (!data.booking.completion?.documentsComplete) {
         setStep('documents')
-      } else if (!data.booking.completion?.paymentComplete) {
-        setStep('payment')
       } else if (!data.booking.completion?.signatureComplete) {
         setStep('signature')
       } else {
@@ -75,11 +144,11 @@ const CompleteBooking = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [api, token, t])
 
   useEffect(() => {
     load()
-  }, [token])
+  }, [load])
 
   // Stripe return
   useEffect(() => {
@@ -99,7 +168,7 @@ const CompleteBooking = () => {
       }
     }
     confirm()
-  }, [searchParams, token])
+  }, [api, searchParams, t, token])
 
   const uploadDoc = async (docType, file) => {
     if (!file) return
@@ -115,7 +184,7 @@ const CompleteBooking = () => {
       if (!data.success) throw new Error(data.message)
       setBooking(data.booking)
       toast.success(t('completion.docUploaded'))
-      if (data.booking.completion?.documentsComplete) setStep('payment')
+      if (data.booking.completion?.documentsComplete) setStep('signature')
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -123,27 +192,83 @@ const CompleteBooking = () => {
     }
   }
 
-  const handlePay = async () => {
-    setPaying(true)
+  const updateDetail = (key, value) => {
+    setDetails((prev) => ({ ...prev, [key]: value }))
+    setDetailsSaved(false)
+  }
+
+  const buildDetailsPayload = () => ({
+    customerName: details.customerFullName,
+    customerEmail: details.customerEmail,
+    customerPhone: details.customerPhone,
+    dateOfBirth: details.dateOfBirth,
+    nationality: details.nationality,
+    customerAddress: details.customerAddress,
+    placeOfBirth: details.placeOfBirth,
+    identityDocumentNumber: details.identityDocumentNumber,
+    identityIssuedOn: details.identityIssuedOn,
+    driverLicenseNumber: details.driverLicenseNumber,
+    driverLicenseExpiry: details.driverLicenseExpiry,
+    driverLicenseIssuedOn: details.driverLicenseIssuedOn,
+    passportNumber: details.passportNumber,
+    secondDriver: {
+      enabled: Boolean(details.secondDriverEnabled),
+      fullName: details.secondDriverFullName,
+      dateOfBirth: details.secondDriverDob,
+      nationality: details.secondDriverNationality,
+      phone: details.secondDriverPhone,
+      driverLicenseNumber: details.secondDriverLicenseNumber,
+      driverLicenseExpiry: details.secondDriverLicenseExpiry,
+      passportNumber: details.secondDriverPassportNumber,
+    },
+  })
+
+  const saveCompletionDetails = async ({ force = false } = {}) => {
+    if (detailsSaved && !force) return booking
+    setSavingDetails(true)
     try {
-      const { data } = await api.post(`/api/booking-completion/${token}/payment/create`, { paymentType })
+      const payload = buildDetailsPayload()
+      const { data } = await api.post(`/api/booking-completion/${token}/details`, payload)
       if (!data.success) throw new Error(data.message)
-
-      if (data.mode === 'stripe' && data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
-        return
-      }
-
-      const confirm = await api.post(`/api/booking-completion/${token}/payment/demo-confirm`, { paymentType })
-      if (!confirm.data.success) throw new Error(confirm.data.message)
-      setBooking(confirm.data.booking)
-      toast.success(t('completion.paymentOk'))
-      setStep(confirm.data.finalized ? 'done' : 'signature')
+      setBooking(data.booking)
+      setDetailsSaved(true)
+      toast.success(t('completion.detailsSaved'))
+      return data.booking
     } catch (err) {
-      toast.error(getErrorMessage(err))
+      toast.error(getErrorMessage(err) || t('completion.detailsSaveFailed'))
+      throw err
     } finally {
-      setPaying(false)
+      setSavingDetails(false)
     }
+  }
+
+  const validateClientDetails = () => {
+    const missing = []
+    const req = (value, label) => {
+      if (!value || !String(value).trim()) missing.push(label)
+    }
+    req(details.customerFullName, t('completion.fieldFullName'))
+    req(details.customerEmail, t('completion.fieldEmail'))
+    req(details.customerPhone, t('completion.fieldPhone'))
+    req(details.customerAddress, t('completion.fieldAddress'))
+    req(details.dateOfBirth, t('completion.fieldDob'))
+    req(details.nationality, t('completion.fieldNationality'))
+    req(details.placeOfBirth, t('completion.fieldBirthPlace'))
+    req(details.identityDocumentNumber, t('completion.fieldIdNumber'))
+    req(details.identityIssuedOn, t('completion.fieldIdIssued'))
+    req(details.driverLicenseNumber, t('completion.fieldLicenseNumber'))
+    req(details.driverLicenseExpiry, t('completion.fieldLicenseExpiry'))
+    req(details.driverLicenseIssuedOn, t('completion.fieldLicenseIssued'))
+    if (details.secondDriverEnabled) {
+      req(details.secondDriverFullName, t('completion.secondDriverNameLabel'))
+      req(details.secondDriverDob, t('completion.secondDriverDob'))
+      req(details.secondDriverLicenseNumber, t('completion.secondDriverLicense'))
+    }
+    if (missing.length) {
+      toast.error(`${t('completion.missingFields')}: ${missing.join(', ')}`)
+      return false
+    }
+    return true
   }
 
   const handleSign = async () => {
@@ -151,15 +276,25 @@ const CompleteBooking = () => {
       toast.error(t('completion.needSignature'))
       return
     }
+    const secondDriverOn =
+      details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
+    if (secondDriverOn && !secondDriverSignature) {
+      toast.error(t('completion.needSecondDriverSignature'))
+      return
+    }
     if (!agreed) {
       toast.error(t('completion.needAgree'))
       return
     }
+    if (!validateClientDetails()) return
     setSigning(true)
     try {
+      await saveCompletionDetails({ force: true })
       const { data } = await api.post(`/api/booking-completion/${token}/signature`, {
         signatureDataUrl: signature,
+        secondDriverSignatureDataUrl: secondDriverOn ? secondDriverSignature : undefined,
         agreed: true,
+        ...buildDetailsPayload(),
       })
       if (!data.success) throw new Error(data.message)
       setBooking(data.booking)
@@ -171,12 +306,6 @@ const CompleteBooking = () => {
       setSigning(false)
     }
   }
-
-  const amountLabel = useMemo(() => {
-    if (!c) return ''
-    const amt = paymentType === 'deposit' ? c.depositAmount : c.fullAmount
-    return `${currency}${amt}`
-  }, [c, paymentType, currency])
 
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader /></div>
 
@@ -193,37 +322,43 @@ const CompleteBooking = () => {
   }
 
   const docsDone = c?.documentsComplete
-  const payDone = c?.paymentComplete
   const signDone = c?.signatureComplete
+  const showSecondDriverSign =
+    details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
 
   return (
-    <div className="min-h-[80vh] bg-light pb-24">
-      <div className="bg-ink text-white page-pad py-10 md:py-12">
-        <div className="max-w-3xl mx-auto">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-white/50 mb-2">{t('completion.eyebrow')}</p>
-          <h1 className="font-display text-3xl md:text-4xl font-medium">{t('completion.title')}</h1>
-          <p className="mt-2 text-white/65 text-sm md:text-base break-words">
-            {booking.reservationId} · {booking.car?.brand} {booking.car?.model}
-          </p>
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#f5efe8_0%,_#faf8f5_45%,_#f0ebe4_100%)] pb-20">
+      <div className="relative overflow-hidden bg-ink text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(143,31,31,0.35),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.08),transparent_40%)]" />
+        <div className="relative page-pad py-12 md:py-16">
+          <div className="max-w-3xl mx-auto">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">{t('completion.eyebrow')}</p>
+            <h1 className="mt-2 font-display text-3xl md:text-[2.35rem] font-medium leading-tight">{t('completion.title')}</h1>
+            <div className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 backdrop-blur-sm">
+              <span className="font-medium text-white">{booking.reservationId}</span>
+              <span className="text-white/40">·</span>
+              <span>{booking.car?.brand} {booking.car?.model}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="page-pad -mt-6">
-        <div className="max-w-3xl mx-auto">
-        <div className="rounded-2xl border border-borderColor bg-white p-4 sm:p-5 shadow-[0_18px_50px_-28px_rgba(22,18,16,0.3)]">
-          <div className="flex md:grid md:grid-cols-4 gap-3 md:gap-4 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
-            <StepPill index={1} label={t('completion.stepDocs')} active={step === 'documents'} done={docsDone} />
-            <StepPill index={2} label={t('completion.stepPay')} active={step === 'payment'} done={payDone} />
-            <StepPill index={3} label={t('completion.stepSign')} active={step === 'signature'} done={signDone} />
-            <StepPill index={4} label={t('completion.stepDone')} active={step === 'done'} done={step === 'done'} />
-          </div>
+      <div className="page-pad -mt-8">
+        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="rounded-3xl border border-borderColor/70 bg-white/90 p-4 sm:p-5 shadow-[0_24px_60px_-40px_rgba(22,18,16,0.5)] backdrop-blur-sm">
+          <StepRail
+            steps={STEPS}
+            current={step}
+            labels={[t('completion.stepDocs'), t('completion.stepSign'), t('completion.stepDone')]}
+            doneFlags={[docsDone, signDone, step === 'done']}
+          />
         </div>
 
-        <motion.div
+        <Motion.div
           key={step}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-6 rounded-2xl border border-borderColor bg-white p-5 sm:p-8"
+          className="rounded-3xl border border-borderColor/70 bg-white p-5 sm:p-8 shadow-[0_24px_60px_-44px_rgba(22,18,16,0.45)]"
         >
           {step === 'documents' && (
             <div className="space-y-6">
@@ -232,115 +367,185 @@ const CompleteBooking = () => {
                 <p className="text-sm text-muted mt-1">{t('completion.docsHint')}</p>
               </div>
 
-              <div className="rounded-xl border border-borderColor p-4">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-sm font-medium text-ink">{t('completion.license')}</p>
-                    <p className="text-xs text-muted">{t('completion.required')}</p>
+              <SectionCard title={t('completion.contractDetailsTitle')} subtitle={t('completion.contractDetailsHint')} accent="from-sand/50 to-white">
+                {!detailsSaved && (
+                  <div className="flex justify-end -mt-2 mb-3">
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800">
+                      {t('completion.unsavedHint')}
+                    </span>
                   </div>
-                  {c?.drivingLicenseUrl && <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-lg">{t('completion.uploaded')}</span>}
+                )}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label={t('completion.fieldFullName')}>
+                    <input value={details.customerFullName} onChange={(e) => updateDetail('customerFullName', e.target.value)} className={formInputOnLightClass} autoComplete="name" />
+                  </Field>
+                  <Field label={t('completion.fieldEmail')}>
+                    <input type="email" value={details.customerEmail} onChange={(e) => updateDetail('customerEmail', e.target.value)} className={formInputOnLightClass} autoComplete="email" />
+                  </Field>
+                  <Field label={t('completion.fieldPhone')}>
+                    <input type="tel" value={details.customerPhone} onChange={(e) => updateDetail('customerPhone', e.target.value)} className={formInputOnLightClass} autoComplete="tel" />
+                  </Field>
+                  <Field label={t('completion.fieldAddress')}>
+                    <input value={details.customerAddress} onChange={(e) => updateDetail('customerAddress', e.target.value)} className={formInputOnLightClass} autoComplete="street-address" />
+                  </Field>
+                  <Field label={t('completion.fieldDob')}>
+                    <input type="date" value={details.dateOfBirth} onChange={(e) => updateDetail('dateOfBirth', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldNationality')}>
+                    <input value={details.nationality} onChange={(e) => updateDetail('nationality', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldBirthPlace')}>
+                    <input value={details.placeOfBirth} onChange={(e) => updateDetail('placeOfBirth', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldIdNumber')}>
+                    <input value={details.identityDocumentNumber} onChange={(e) => updateDetail('identityDocumentNumber', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldIdIssued')}>
+                    <input type="date" value={details.identityIssuedOn} onChange={(e) => updateDetail('identityIssuedOn', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldLicenseNumber')}>
+                    <input value={details.driverLicenseNumber} onChange={(e) => updateDetail('driverLicenseNumber', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldLicenseExpiry')}>
+                    <input type="date" value={details.driverLicenseExpiry} onChange={(e) => updateDetail('driverLicenseExpiry', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldLicenseIssued')}>
+                    <input type="date" value={details.driverLicenseIssuedOn} onChange={(e) => updateDetail('driverLicenseIssuedOn', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
+                  <Field label={t('completion.fieldPassport')} className="md:col-span-2">
+                    <input value={details.passportNumber} onChange={(e) => updateDetail('passportNumber', e.target.value)} className={formInputOnLightClass} />
+                  </Field>
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={!!uploading}
-                  onChange={(e) => uploadDoc('driving_license', e.target.files?.[0])}
-                  className="block w-full text-sm text-muted file:mr-3 file:mb-2 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-white file:cursor-pointer"
-                />
+
+                <div className="rounded-2xl border border-borderColor bg-white p-4 mt-4">
+                  <label className="flex items-start gap-3 text-sm text-ink cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={details.secondDriverEnabled}
+                      onChange={(e) => updateDetail('secondDriverEnabled', e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-borderColor text-primary focus:ring-primary/30"
+                    />
+                    <span>{t('completion.secondDriverToggle')}</span>
+                  </label>
+
+                  {details.secondDriverEnabled && (
+                    <div className="grid gap-4 md:grid-cols-2 mt-4 pt-4 border-t border-borderColor">
+                      <Field label={t('completion.secondDriverNameLabel')}>
+                        <input value={details.secondDriverFullName} onChange={(e) => updateDetail('secondDriverFullName', e.target.value)} className={formInputOnLightClass} />
+                      </Field>
+                      <Field label={t('completion.secondDriverDob')}>
+                        <input type="date" value={details.secondDriverDob} onChange={(e) => updateDetail('secondDriverDob', e.target.value)} className={formInputOnLightClass} />
+                      </Field>
+                      <Field label={t('completion.fieldNationality')}>
+                        <input value={details.secondDriverNationality} onChange={(e) => updateDetail('secondDriverNationality', e.target.value)} className={formInputOnLightClass} />
+                      </Field>
+                      <Field label={t('completion.fieldPhone')}>
+                        <input value={details.secondDriverPhone} onChange={(e) => updateDetail('secondDriverPhone', e.target.value)} className={formInputOnLightClass} />
+                      </Field>
+                      <Field label={t('completion.secondDriverLicense')}>
+                        <input value={details.secondDriverLicenseNumber} onChange={(e) => updateDetail('secondDriverLicenseNumber', e.target.value)} className={formInputOnLightClass} />
+                      </Field>
+                      <Field label={t('completion.secondDriverLicenseExpiry')}>
+                        <input type="date" value={details.secondDriverLicenseExpiry} onChange={(e) => updateDetail('secondDriverLicenseExpiry', e.target.value)} className={formInputOnLightClass} />
+                      </Field>
+                      <Field label={t('completion.secondDriverPassport')} className="md:col-span-2">
+                        <input value={details.secondDriverPassportNumber} onChange={(e) => updateDetail('secondDriverPassportNumber', e.target.value)} className={formInputOnLightClass} />
+                      </Field>
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-borderColor bg-white p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{t('completion.license')}</p>
+                      <p className="text-xs text-muted">{t('completion.required')}</p>
+                    </div>
+                    {c?.drivingLicenseUrl && <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-lg">{t('completion.uploaded')}</span>}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={!!uploading}
+                    onChange={(e) => uploadDoc('driving_license', e.target.files?.[0])}
+                    className="block w-full text-sm text-muted file:mr-3 file:mb-2 file:rounded-xl file:border-0 file:bg-primary file:px-3 file:py-2 file:text-white file:cursor-pointer"
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-borderColor bg-white p-4">
+                  <p className="text-sm font-semibold text-ink mb-3">{t('completion.identity')}</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {['national_id', 'passport'].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setIdentityType(type)}
+                        className={`px-3 py-1.5 rounded-xl text-xs cursor-pointer border transition-colors ${
+                          identityType === type ? 'border-primary bg-primary/10 text-primary' : 'border-borderColor text-muted'
+                        }`}
+                      >
+                        {type === 'national_id' ? t('completion.nationalId') : t('completion.passport')}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <p className="text-xs text-muted">{t('completion.requiredOne')}</p>
+                    {c?.identityDocumentUrl && <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-lg">{t('completion.uploaded')}</span>}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={!!uploading}
+                    onChange={(e) => uploadDoc('identity', e.target.files?.[0])}
+                    className="block w-full text-sm text-muted file:mr-3 file:mb-2 file:rounded-xl file:border-0 file:bg-primary file:px-3 file:py-2 file:text-white file:cursor-pointer"
+                  />
+                </div>
               </div>
 
-              <div className="rounded-xl border border-borderColor p-4">
-                <p className="text-sm font-medium text-ink mb-3">{t('completion.identity')}</p>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {['national_id', 'passport'].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setIdentityType(type)}
-                      className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer border transition-colors ${
-                        identityType === type ? 'border-primary bg-primary/10 text-primary' : 'border-borderColor text-muted'
-                      }`}
-                    >
-                      {type === 'national_id' ? t('completion.nationalId') : t('completion.passport')}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                  <p className="text-xs text-muted">{t('completion.requiredOne')}</p>
-                  {c?.identityDocumentUrl && <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-lg">{t('completion.uploaded')}</span>}
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={!!uploading}
-                  onChange={(e) => uploadDoc('identity', e.target.files?.[0])}
-                  className="block w-full text-sm text-muted file:mr-3 file:mb-2 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-white file:cursor-pointer"
-                />
+              <div
+                role="note"
+                className="flex items-start gap-2.5 rounded-xl border border-slate-200/90 bg-slate-50 px-3.5 py-3 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3.5"
+              >
+                <span className="text-base leading-none shrink-0 select-none sm:text-lg" aria-hidden>
+                  🔒
+                </span>
+                <p className="text-xs sm:text-sm leading-relaxed text-slate-700">
+                  {t('completion.securityDepositBanner')}
+                </p>
               </div>
 
-              {docsDone && (
-                <button type="button" onClick={() => setStep('payment')} className="w-full py-3 rounded-xl bg-primary text-white text-sm font-medium cursor-pointer">
-                  {t('completion.continuePayment')}
-                </button>
-              )}
-            </div>
-          )}
-
-          {step === 'payment' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="font-display text-2xl text-ink">{t('completion.payTitle')}</h2>
-                <p className="text-sm text-muted mt-1">{t('completion.payHint')}</p>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={() => setPaymentType('deposit')}
-                  className={`text-left rounded-xl border p-4 cursor-pointer transition-colors ${
-                    paymentType === 'deposit' ? 'border-primary bg-primary/5' : 'border-borderColor hover:bg-sand/40'
-                  }`}
+                  disabled={savingDetails}
+                  onClick={saveCompletionDetails}
+                  className="w-full py-3.5 rounded-2xl border border-borderColor bg-sand text-sm font-semibold text-ink"
                 >
-                  <p className="text-sm font-medium text-ink">{t('completion.deposit')}</p>
-                  <p className="text-xs text-muted mt-1">{c?.depositPercent}% {t('completion.ofTotal')}</p>
-                  <p className="text-xl font-semibold text-primary mt-3">{currency}{c?.depositAmount}</p>
+                  {savingDetails ? t('completion.savingDetails') : t('completion.saveDetails')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentType('full')}
-                  className={`text-left rounded-xl border p-4 cursor-pointer transition-colors ${
-                    paymentType === 'full' ? 'border-primary bg-primary/5' : 'border-borderColor hover:bg-sand/40'
-                  }`}
-                >
-                  <p className="text-sm font-medium text-ink">{t('completion.fullPay')}</p>
-                  <p className="text-xs text-muted mt-1">{t('completion.payAllNow')}</p>
-                  <p className="text-xl font-semibold text-primary mt-3">{currency}{c?.fullAmount}</p>
-                </button>
-              </div>
-
-              <div className="rounded-xl bg-light px-4 py-3 text-sm text-muted">
-                {t('completion.totalLabel')}: <span className="text-ink font-medium">{currency}{booking.price}</span>
-                {c?.paymentMode === 'demo' && (
-                  <p className="text-xs mt-1 text-amber-700">{t('completion.demoPayNote')}</p>
+                {docsDone && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!validateClientDetails()) return
+                      try {
+                        await saveCompletionDetails({ force: true })
+                        setStep('signature')
+                      } catch {
+                        // saveCompletionDetails already handles feedback
+                      }
+                    }}
+                    className="w-full py-3.5 rounded-2xl bg-primary text-white text-sm font-semibold cursor-pointer shadow-[0_12px_28px_-16px_rgba(143,31,31,0.8)]"
+                  >
+                    {t('completion.continueSign')}
+                  </button>
                 )}
               </div>
-
-              <button
-                type="button"
-                disabled={paying || payDone}
-                onClick={handlePay}
-                className="w-full py-3 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium cursor-pointer disabled:opacity-60"
-              >
-                {payDone ? t('completion.alreadyPaid') : paying ? t('completion.processing') : `${t('completion.payNow')} · ${amountLabel}`}
-              </button>
-
-              {payDone && (
-                <button type="button" onClick={() => setStep('signature')} className="w-full py-3 rounded-xl border border-borderColor text-sm cursor-pointer">
-                  {t('completion.continueSign')}
-                </button>
-              )}
             </div>
           )}
+
 
           {step === 'signature' && (
             <div className="space-y-6">
@@ -349,7 +554,22 @@ const CompleteBooking = () => {
                 <p className="text-sm text-muted mt-1">{t('completion.signHint')}</p>
               </div>
 
-              <SignaturePad onChange={setSignature} disabled={signing || signDone} />
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-ink">{t('completion.signatureCustomerLabel')}</p>
+                <SignaturePad onChange={setSignature} disabled={signing || signDone} />
+              </div>
+
+              {showSecondDriverSign && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-ink">{t('completion.signatureSecondDriverLabel')}</p>
+                  <p className="text-xs text-muted">
+                    {details.secondDriverFullName || booking?.secondDriver?.fullName || '—'}
+                  </p>
+                  <SignaturePad onChange={setSecondDriverSignature} disabled={signing || signDone} />
+                </div>
+              )}
+
+              <p className="text-xs text-muted">{t('completion.signatureAgencyNote')}</p>
 
               <label className="flex items-start gap-3 text-sm text-muted cursor-pointer">
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1" />
@@ -387,22 +607,17 @@ const CompleteBooking = () => {
                     {t('completion.downloadContract')}
                   </a>
                 )}
-                {c?.invoicePdfUrl && (
-                  <a href={c.invoicePdfUrl} target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl border border-borderColor text-sm">
-                    {t('completion.downloadInvoice')}
-                  </a>
-                )}
               </div>
 
               <Link to="/" className="inline-block mt-8 text-sm text-primary hover:underline">{t('completion.backHome')}</Link>
             </div>
           )}
-        </motion.div>
+        </Motion.div>
 
-        {(step === 'payment' || step === 'signature') && (
+        {step === 'signature' && (
           <button
             type="button"
-            onClick={() => setStep(step === 'signature' ? 'payment' : 'documents')}
+            onClick={() => setStep('documents')}
             className="mt-4 text-sm text-muted hover:text-ink cursor-pointer"
           >
             ← {t('completion.back')}

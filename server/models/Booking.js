@@ -45,9 +45,50 @@ const bookingSchema = new mongoose.Schema({
   notes: { type: String, default: "" },
   nationality: { type: String, default: "" },
   dateOfBirth: { type: String, default: "" },
+  placeOfBirth: { type: String, default: "" },
+  customerAddress: { type: String, default: "" },
+  identityDocumentNumber: { type: String, default: "" },
+  identityIssuedOn: { type: String, default: "" },
   driverLicenseNumber: { type: String, default: "" },
   driverLicenseExpiry: { type: String, default: "" },
+  driverLicenseIssuedOn: { type: String, default: "" },
   passportNumber: { type: String, default: "" },
+  /** Contract operational fields (filled at desk / pickup) */
+  deliveredBy: { type: String, default: "" },
+  receivedBy: { type: String, default: "" },
+  fuelLevelStart: { type: String, default: "" },
+  kmDepart: { type: String, default: "" },
+  kmRetour: { type: String, default: "" },
+  franchiseAmount: { type: Number, default: null },
+  /** Optional second driver on rental contract */
+  secondDriver: {
+    enabled: { type: Boolean, default: false },
+    fullName: { type: String, default: "" },
+    dateOfBirth: { type: String, default: "" },
+    nationality: { type: String, default: "" },
+    driverLicenseNumber: { type: String, default: "" },
+    driverLicenseExpiry: { type: String, default: "" },
+    passportNumber: { type: String, default: "" },
+    phone: { type: String, default: "" },
+  },
+  /** Permanent archive of customer identity documents */
+  customerDocuments: {
+    drivingLicenseUrl: { type: String, default: "" },
+    identityType: {
+      type: String,
+      enum: ["", "national_id", "passport"],
+      default: "",
+    },
+    identityDocumentUrl: { type: String, default: "" },
+    passportUrl: { type: String, default: "" },
+    uploadedAt: { type: Date, default: null },
+    source: {
+      type: String,
+      enum: ["", "online", "walk_in", "admin"],
+      default: "",
+    },
+    uploadedBy: { type: ObjectId, ref: "User", default: null },
+  },
   paymentStatus: {
     type: String,
     enum: ["pending", "paid", "failed", "refunded"],
@@ -55,12 +96,13 @@ const bookingSchema = new mongoose.Schema({
   },
   /**
    * Reservation origin:
-   * online  — guest booking from public site
-   * walk_in — created by staff at the agency desk
+   * online   — guest booking from public site
+   * walk_in  — created by staff at the agency desk
+   * whatsapp — guest reserved via WhatsApp CTA (pending until staff confirms)
    */
   channel: {
     type: String,
-    enum: ["online", "walk_in"],
+    enum: ["online", "walk_in", "whatsapp"],
     default: "online",
     index: true,
   },
@@ -68,7 +110,9 @@ const bookingSchema = new mongoose.Schema({
   createdBy: { type: ObjectId, ref: "User", default: null },
   /** Secure post-confirmation completion workflow */
   completion: {
-    tokenHash: { type: String, default: "", index: true },
+    /** SHA-256 hash of the raw token (required for /complete-booking/:token lookup) */
+    tokenHash: { type: String, default: "" },
+    shareableCompletionUrl: { type: String, default: "" },
     tokenExpiresAt: { type: Date, default: null },
     linkSentAt: { type: Date, default: null },
     drivingLicenseUrl: { type: String, default: "" },
@@ -80,6 +124,8 @@ const bookingSchema = new mongoose.Schema({
     identityDocumentUrl: { type: String, default: "" },
     signatureUrl: { type: String, default: "" },
     signatureSignedAt: { type: Date, default: null },
+    secondDriverSignatureUrl: { type: String, default: "" },
+    secondDriverSignatureSignedAt: { type: Date, default: null },
     paymentType: {
       type: String,
       enum: ["", "deposit", "full"],
@@ -102,6 +148,14 @@ const bookingSchema = new mongoose.Schema({
       skipped: { type: Boolean, default: false },
       reason: { type: String, default: "" },
       messageId: { type: String, default: "" },
+      at: { type: Date, default: null },
+    },
+    lastWhatsApp: {
+      type: { type: String, default: "" },
+      success: { type: Boolean, default: false },
+      skipped: { type: Boolean, default: false },
+      reason: { type: String, default: "" },
+      provider: { type: String, default: "" },
       at: { type: Date, default: null },
     },
   },

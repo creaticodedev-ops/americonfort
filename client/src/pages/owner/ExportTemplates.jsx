@@ -163,6 +163,25 @@ const ExportTemplates = () => {
     }
   }
 
+  const uploadSignature = async (templateId, file) => {
+    if (!file) return
+    const body = new FormData()
+    body.append('signature', file)
+    try {
+      const { data } = await axios.post(`/api/export-templates/${templateId}/signature`, body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      if (data.success) {
+        toast.success(data.message)
+        fetchTemplates()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }
+
   const runPreview = async () => {
     if (editing === 'new') {
       toast.error(t('admin.templates.saveBeforePreview'))
@@ -252,14 +271,25 @@ const ExportTemplates = () => {
           </div>
 
           {editing !== 'new' && (
-            <div className="space-y-1">
-              <label className={labelClass}>{t('admin.templates.logo')}</label>
-              <input
-                type="file"
-                accept="image/*"
-                className="text-sm"
-                onChange={(e) => uploadLogo(editing, e.target.files?.[0])}
-              />
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className={labelClass}>{t('admin.templates.logo')}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="text-sm"
+                  onChange={(e) => uploadLogo(editing, e.target.files?.[0])}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={labelClass}>{t('admin.templates.companySignature')}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="text-sm"
+                  onChange={(e) => uploadSignature(editing, e.target.files?.[0])}
+                />
+              </div>
             </div>
           )}
 

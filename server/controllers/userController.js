@@ -3,12 +3,15 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import Car from "../models/Car.js";
 import mongoose from 'mongoose';
+import { groupCarsForCatalog } from '../utils/carCatalog.js';
 import {
   syncLicenseStatus,
   serializeLicense,
   createTrialDefaults,
 } from '../services/licenseService.js';
 import { syncOwnerPermissions, resolveOwnerPermissions } from '../utils/ownerPermissions.js';
+import { normalizeEmail, findUserByEmail } from '../utils/emailUtils.js';
+import { BRAND_NAME } from '../utils/brand.js';
 
 const generateToken = (user) => {
     const payload = { _id: user._id.toString(), tv: user.tokenVersion || 0 };
@@ -22,7 +25,8 @@ export const loginUser = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Email and password are required' });
         }
 
-        const user = await User.findOne({ email: email.trim().toLowerCase() });
+        const normalizedEmail = normalizeEmail(email);
+        const user = await findUserByEmail(User, normalizedEmail);
         if (!user) {
             return res.status(401).json({ success: false, message: 'Admin account not found' });
         }
@@ -40,7 +44,7 @@ export const loginUser = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 code: 'ACCOUNT_LOCKED',
-                message: 'This admin account has been suspended or disabled. Contact HDN Car Rental.',
+                message: `This admin account has been suspended or disabled. Contact ${BRAND_NAME}.`,
             });
         }
 
@@ -104,7 +108,8 @@ export const getUserData = async (req, res) => {
         // Strip password already done by protect; return user + explicit license snapshot
         const safeUser = user.toObject ? user.toObject() : { ...user };
         delete safeUser.password;
-        safeUser.permissions = resolveOwnerPermissions(safeUser.permissions);
+        const resolvedPermissions = resolveOwnerPermissions(safeUser.permissions);
+        safeUser.permissions = Array.isArray(resolvedPermissions) ? resolvedPermissions : [];
 
         res.json({
             success: true,
@@ -122,8 +127,14 @@ export const getUserData = async (req, res) => {
 
 export const getCars = async (req, res) => {
     try {
-        const cars = await Car.find({ isAvaliable: true, owner: { $ne: null } }).sort({ createdAt: -1 });
-        res.json({ success: true, cars });
+        const cars = await Car.find({
+            isAvaliable: true,
+            owner: { $ne: null },
+            status: { $ne: 'maintenance' },
+        })
+            .sort({ createdAt: -1 })
+            .lean();
+        res.json({ success: true, cars: groupCarsForCatalog(cars) });
     } catch (error) {
         console.error(error.message);
         res.status(500).json({ success: false, message: 'Failed to fetch cars' });

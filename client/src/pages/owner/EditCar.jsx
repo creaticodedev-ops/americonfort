@@ -156,7 +156,7 @@ const EditCar = () => {
           <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4'>
             <div className='flex flex-col w-full'>
               <label>{t('admin.addCar.fleetId')}</label>
-              <input type="text" className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none bg-white' value={car.fleetId} onChange={(e) => setCar({ ...car, fleetId: e.target.value })} placeholder="HDN-0001" />
+              <input type="text" className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none bg-white' value={car.fleetId} onChange={(e) => setCar({ ...car, fleetId: e.target.value })} placeholder="AC-0001" />
             </div>
             <div className='flex flex-col w-full'>
               <label>{t('admin.addCar.vin')}</label>
@@ -238,9 +238,12 @@ const EditCar = () => {
           <textarea rows={5} required className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.description} onChange={(e) => setCar({ ...car, description: e.target.value })} />
         </div>
 
-        <div className='flex gap-3'>
+        <div className='flex flex-wrap gap-3'>
           <button type="button" onClick={() => navigate('/owner/manage-cars')} className='px-4 py-2.5 border border-borderColor rounded-md cursor-pointer'>
             {t('admin.common.cancel')}
+          </button>
+          <button type="button" onClick={() => navigate(`/owner/vehicle-stats/${id}`)} className='px-4 py-2.5 border border-primary text-primary rounded-md cursor-pointer'>
+            {t('admin.vehicleStats.viewStats')}
           </button>
           <button className='flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-md font-medium cursor-pointer disabled:opacity-60'>
             <img src={assets.tick_icon} alt="" />
@@ -248,6 +251,7 @@ const EditCar = () => {
           </button>
         </div>
       </form>
+
     </div>
   )
 }

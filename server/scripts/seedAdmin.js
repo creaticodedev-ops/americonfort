@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import User from '../models/User.js';
 import { createTrialDefaults, TRIAL_DAYS } from '../services/licenseService.js';
+import { BRAND_NAME } from '../utils/brand.js';
 import { buildMongoUri } from '../configs/db.js';
 
 const seed = async () => {
@@ -16,7 +17,7 @@ const seed = async () => {
     process.exit(1);
   }
 
-  const email = (process.env.ADMIN_EMAIL || 'admin@hdncar.com').trim().toLowerCase();
+  const email = (process.env.ADMIN_EMAIL || 'admin@americonfort.com').trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD || 'Admin123!';
   const name = process.env.ADMIN_NAME || 'Admin';
 
@@ -67,6 +68,7 @@ const seed = async () => {
       password: hashed,
       role: 'owner',
       accountStatus: 'active',
+      agencyName: BRAND_NAME,
       ...trial,
     });
     console.log(`Admin user created: ${email}`);

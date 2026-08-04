@@ -4,8 +4,10 @@ import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../utils/apiError'
 
+import { resolveApiBaseUrl } from '../utils/apiBase'
+
 const SA_TOKEN_KEY = 'sa_token'
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000'
+const API_BASE_URL = resolveApiBaseUrl()
 
 const SuperAdminContext = createContext(null)
 

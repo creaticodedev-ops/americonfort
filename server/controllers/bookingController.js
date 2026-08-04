@@ -11,18 +11,19 @@ import { upsertGuestFromBooking, refreshGuestStats } from "../services/guestCrm.
 import { createNotification, logAudit } from "../utils/adminOps.js";
 import GuestCustomer from "../models/GuestCustomer.js";
 import PickupLocation from "../models/PickupLocation.js";
-import { notifyNewReservationWhatsApp } from "../services/whatsappNotify.js";
+import { buildGuestToAgencyWhatsAppUrl, getAgencyWhatsAppDial } from "../services/whatsappNotify.js";
 import {
   calculateBookingPrice,
   formatLocationLabel,
   getLocationDeliveryFee,
 } from "../services/pricingEngine.js";
-import { initiateBookingCompletion } from "../services/bookingCompletionService.js";
+import { initiateBookingCompletion, generateCompletionLink } from "../services/bookingCompletionService.js";
 import {
   carServesCity,
   locationAvailabilityFilter,
 } from "../utils/carLocations.js";
 import { normalizeToE164 } from "../utils/phoneValidation.js";
+import { groupCarsForCatalog, resolveAvailableCarUnit } from "../utils/carCatalog.js";
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'ready_for_pickup', 'active', 'completed', 'cancelled'];
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
@@ -46,8 +47,12 @@ const buildBookingQuery = (ownerId, filters = {}) => {
 
   if (filters.status) query.status = filters.status;
   if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
-  if (filters.channel && ['online', 'walk_in'].includes(filters.channel)) {
-    query.channel = filters.channel;
+  if (filters.channel) {
+    if (['online', 'whatsapp'].includes(filters.channel)) {
+      query.channel = { $in: ['online', 'whatsapp'] };
+    } else if (filters.channel === 'walk_in') {
+      query.channel = 'walk_in';
+    }
   }
 
   if (filters.pickupDateFrom || filters.pickupDateTo) {
@@ -142,6 +147,11 @@ const filterByVehicleAndCategory = (bookings, filters) => {
     result = result.filter((b) => b.car?.category?.toLowerCase() === filters.category.toLowerCase());
   }
 
+  if (filters.licensePlate) {
+    const plate = filters.licensePlate.toLowerCase().trim();
+    result = result.filter((b) => (b.car?.licensePlate || '').toLowerCase().includes(plate));
+  }
+
   return result;
 };
 
@@ -177,6 +187,7 @@ const parseFilters = (query) => ({
   createdFrom: query.createdFrom,
   createdTo: query.createdTo,
   category: query.category,
+  licensePlate: query.licensePlate,
 });
 
 export const checkAvailabilityOfCar = async (req, res) => {
@@ -197,15 +208,16 @@ export const checkAvailabilityOfCar = async (req, res) => {
       Object.assign(carQuery, locationAvailabilityFilter(location));
     }
 
-    const cars = await Car.find(carQuery);
+    const cars = await Car.find(carQuery).lean();
     const availableCars = [];
 
     for (const car of cars) {
+      if (car.status === 'maintenance') continue;
       const isAvailable = await checkAvailability(car._id, dates.picked, dates.returned);
       if (isAvailable) availableCars.push(car);
     }
 
-    res.json({ success: true, availableCars });
+    res.json({ success: true, availableCars: groupCarsForCatalog(availableCars) });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to check availability' });
@@ -226,7 +238,10 @@ export const createBooking = async (req, res) => {
       pickupLocationId,
       returnLocationId,
       notes,
+      channel: requestChannel,
     } = req.body;
+
+    const isWhatsApp = requestChannel === 'whatsapp' || req.body.viaWhatsApp === true;
 
     const hasLocationIds =
       mongoose.isValidObjectId(pickupLocationId) && mongoose.isValidObjectId(returnLocationId);
@@ -259,8 +274,23 @@ export const createBooking = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Car is not available for booking' });
     }
 
+    const assignedCar = await resolveAvailableCarUnit({
+      ownerId: carData.owner,
+      brand: carData.brand,
+      model: carData.model,
+      pickupDate: dates.picked,
+      returnDate: dates.returned,
+      preferredCarId: carId,
+    });
+
+    if (!assignedCar) {
+      return res.status(409).json({ success: false, message: 'No vehicle of this model is available for the selected dates' });
+    }
+
+    const carForBooking = assignedCar;
+
     const blacklisted = await GuestCustomer.findOne({
-      owner: carData.owner,
+      owner: carForBooking.owner,
       email: email.trim().toLowerCase(),
       status: 'blacklisted',
     });
@@ -269,11 +299,6 @@ export const createBooking = async (req, res) => {
         success: false,
         message: 'Unable to complete this reservation. Please contact the agency directly.',
       });
-    }
-
-    const available = await checkAvailability(carId, dates.picked, dates.returned);
-    if (!available) {
-      return res.status(409).json({ success: false, message: 'Car is not available for the selected dates' });
     }
 
     let pickupLoc = null;
@@ -286,13 +311,13 @@ export const createBooking = async (req, res) => {
       if (!pickupLoc || !returnLoc) {
         return res.status(400).json({ success: false, message: 'Please select valid pickup and drop-off locations' });
       }
-      if (!carServesCity(carData, pickupLoc.city)) {
+      if (!carServesCity(carForBooking, pickupLoc.city)) {
         return res.status(400).json({
           success: false,
           message: 'This vehicle is not available at the selected pickup location',
         });
       }
-      if (!carServesCity(carData, returnLoc.city)) {
+      if (!carServesCity(carForBooking, returnLoc.city)) {
         return res.status(400).json({
           success: false,
           message: 'This vehicle is not available at the selected drop-off location',
@@ -301,7 +326,7 @@ export const createBooking = async (req, res) => {
     }
 
     const priceBreakdown = calculateBookingPrice({
-      pricePerDay: carData.pricePerDay,
+      pricePerDay: carForBooking.pricePerDay,
       pickupDate: dates.picked,
       returnDate: dates.returned,
       pickupDeliveryFee: getLocationDeliveryFee(pickupLoc),
@@ -314,16 +339,15 @@ export const createBooking = async (req, res) => {
     const pickupLabel = pickupLoc ? formatLocationLabel(pickupLoc) : String(pickupLocation).trim();
     const returnLabel = returnLoc ? formatLocationLabel(returnLoc) : String(returnLocation).trim();
 
-    // Standalone MongoDB (no replica set) — re-check availability immediately before write
-    const stillAvailable = await checkAvailability(carId, dates.picked, dates.returned);
+    const stillAvailable = await checkAvailability(carForBooking._id, dates.picked, dates.returned);
     if (!stillAvailable) {
-      return res.status(409).json({ success: false, message: 'Car is not available for the selected dates' });
+      return res.status(409).json({ success: false, message: 'No vehicle of this model is available for the selected dates' });
     }
 
     const booking = await Booking.create({
       reservationId,
-      car: carId,
-      owner: carData.owner,
+      car: carForBooking._id,
+      owner: carForBooking.owner,
       user: null,
       pickupDate: dates.picked,
       returnDate: dates.returned,
@@ -338,8 +362,11 @@ export const createBooking = async (req, res) => {
       returnLocationId: returnLoc?._id || null,
       notes: notes || '',
       paymentStatus: 'pending',
-      channel: 'online',
+      status: 'pending',
+      channel: isWhatsApp ? 'whatsapp' : 'online',
       createdBy: null,
+      franchiseAmount: Number(carForBooking.securityDeposit) || 0,
+      kmDepart: carForBooking.mileage != null ? String(carForBooking.mileage) : '',
     });
 
     try {
@@ -358,47 +385,54 @@ export const createBooking = async (req, res) => {
     try {
       await upsertGuestFromBooking(booking);
       await createNotification({
-        owner: carData.owner,
+        owner: carForBooking.owner,
         type: 'new_reservation',
-        title: 'New reservation',
-        message: `${booking.customerName} booked ${carData.brand} ${carData.model} (${reservationId})`,
+        title: isWhatsApp ? 'WhatsApp reservation' : 'New reservation',
+        message: `${booking.customerName} booked ${carForBooking.brand} ${carForBooking.model} (${reservationId})${isWhatsApp ? ' via WhatsApp' : ''}`,
         link: '/owner/manage-bookings',
-        meta: { bookingId: booking._id.toString(), reservationId },
+        meta: { bookingId: booking._id.toString(), reservationId, channel: booking.channel },
       });
       await logAudit({
-        owner: carData.owner,
-        action: 'booking.create',
+        owner: carForBooking.owner,
+        action: isWhatsApp ? 'booking.create_whatsapp' : 'booking.create',
         entityType: 'Booking',
         entityId: booking._id,
-        details: `Guest reservation ${reservationId} created — total ${price}`,
+        details: `${isWhatsApp ? 'WhatsApp' : 'Guest'} reservation ${reservationId} created — total ${price}`,
       });
     } catch (sideEffectError) {
       console.error('Post-booking side effects failed:', sideEffectError.message);
     }
 
-    // Fire-and-forget WhatsApp alert — never blocks the HTTP response
-    notifyNewReservationWhatsApp({
-      reservationId,
-      customerName: booking.customerName,
-      customerPhone: booking.customerPhone,
-      customerEmail: booking.customerEmail,
-      vehicle: `${carData.brand} ${carData.model}`,
-      pickupLocation: booking.pickupLocation,
-      returnLocation: booking.returnLocation,
-      pickupDate: booking.pickupDate,
-      returnDate: booking.returnDate,
-      price: booking.price,
-      priceBreakdown: booking.priceBreakdown,
-      notes: booking.notes,
-    }).catch((err) => console.error('WhatsApp notify error:', err?.message || err));
+    const whatsappUrl = isWhatsApp
+      ? buildGuestToAgencyWhatsAppUrl({
+          reservationId,
+          customerName: booking.customerName,
+          customerPhone: booking.customerPhone,
+          customerEmail: booking.customerEmail,
+          vehicle: `${carForBooking.brand} ${carForBooking.model}${carForBooking.licensePlate ? ` (${carForBooking.licensePlate})` : ''}`,
+          pickupLocation: booking.pickupLocation,
+          returnLocation: booking.returnLocation,
+          pickupDate: booking.pickupDate,
+          returnDate: booking.returnDate,
+          price: booking.price,
+          priceBreakdown: booking.priceBreakdown,
+          notes: booking.notes,
+        })
+      : null;
 
     res.status(201).json({
       success: true,
-      message: 'Reservation submitted successfully',
+      message: isWhatsApp
+        ? 'WhatsApp reservation created — opening WhatsApp'
+        : 'Reservation submitted successfully',
       reservationId: booking.reservationId,
       bookingId: booking._id,
+      status: booking.status,
+      channel: booking.channel,
       price,
       priceBreakdown,
+      ...(whatsappUrl ? { whatsappUrl } : {}),
+      ...(isWhatsApp ? { whatsappDial: getAgencyWhatsAppDial() } : {}),
     });
   } catch (error) {
     console.error(error.message);
@@ -553,7 +587,7 @@ export const createWalkInBooking = async (req, res) => {
 
     const guestEmail =
       normalizedEmail ||
-      `walkin+${phoneCheck.e164.replace(/\D/g, '').slice(-9) || Date.now()}@local.hdn`;
+      `walkin+${phoneCheck.e164.replace(/\D/g, '').slice(-9) || Date.now()}@local.americonfort`;
 
     const booking = await Booking.create({
       reservationId,
@@ -763,6 +797,7 @@ export const changeBookingStatus = async (req, res) => {
         const emailSkipped = Boolean(result.emailResult?.skipped);
         completionMeta = {
           completionUrl: result.completionUrl,
+          shareableCompletionUrl: result.completionUrl,
           emailSent: emailOk,
           emailSkipped,
           emailTo: result.emailResult?.to || booking.customerEmail,
@@ -781,11 +816,30 @@ export const changeBookingStatus = async (req, res) => {
         });
       } catch (completionError) {
         console.error('Completion invite failed:', completionError.message);
-        return res.json({
-          success: true,
-          message: `Reservation confirmed, but completion invite failed: ${completionError.message}`,
-          completion: null,
-        });
+        try {
+          const fallback = await generateCompletionLink(bookingId, { resend: true });
+          completionMeta = {
+            completionUrl: fallback.completionUrl,
+            shareableCompletionUrl: fallback.completionUrl,
+            emailSent: false,
+            emailSkipped: true,
+            emailTo: booking.customerEmail,
+            emailReason: completionError.message,
+            messageId: '',
+          };
+          return res.json({
+            success: true,
+            message: `Reservation confirmed. Completion link ready (email step failed: ${completionError.message}).`,
+            completion: completionMeta,
+          });
+        } catch (fallbackErr) {
+          console.error('Completion link fallback failed:', fallbackErr.message);
+          return res.json({
+            success: true,
+            message: `Reservation confirmed, but completion link failed: ${fallbackErr.message}`,
+            completion: null,
+          });
+        }
       }
     }
 
@@ -866,6 +920,13 @@ export const updateBooking = async (req, res) => {
       notes,
       status,
       paymentStatus,
+      carId,
+      dateOfBirth,
+      nationality,
+      driverLicenseNumber,
+      driverLicenseExpiry,
+      passportNumber,
+      secondDriver,
     } = req.body;
 
     if (!mongoose.isValidObjectId(bookingId)) {
@@ -888,6 +949,27 @@ export const updateBooking = async (req, res) => {
     }
     if (paymentStatus && !PAYMENT_STATUSES.includes(paymentStatus)) {
       return res.status(400).json({ success: false, message: 'Invalid payment status' });
+    }
+
+    if (carId && mongoose.isValidObjectId(carId) && String(carId) !== String(booking.car._id)) {
+      const newCar = await Car.findOne({ _id: carId, owner: _id });
+      if (!newCar) {
+        return res.status(404).json({ success: false, message: 'Vehicle not found' });
+      }
+      if (newCar.status === 'maintenance' || !newCar.isAvaliable) {
+        return res.status(409).json({ success: false, message: 'Selected vehicle is unavailable' });
+      }
+      const available = await checkAvailability(
+        carId,
+        booking.pickupDate,
+        booking.returnDate,
+        bookingId,
+      );
+      if (!available) {
+        return res.status(409).json({ success: false, message: 'Selected vehicle is already booked for these dates' });
+      }
+      booking.car = carId;
+      booking.markModified('car');
     }
 
     if (pickupDate && returnDate) {
@@ -957,6 +1039,23 @@ export const updateBooking = async (req, res) => {
       }
       booking.customerPhone = phoneCheck.e164;
     }
+    if (dateOfBirth !== undefined) booking.dateOfBirth = String(dateOfBirth).trim();
+    if (nationality !== undefined) booking.nationality = String(nationality).trim();
+    if (driverLicenseNumber !== undefined) booking.driverLicenseNumber = String(driverLicenseNumber).trim();
+    if (driverLicenseExpiry !== undefined) booking.driverLicenseExpiry = String(driverLicenseExpiry).trim();
+    if (passportNumber !== undefined) booking.passportNumber = String(passportNumber).trim();
+    if (secondDriver !== undefined && typeof secondDriver === 'object') {
+      booking.secondDriver = {
+        enabled: Boolean(secondDriver.enabled),
+        fullName: secondDriver.fullName?.trim() || '',
+        dateOfBirth: secondDriver.dateOfBirth?.trim() || '',
+        nationality: secondDriver.nationality?.trim() || '',
+        driverLicenseNumber: secondDriver.driverLicenseNumber?.trim() || '',
+        driverLicenseExpiry: secondDriver.driverLicenseExpiry?.trim() || '',
+        passportNumber: secondDriver.passportNumber?.trim() || '',
+        phone: secondDriver.phone?.trim() || '',
+      };
+    }
     if (notes !== undefined) booking.notes = notes;
     if (status) booking.status = status;
     if (paymentStatus) booking.paymentStatus = paymentStatus;
@@ -974,6 +1073,49 @@ export const updateBooking = async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to update reservation' });
+  }
+};
+
+export const assignBookingVehicle = async (req, res) => {
+  try {
+    const { bookingId, carId } = req.body;
+    const ownerId = req.user._id;
+
+    if (!mongoose.isValidObjectId(bookingId) || !mongoose.isValidObjectId(carId)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking or vehicle ID' });
+    }
+
+    const booking = await Booking.findOne({ _id: bookingId, owner: ownerId });
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const newCar = await Car.findOne({ _id: carId, owner: ownerId });
+    if (!newCar) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+    if (newCar.status === 'maintenance' || !newCar.isAvaliable) {
+      return res.status(409).json({ success: false, message: 'Vehicle is unavailable' });
+    }
+
+    const available = await checkAvailability(
+      carId,
+      booking.pickupDate,
+      booking.returnDate,
+      bookingId,
+    );
+    if (!available) {
+      return res.status(409).json({ success: false, message: 'Vehicle is already booked for these dates' });
+    }
+
+    booking.car = carId;
+    await booking.save();
+
+    const populated = await Booking.findById(bookingId).populate('car');
+    res.json({ success: true, message: 'Vehicle assigned', booking: populated });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to assign vehicle' });
   }
 };
 
@@ -1020,18 +1162,19 @@ export const exportOwnerBookings = async (req, res) => {
     const formatDateTime = (date) => (date ? new Date(date).toLocaleString() : '');
 
     const headers = [
-      'Reservation ID', 'Channel', 'Customer Name', 'Phone', 'Email', 'Vehicle', 'Category',
+      'Reservation ID', 'Channel', 'Customer Name', 'Phone', 'Email', 'Vehicle', 'License Plate', 'Category',
       'Pickup Location', 'Drop-off Location', 'Pickup Date', 'Return Date',
       'Total Amount', 'Payment Status', 'Reservation Status', 'Created At', 'Notes',
     ];
 
     const rows = bookings.map((b) => [
       b.reservationId || `RES-${b._id.toString().slice(-8).toUpperCase()}`,
-      b.channel === 'walk_in' ? 'Walk-in' : 'Online',
+      b.channel === 'walk_in' ? 'Walk-in' : b.channel === 'whatsapp' ? 'WhatsApp' : 'Online',
       b.customerName || '',
       b.customerPhone || '',
       b.customerEmail || '',
       b.car ? `${b.car.brand} ${b.car.model}` : '',
+      b.car?.licensePlate || '',
       b.car?.category || '',
       b.pickupLocation || '',
       b.returnLocation || '',

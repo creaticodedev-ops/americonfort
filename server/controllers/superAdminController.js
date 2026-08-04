@@ -18,6 +18,7 @@ import {
   TRIAL_DAYS,
 } from '../services/licenseService.js';
 import { escapeRegex } from '../utils/helpers.js';
+import { normalizeEmail, findUserByEmail } from '../utils/emailUtils.js';
 
 const generateToken = (user) =>
   jwt.sign(
@@ -61,7 +62,8 @@ export const superAdminLogin = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const normalizedEmail = normalizeEmail(email);
+    const user = await findUserByEmail(User, normalizedEmail);
     if (!user || user.role !== 'superadmin') {
       return res.status(401).json({ success: false, message: 'Invalid Super Admin credentials' });
     }
@@ -310,9 +312,20 @@ export const updateAdmin = async (req, res) => {
       }
     }
     if (permissions !== undefined) {
-      admin.permissions = Array.isArray(permissions)
+      const normalizedPermissions = Array.isArray(permissions)
         ? permissions.filter((p) => OWNER_PERMISSIONS.includes(p))
         : [];
+
+      const oldPermissions = Array.isArray(admin.permissions) ? admin.permissions : [];
+      const permissionsChanged =
+        normalizedPermissions.length !== oldPermissions.length ||
+        normalizedPermissions.some((p) => !oldPermissions.includes(p)) ||
+        oldPermissions.some((p) => !normalizedPermissions.includes(p));
+
+      admin.permissions = normalizedPermissions;
+      if (permissionsChanged) {
+        admin.tokenVersion = (admin.tokenVersion || 0) + 1;
+      }
     }
 
     await admin.save();
@@ -388,9 +401,21 @@ export const setAdminPermissions = async (req, res) => {
     if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
 
     const { permissions } = req.body;
-    admin.permissions = Array.isArray(permissions)
+    const normalizedPermissions = Array.isArray(permissions)
       ? permissions.filter((p) => OWNER_PERMISSIONS.includes(p))
       : [];
+
+    const oldPermissions = Array.isArray(admin.permissions) ? admin.permissions : [];
+    const permissionsChanged =
+      normalizedPermissions.length !== oldPermissions.length ||
+      normalizedPermissions.some((p) => !oldPermissions.includes(p)) ||
+      oldPermissions.some((p) => !normalizedPermissions.includes(p));
+
+    admin.permissions = normalizedPermissions;
+    if (permissionsChanged) {
+      admin.tokenVersion = (admin.tokenVersion || 0) + 1;
+    }
+
     await admin.save();
     await audit(
       req.user,

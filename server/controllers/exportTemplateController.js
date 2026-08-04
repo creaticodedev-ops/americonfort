@@ -5,6 +5,8 @@ import {
   DEFAULT_CONTRACT_BODY,
   DEFAULT_CONTRACT_HEADER,
   DEFAULT_CONTRACT_FOOTER,
+  DEFAULT_CONTRACT_CUSTOM_CSS,
+  DEFAULT_CONTRACT_TERMS_HTML,
   DEFAULT_INVOICE_BODY,
 } from '../services/defaultTemplates.js';
 import { publicUploadUrl } from '../services/pdfDocuments.js';
@@ -14,39 +16,106 @@ import { fileURLToPath } from 'url';
 import { cleanupUploadedFile } from '../middleware/multer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOGO_DIR = path.join(__dirname, '..', 'uploads', 'templates');
+const TEMPLATE_ASSET_DIR = path.join(__dirname, '..', 'uploads', 'templates');
 
-const ensureLogoDir = () => {
-  if (!fs.existsSync(LOGO_DIR)) fs.mkdirSync(LOGO_DIR, { recursive: true });
+const ensureTemplateAssetDir = () => {
+  if (!fs.existsSync(TEMPLATE_ASSET_DIR)) fs.mkdirSync(TEMPLATE_ASSET_DIR, { recursive: true });
 };
 
-/** Seed default contract + invoice templates for an owner if none exist */
-export const ensureDefaultTemplates = async (ownerId) => {
-  const count = await ExportTemplate.countDocuments({ owner: ownerId });
-  if (count > 0) return;
+const persistTemplateAsset = (templateId, uploadedFile, kind) => {
+  ensureTemplateAssetDir();
+  const ext = path.extname(uploadedFile.originalname || '') || '.png';
+  const safeExt = ext.includes('.') ? ext : '.png';
+  const fileName = `${kind}-${templateId}${safeExt}`;
+  const destPath = path.join(TEMPLATE_ASSET_DIR, fileName);
+  if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+  fs.renameSync(uploadedFile.path, destPath);
+  return destPath;
+};
 
-  await ExportTemplate.insertMany([
-    {
-      owner: ownerId,
-      name: 'Standard Rental Contract',
-      type: 'contract',
-      headerHtml: DEFAULT_CONTRACT_HEADER,
-      bodyHtml: DEFAULT_CONTRACT_BODY,
-      footerHtml: DEFAULT_CONTRACT_FOOTER,
-      isDefault: true,
-      isActive: true,
-    },
-    {
-      owner: ownerId,
-      name: 'Standard Invoice',
-      type: 'invoice',
-      headerHtml: DEFAULT_CONTRACT_HEADER,
-      bodyHtml: DEFAULT_INVOICE_BODY,
-      footerHtml: DEFAULT_CONTRACT_FOOTER,
-      isDefault: true,
-      isActive: true,
-    },
-  ]);
+const BUILTIN_CONTRACT_VERSION = 5;
+const BUILTIN_INVOICE_VERSION = 2;
+
+/** Seed / refresh built-in default contract + invoice for an owner */
+export const ensureDefaultTemplates = async (ownerId) => {
+  const contractDefaults = {
+    name: 'Contrat de Location',
+    type: 'contract',
+    headerHtml: DEFAULT_CONTRACT_HEADER,
+    bodyHtml: DEFAULT_CONTRACT_BODY,
+    termsHtml: DEFAULT_CONTRACT_TERMS_HTML,
+    footerHtml: DEFAULT_CONTRACT_FOOTER,
+    customCss: DEFAULT_CONTRACT_CUSTOM_CSS,
+    pageSize: 'A4',
+    isDefault: true,
+    isActive: true,
+    templateVersion: BUILTIN_CONTRACT_VERSION,
+    systemKey: 'builtin_contract',
+  };
+
+  const invoiceDefaults = {
+    name: 'Facture Standard',
+    type: 'invoice',
+    headerHtml: DEFAULT_CONTRACT_HEADER,
+    bodyHtml: DEFAULT_INVOICE_BODY,
+    footerHtml: DEFAULT_CONTRACT_FOOTER,
+    customCss: DEFAULT_CONTRACT_CUSTOM_CSS,
+    pageSize: 'A4',
+    isDefault: true,
+    isActive: true,
+    templateVersion: BUILTIN_INVOICE_VERSION,
+    systemKey: 'builtin_invoice',
+  };
+
+  const upsertBuiltin = async (systemKey, defaults) => {
+    let doc = await ExportTemplate.findOne({ owner: ownerId, systemKey });
+    if (!doc) {
+      await ExportTemplate.create({ owner: ownerId, ...defaults });
+      return;
+    }
+    // Only auto-sync built-in HTML when we bump BUILTIN_*_VERSION — never overwrite admin edits on every PDF.
+    if ((doc.templateVersion || 0) < defaults.templateVersion) {
+      await ExportTemplate.updateOne({ _id: doc._id }, { $set: defaults });
+    }
+  };
+
+  await upsertBuiltin('builtin_contract', contractDefaults);
+  await upsertBuiltin('builtin_invoice', invoiceDefaults);
+
+  // Ensure exactly one active default per document type.
+  const normalizeDefaults = async (type, builtinKey) => {
+    const activeDefaults = await ExportTemplate.find({ owner: ownerId, type, isDefault: true, isActive: true }).sort({ updatedAt: -1 }).lean();
+    if (activeDefaults.length === 0) {
+      await ExportTemplate.updateOne(
+        { owner: ownerId, type, systemKey: builtinKey },
+        { $set: { isDefault: true } }
+      );
+      return;
+    }
+
+    const userDefaults = activeDefaults.filter((item) => item.systemKey !== builtinKey);
+    const keep = userDefaults.length > 0 ? userDefaults[0] : activeDefaults[0];
+    const disableIds = activeDefaults
+      .filter((item) => item._id.toString() !== keep._id.toString())
+      .map((item) => item._id);
+
+    if (disableIds.length > 0) {
+      await ExportTemplate.updateMany(
+        { _id: { $in: disableIds } },
+        { $set: { isDefault: false } }
+      );
+    }
+
+    if (keep.systemKey === builtinKey) {
+      await ExportTemplate.updateOne(
+        { owner: ownerId, type, systemKey: builtinKey },
+        { $set: { isDefault: true } }
+      );
+    }
+  };
+
+  await normalizeDefaults('contract', 'builtin_contract');
+  await normalizeDefaults('invoice', 'builtin_invoice');
 };
 
 export const listExportTemplates = async (req, res) => {
@@ -88,7 +157,7 @@ export const getExportTemplate = async (req, res) => {
 
 export const createExportTemplate = async (req, res) => {
   try {
-    const { name, type, headerHtml, bodyHtml, footerHtml, customCss, pageSize, isDefault } = req.body;
+    const { name, type, headerHtml, bodyHtml, termsHtml, footerHtml, customCss, pageSize, isDefault } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ success: false, message: 'Template name is required' });
@@ -109,6 +178,7 @@ export const createExportTemplate = async (req, res) => {
       type: templateType,
       headerHtml: headerHtml || '',
       bodyHtml: bodyHtml || '',
+      termsHtml: termsHtml || '',
       footerHtml: footerHtml || '',
       customCss: customCss || '',
       pageSize: pageSize === 'Letter' ? 'Letter' : 'A4',
@@ -133,12 +203,13 @@ export const updateExportTemplate = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
-    const { name, type, headerHtml, bodyHtml, footerHtml, customCss, pageSize, isDefault, isActive } = req.body;
+    const { name, type, headerHtml, bodyHtml, termsHtml, footerHtml, customCss, pageSize, isDefault, isActive } = req.body;
 
     if (name !== undefined) template.name = String(name).trim();
     if (type !== undefined && ['contract', 'invoice', 'custom'].includes(type)) template.type = type;
     if (headerHtml !== undefined) template.headerHtml = headerHtml;
     if (bodyHtml !== undefined) template.bodyHtml = bodyHtml;
+    if (termsHtml !== undefined) template.termsHtml = termsHtml;
     if (footerHtml !== undefined) template.footerHtml = footerHtml;
     if (customCss !== undefined) template.customCss = customCss;
     if (pageSize !== undefined) template.pageSize = pageSize === 'Letter' ? 'Letter' : 'A4';
@@ -199,12 +270,7 @@ export const uploadTemplateLogo = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
-    ensureLogoDir();
-    const ext = path.extname(req.file.originalname) || '.png';
-    const fileName = `logo-${template._id}${ext}`;
-    const destPath = path.join(LOGO_DIR, fileName);
-
-    fs.renameSync(req.file.path, destPath);
+    const destPath = persistTemplateAsset(template._id, req.file, 'logo');
     template.logoUrl = publicUploadUrl(destPath);
     await template.save();
 
@@ -213,6 +279,34 @@ export const uploadTemplateLogo = async (req, res) => {
     cleanupUploadedFile(req.file);
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to upload logo' });
+  }
+};
+
+export const uploadTemplateSignature = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Signature image is required' });
+    }
+
+    const template = await ExportTemplate.findOne({
+      _id: req.params.id,
+      owner: req.user._id,
+    });
+
+    if (!template) {
+      cleanupUploadedFile(req.file);
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    const destPath = persistTemplateAsset(template._id, req.file, 'signature');
+    template.companySignatureUrl = publicUploadUrl(destPath);
+    await template.save();
+
+    res.json({ success: true, message: 'Signature uploaded', companySignatureUrl: template.companySignatureUrl, template });
+  } catch (error) {
+    cleanupUploadedFile(req.file);
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to upload signature' });
   }
 };
 
@@ -243,7 +337,7 @@ export const previewTemplate = async (req, res) => {
     }
 
     const { buildTemplateVariables, buildDocumentHtml } = await import('../services/templateEngine.js');
-    const variables = buildTemplateVariables(booking || {}, { owner: req.user });
+    const variables = buildTemplateVariables(booking || {}, { owner: req.user, template });
     const html = buildDocumentHtml(template, variables);
 
     res.json({ success: true, html, variables });
@@ -260,6 +354,7 @@ export default {
   updateExportTemplate,
   deleteExportTemplate,
   uploadTemplateLogo,
+  uploadTemplateSignature,
   getTemplateVariables,
   previewTemplate,
   ensureDefaultTemplates,

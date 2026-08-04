@@ -4,12 +4,14 @@ import { assets } from '../assets/assets'
 import Loader from '../components/Loader'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
 import { formatLocationsDisplay, getCarLocations } from '../utils/carLocations'
 import { calculateBookingPricePreview } from '../utils/pricing'
-import PhoneInput, { isPhoneValid } from '../components/PhoneInput'
+import { isPhoneValid } from '../components/PhoneInput'
+import { buildGuestReservationWaUrl } from '../utils/whatsapp'
+import ReservationPanel from '../components/reservation/ReservationPanel'
 
 const toDateTimeLocal = (value) => {
   if (!value) return ''
@@ -22,73 +24,6 @@ const formatFeeLabel = (location, currency, freeLabel) => {
   const base = `${location.name} — ${location.address}`
   if (fee <= 0) return `${base} (${freeLabel})`
   return `${base} (+${currency}${fee})`
-}
-
-const PriceBreakdown = ({ breakdown, currency, t }) => {
-  if (!breakdown?.ready) {
-    return (
-      <div className="rounded-xl border border-dashed border-borderColor bg-light/60 px-4 py-3 text-sm text-gray-500">
-        {t('carDetails.priceHint')}
-      </div>
-    )
-  }
-
-  const rows = [
-    {
-      key: 'rental',
-      label: t('carDetails.rentalPrice'),
-      hint: breakdown.days > 0
-        ? t('carDetails.rentalDays', { days: breakdown.days, rate: `${currency}${breakdown.pricePerDay}` })
-        : '',
-      amount: breakdown.rentalPrice,
-    },
-    {
-      key: 'pickup',
-      label: t('carDetails.pickupDeliveryFee'),
-      amount: breakdown.pickupDeliveryFee,
-      free: breakdown.pickupDeliveryFee <= 0,
-    },
-    {
-      key: 'dropoff',
-      label: t('carDetails.dropoffDeliveryFee'),
-      amount: breakdown.dropoffDeliveryFee,
-      free: breakdown.dropoffDeliveryFee <= 0,
-    },
-  ]
-
-  return (
-    <div className="rounded-xl border border-borderColor bg-light/40 px-4 py-4 space-y-2.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {t('carDetails.priceBreakdown')}
-      </p>
-      {rows.map((row) => (
-        <div key={row.key} className="flex items-start justify-between gap-3 text-sm">
-          <div className="min-w-0">
-            <p className="text-gray-700">{row.label}</p>
-            {row.hint && <p className="text-xs text-gray-400 mt-0.5">{row.hint}</p>}
-          </div>
-          <p className="font-medium text-gray-800 whitespace-nowrap">
-            {row.free ? t('carDetails.free') : `${currency}${row.amount}`}
-          </p>
-        </div>
-      ))}
-
-      {breakdown.discountTotal > 0 && (
-        <div className="flex items-center justify-between gap-3 text-sm text-green-700">
-          <p>{t('carDetails.discounts')}</p>
-          <p className="font-medium whitespace-nowrap">−{currency}{breakdown.discountTotal}</p>
-        </div>
-      )}
-
-      <div className="border-t border-borderColor pt-3 mt-1 flex items-center justify-between gap-3">
-        <p className="font-semibold text-gray-900">{t('carDetails.finalTotal')}</p>
-        <p className="text-xl font-semibold text-primary whitespace-nowrap">
-          {currency}{breakdown.total}
-        </p>
-      </div>
-      <p className="text-[11px] text-gray-400 leading-relaxed">{t('carDetails.noHiddenFees')}</p>
-    </div>
-  )
 }
 
 const CarDetails = () => {
@@ -140,15 +75,15 @@ const CarDetails = () => {
     if (returnDate && /^\d{4}-\d{2}-\d{2}$/.test(returnDate)) {
       setReturnDate(`${returnDate}T10:00`)
     }
-  }, [])
+  }, [pickupDate, returnDate, setPickupDate, setReturnDate])
 
   const pickupLoc = useMemo(
     () => pickupLocations.find((l) => l._id === form.pickupLocationId),
-    [pickupLocations, form.pickupLocationId]
+    [pickupLocations, form.pickupLocationId],
   )
   const returnLoc = useMemo(
     () => pickupLocations.find((l) => l._id === form.returnLocationId),
-    [pickupLocations, form.returnLocationId]
+    [pickupLocations, form.returnLocationId],
   )
 
   const bookableLocations = useMemo(() => {
@@ -172,10 +107,7 @@ const CarDetails = () => {
     })
   }, [car, pickupDate, returnDate, pickupLoc, returnLoc])
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (submitting) return
-
+  const submitReservation = async ({ channel = 'whatsapp' } = {}) => {
     const pickup = toDateTimeLocal(pickupDate)
     const ret = toDateTimeLocal(returnDate)
     if (new Date(ret) <= new Date(pickup)) {
@@ -203,6 +135,7 @@ const CarDetails = () => {
         pickupLocationId: form.pickupLocationId,
         returnLocationId: form.returnLocationId,
         notes: form.notes,
+        channel,
       })
 
       if (data.success) {
@@ -219,6 +152,12 @@ const CarDetails = () => {
           returnDate: ret,
           pickupLocation: pickupLoc ? `${pickupLoc.name} - ${pickupLoc.address}` : '',
           returnLocation: returnLoc ? `${returnLoc.name} - ${returnLoc.address}` : '',
+          channel: data.channel || channel,
+          notes: form.notes,
+        }
+        if (channel === 'whatsapp') {
+          const url = data.whatsappUrl || buildGuestReservationWaUrl(confirmation, { currency: currency.trim() })
+          window.open(url, '_blank', 'noopener,noreferrer')
         }
         sessionStorage.setItem('lastReservation', JSON.stringify(confirmation))
         navigate('/booking-confirmation', { state: confirmation })
@@ -232,176 +171,110 @@ const CarDetails = () => {
     }
   }
 
-  const minDateTime = new Date().toISOString().slice(0, 16)
+  const minDate = new Date()
 
   if (notFound) {
     return (
       <div className="page-pad page-shell mt-10 sm:mt-16 text-center pb-16">
         <h1 className="text-2xl font-semibold text-gray-800">Vehicle not found</h1>
-        <button onClick={() => navigate('/cars')} className="mt-4 text-primary cursor-pointer">{t('carDetails.back')}</button>
+        <button type="button" onClick={() => navigate('/cars')} className="mt-4 text-primary cursor-pointer">{t('carDetails.back')}</button>
       </div>
     )
   }
 
   if (!car) return <Loader />
 
+  const specs = [
+    { icon: assets.users_icon, text: t('carDetails.seats', { count: car.seating_capacity }) },
+    { icon: assets.fuel_icon, text: car.fuel_type },
+    { icon: assets.car_icon, text: car.transmission },
+    { icon: assets.location_icon, text: formatLocationsDisplay(car) },
+  ]
+
   return (
-    <div className="page-pad page-shell mt-8 sm:mt-12 md:mt-16 pb-16 sm:pb-24">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 mb-5 sm:mb-6 text-gray-500 cursor-pointer text-sm sm:text-base">
-        <img src={assets.arrow_icon} alt="" className="rotate-180 opacity-65 w-4" />
+    <div className="page-pad page-shell mt-6 sm:mt-10 md:mt-12 pb-16 sm:pb-20 bg-gradient-to-b from-white to-sand/30 min-h-screen">
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-6 flex items-center gap-2 text-sm text-gray-500 transition hover:text-gray-800 cursor-pointer"
+      >
+        <img src={assets.arrow_icon} alt="" className="w-4 rotate-180 opacity-60" />
         {t('carDetails.back')}
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="lg:col-span-2 min-w-0 order-2 md:order-1"
-        >
-          <motion.img
-            initial={{ scale: 0.98, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            src={car.image || car.images?.[0] || fallbackImage}
-            onError={(e) => { e.currentTarget.src = fallbackImage }}
-            alt=""
-            className="w-full h-auto max-h-[280px] sm:max-h-[380px] md:max-h-[440px] lg:max-h-[520px] object-cover rounded-xl mb-6 shadow-md"
-          />
-          <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
-            <div>
-              <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-medium break-words">{car.brand} {car.model}</h1>
-              <p className="text-gray-500 text-base sm:text-lg">{car.category} • {car.year}</p>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10 xl:gap-14">
+        <div className="order-2 lg:order-1 lg:col-span-7 xl:col-span-8 min-w-0">
+          <Motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+            <div className="overflow-hidden rounded-2xl bg-gray-100 shadow-sm ring-1 ring-gray-200/60">
+              <img
+                src={car.image || car.images?.[0] || fallbackImage}
+                onError={(e) => { e.currentTarget.src = fallbackImage }}
+                alt=""
+                className="aspect-[16/10] w-full object-cover sm:aspect-[16/9]"
+              />
             </div>
-            <hr className="border-borderColor my-6" />
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              {[
-                { icon: assets.users_icon, text: t('carDetails.seats', { count: car.seating_capacity }) },
-                { icon: assets.fuel_icon, text: car.fuel_type },
-                { icon: assets.car_icon, text: car.transmission },
-                { icon: assets.location_icon, text: formatLocationsDisplay(car) },
-              ].map(({ icon, text }) => (
-                <motion.div key={text} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex flex-col items-center bg-light p-3 sm:p-4 rounded-lg text-center text-xs sm:text-sm break-words">
-                  <img src={icon} alt="" className="h-5 mb-2" />
+            <div className="mt-6 sm:mt-8">
+              <p className="text-xs font-medium uppercase tracking-wider text-gray-400">{car.category}</p>
+              <h1 className="font-display mt-1 text-2xl font-medium text-gray-900 sm:text-3xl lg:text-4xl">
+                {car.brand} {car.model}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">{car.year}</p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {specs.map(({ icon, text }) => (
+                <span
+                  key={text}
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white px-3.5 py-2 text-xs font-medium text-gray-700 shadow-sm"
+                >
+                  <img src={icon} alt="" className="h-4 w-4 opacity-70" />
                   {text}
-                </motion.div>
+                </span>
               ))}
             </div>
 
-            <div>
-              <h1 className='text-xl font-medium mb-3'>{t('carDetails.description')}</h1>
-              <p className='text-gray-500'>{car.description}</p>
+            <div className="mt-10 grid gap-10 sm:grid-cols-2">
+              <section>
+                <h2 className="text-sm font-semibold text-gray-900">{t('carDetails.description')}</h2>
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">{car.description}</p>
+              </section>
+              <section>
+                <h2 className="text-sm font-semibold text-gray-900">{t('carDetails.features')}</h2>
+                <ul className="mt-3 space-y-2">
+                  {(car.features?.length ? car.features : ['360 Camera', 'Bluetooth', 'GPS', 'Heated Seats']).map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                      <img src={assets.check_icon} className="h-4 w-4 shrink-0" alt="" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </div>
+          </Motion.div>
+        </div>
 
-            <div>
-              <h1 className='text-xl font-medium mb-3'>{t('carDetails.features')}</h1>
-              <ul className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-                {(car.features?.length ? car.features : ['360 Camera', 'Bluetooth', 'GPS', 'Heated Seats', 'Rear View Mirror']).map((item) => (
-                  <li key={item} className='flex items-center text-gray-500'>
-                    <img src={assets.check_icon} className='h-4 mr-2' alt="" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        <motion.form
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.6 }}
-          onSubmit={handleSubmit}
-          className="shadow-lg h-max lg:sticky lg:top-24 rounded-xl p-5 sm:p-6 space-y-4 text-gray-500 max-h-none lg:max-h-[calc(100svh-7rem)] overflow-y-auto border border-gray-100 bg-white min-w-0 order-1 md:order-2"
-        >
-          <div className="flex flex-col min-[400px]:flex-row min-[400px]:items-start min-[400px]:justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-lg sm:text-xl font-semibold text-gray-800">{t('carDetails.bookingTitle')}</p>
-              <p className="text-sm text-gray-500">{t('carDetails.bookingSubtitle')}</p>
-            </div>
-            <p className="text-xl sm:text-2xl text-gray-800 font-semibold whitespace-nowrap shrink-0">
-              {currency}{car.pricePerDay}
-              <span className="text-sm sm:text-base text-gray-400 font-normal">{t('carDetails.perDay')}</span>
-            </p>
-          </div>
-
-          <hr className="border-borderColor" />
-
-          <div className="grid grid-cols-1 gap-3">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="fullName">{t('carDetails.fullName')}</label>
-              <input id="fullName" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} type="text" className="border border-borderColor px-3 py-2 rounded-lg w-full" required />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="phone">{t('carDetails.phone')}</label>
-              <PhoneInput
-                id="phone"
-                value={form.phone}
-                onChange={(phone) => setForm({ ...form, phone })}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="email">{t('carDetails.email')}</label>
-              <input id="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" className="border border-borderColor px-3 py-2 rounded-lg w-full" required />
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
-              <label htmlFor="pickupLocation">{t('carDetails.pickupLocation')}</label>
-              <select
-                id="pickupLocation"
-                value={form.pickupLocationId}
-                onChange={(e) => setForm({ ...form, pickupLocationId: e.target.value })}
-                className="border border-borderColor px-3 py-2 rounded-lg w-full max-w-full"
-                required
-              >
-                <option value="">{t('carDetails.selectPickup')}</option>
-                {bookableLocations.map((location) => (
-                  <option key={location._id} value={location._id}>
-                    {formatFeeLabel(location, currency, t('carDetails.free'))}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
-              <label htmlFor="returnLocation">{t('carDetails.dropoffLocation')}</label>
-              <select
-                id="returnLocation"
-                value={form.returnLocationId}
-                onChange={(e) => setForm({ ...form, returnLocationId: e.target.value })}
-                className="border border-borderColor px-3 py-2 rounded-lg w-full max-w-full"
-                required
-              >
-                <option value="">{t('carDetails.selectDropoff')}</option>
-                {bookableLocations.map((location) => (
-                  <option key={location._id} value={location._id}>
-                    {formatFeeLabel(location, currency, t('carDetails.free'))}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
-              <label htmlFor="pickup-date">{t('carDetails.pickupDateTime')}</label>
-              <input id="pickup-date" value={toDateTimeLocal(pickupDate)} onChange={(e) => setPickupDate(e.target.value)} type="datetime-local" className="border border-borderColor px-3 py-2 rounded-lg w-full min-w-0" required min={minDateTime} />
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
-              <label htmlFor="return-date">{t('carDetails.returnDateTime')}</label>
-              <input id="return-date" value={toDateTimeLocal(returnDate)} onChange={(e) => setReturnDate(e.target.value)} type="datetime-local" className="border border-borderColor px-3 py-2 rounded-lg w-full min-w-0" required min={toDateTimeLocal(pickupDate) || minDateTime} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="notes">{t('carDetails.notes')}</label>
-              <textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows="3" className="border border-borderColor px-3 py-2 rounded-lg w-full" />
-            </div>
-          </div>
-
-          <PriceBreakdown breakdown={priceBreakdown} currency={currency} t={t} />
-
-          <button disabled={submitting || !priceBreakdown?.ready} className='w-full bg-primary hover:bg-primary-dull transition-all py-3 font-medium text-white rounded-xl cursor-pointer disabled:opacity-60'>
-            {t('carDetails.submit')}
-          </button>
-
-          <p className='text-center text-sm'>{t('carDetails.noCard')}</p>
-        </motion.form>
+        <div className="order-1 lg:order-2 lg:col-span-5 xl:col-span-4 min-w-0">
+          <ReservationPanel
+            car={car}
+            form={form}
+            setForm={setForm}
+            pickupDate={pickupDate}
+            setPickupDate={setPickupDate}
+            returnDate={returnDate}
+            setReturnDate={setReturnDate}
+            bookableLocations={bookableLocations}
+            pickupLoc={pickupLoc}
+            returnLoc={returnLoc}
+            priceBreakdown={priceBreakdown}
+            currency={currency}
+            submitting={submitting}
+            onWhatsAppSubmit={() => submitReservation({ channel: 'whatsapp' })}
+            t={t}
+            formatFeeLabel={(loc) => formatFeeLabel(loc, currency, t('carDetails.free'))}
+            minDate={minDate}
+          />
+        </div>
       </div>
     </div>
   )

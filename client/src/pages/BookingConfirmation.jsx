@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Link, useLocation, Navigate } from 'react-router-dom'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 import { useAppContext } from '../context/AppContext'
 
@@ -71,7 +71,7 @@ const BookingConfirmation = () => {
   }
 
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -92,20 +92,37 @@ const BookingConfirmation = () => {
 
         <p className="mt-4 text-sm text-gray-500">{t('confirmation.saveNote')}</p>
 
-        <div className="mt-8 text-left text-sm text-gray-600 space-y-2 border-t border-borderColor pt-6">
-          {state.carName && <p><span className="font-medium text-gray-800">{t('confirmation.vehicle')}:</span> {state.carName}</p>}
-          {state.customerName && <p><span className="font-medium text-gray-800">{t('confirmation.name')}:</span> {state.customerName}</p>}
-          {state.email && <p><span className="font-medium text-gray-800">{t('confirmation.emailLabel')}:</span> {state.email}</p>}
-          {state.phone && <p><span className="font-medium text-gray-800">{t('confirmation.phoneLabel')}:</span> {state.phone}</p>}
-          {state.pickupLocation && <p><span className="font-medium text-gray-800">{t('confirmation.pickup')}:</span> {state.pickupLocation}</p>}
-          {state.returnLocation && <p><span className="font-medium text-gray-800">{t('confirmation.dropoff')}:</span> {state.returnLocation}</p>}
-          {state.pickupDate && <p><span className="font-medium text-gray-800">{t('confirmation.from')}:</span> {formatDisplay(state.pickupDate)}</p>}
-          {state.returnDate && <p><span className="font-medium text-gray-800">{t('confirmation.until')}:</span> {formatDisplay(state.returnDate)}</p>}
+        <div className="mt-8 text-left text-sm text-gray-600 border-t border-borderColor pt-6">
+          <div className="grid gap-y-3 gap-x-4 sm:grid-cols-[8rem_1fr]">
+            <div className="text-gray-500">{t('confirmation.vehicle')}:</div>
+            <div className="font-medium text-gray-800">{state.carName || '-'}</div>
+
+            <div className="text-gray-500">{t('confirmation.name')}:</div>
+            <div className="font-medium text-gray-800">{state.customerName || '-'}</div>
+
+            <div className="text-gray-500">{t('confirmation.emailLabel')}:</div>
+            <div className="font-medium text-gray-800">{state.email || '-'}</div>
+
+            <div className="text-gray-500">{t('confirmation.phoneLabel')}:</div>
+            <div className="font-medium text-gray-800">{state.phone || '-'}</div>
+
+            <div className="text-gray-500">{t('confirmation.pickup')}:</div>
+            <div className="font-medium text-gray-800">{state.pickupLocation || '-'}</div>
+
+            <div className="text-gray-500">{t('confirmation.dropoff')}:</div>
+            <div className="font-medium text-gray-800">{state.returnLocation || '-'}</div>
+
+            <div className="text-gray-500">{t('confirmation.from')}:</div>
+            <div className="font-medium text-gray-800">{state.pickupDate ? formatDisplay(state.pickupDate) : '-'}</div>
+
+            <div className="text-gray-500">{t('confirmation.until')}:</div>
+            <div className="font-medium text-gray-800">{state.returnDate ? formatDisplay(state.returnDate) : '-'}</div>
+          </div>
 
           {state.priceBreakdown ? (
-            <BreakdownRows breakdown={state.priceBreakdown} currency={currency} t={t} />
+            <div className="mt-6"><BreakdownRows breakdown={state.priceBreakdown} currency={currency} t={t} /></div>
           ) : state.price != null ? (
-            <p><span className="font-medium text-gray-800">{t('confirmation.total')}:</span> {currency}{state.price}</p>
+            <p className="mt-6"><span className="font-medium text-gray-800">{t('confirmation.total')}:</span> {currency}{state.price}</p>
           ) : null}
         </div>
 
@@ -119,7 +136,7 @@ const BookingConfirmation = () => {
         </div>
       </div>
       </div>
-    </motion.div>
+    </Motion.div>
   )
 }
 

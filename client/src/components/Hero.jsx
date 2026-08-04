@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 import DateRangePicker from './DateRangePicker'
 import CitySelect from './CitySelect'
-import toast from 'react-hot-toast'
+import { BRAND_NAME } from '../constants/brand'
 
 const Hero = () => {
   const [pickupLocation, setPickupLocation] = useState('')
@@ -48,14 +48,14 @@ const Hero = () => {
       </div>
 
       <div className="relative z-10 page-pad page-shell flex flex-col items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 md:pb-20">
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, ease: 'easeOut' }}
           className="text-center w-full max-w-3xl"
         >
           <p className="font-display text-primary text-5xl sm:text-6xl md:text-7xl font-medium leading-none tracking-tight">
-            HDN
+            
           </p>
           <h1 className="font-display text-ink text-3xl sm:text-4xl md:text-5xl font-medium mt-3 sm:mt-4 leading-tight">
             {t('hero.title')}
@@ -63,9 +63,9 @@ const Hero = () => {
           <p className="mt-3 sm:mt-4 text-muted text-sm sm:text-base md:text-lg font-light leading-relaxed max-w-xl mx-auto">
             {t('hero.subtitle')}
           </p>
-        </motion.div>
+        </Motion.div>
 
-        <motion.form
+        <Motion.form
           initial={{ opacity: 0, y: 22 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, delay: 0.12, ease: 'easeOut' }}
@@ -96,7 +96,7 @@ const Hero = () => {
               </div>
 
               <div className="p-3 md:p-2.5 md:pl-2 flex items-stretch">
-                <motion.button
+                <Motion.button
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.985 }}
                   type="submit"
@@ -107,7 +107,7 @@ const Hero = () => {
                     <path d="M20 20l-3.5-3.5" />
                   </svg>
                   {t('hero.search')}
-                </motion.button>
+                </Motion.button>
               </div>
             </div>
           </div>
@@ -115,9 +115,9 @@ const Hero = () => {
           <p className="mt-3.5 text-center text-xs sm:text-sm text-muted tracking-wide px-2 leading-relaxed">
             {t('hero.trustLine')}
           </p>
-        </motion.form>
+        </Motion.form>
 
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 36 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.22, ease: 'easeOut' }}
@@ -125,10 +125,10 @@ const Hero = () => {
         >
           <img
             src={assets.main_car}
-            alt="HDN premium rental"
+            alt={`${BRAND_NAME} premium rental`}
             className="w-full max-h-[200px] sm:max-h-[280px] md:max-h-[340px] object-contain select-none drop-shadow-[0_30px_60px_rgba(22,18,16,0.18)]"
           />
-        </motion.div>
+        </Motion.div>
       </div>
     </section>
   )

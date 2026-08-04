@@ -3,7 +3,7 @@ import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 
 const CONTACT_PHONE = '+212665330116'
-const CONTACT_EMAIL = 'contact@hdncar.com'
+const CONTACT_EMAIL = 'americonfort@gmail.com'
 const CONTACT_WHATSAPP = '212665330116'
 
 /**

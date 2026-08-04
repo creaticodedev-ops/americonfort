@@ -10,11 +10,16 @@ const exportTemplateSchema = new mongoose.Schema({
     index: true,
   },
   logoUrl: { type: String, default: '' },
+  companySignatureUrl: { type: String, default: '' },
   headerHtml: { type: String, default: '' },
   bodyHtml: { type: String, default: '' },
+  termsHtml: { type: String, default: '' },
   footerHtml: { type: String, default: '' },
   customCss: { type: String, default: '' },
   pageSize: { type: String, enum: ['A4', 'Letter'], default: 'A4' },
+  /** Built-in template key — synced from code on each ensureDefaultTemplates call */
+  systemKey: { type: String, default: '', index: true },
+  templateVersion: { type: Number, default: 0 },
   isDefault: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });

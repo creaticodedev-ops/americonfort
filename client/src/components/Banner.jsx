@@ -1,6 +1,6 @@
 import React from 'react'
 import { assets } from '../assets/assets'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 import { useNavigate } from 'react-router-dom'
 
@@ -10,7 +10,7 @@ const Banner = () => {
 
   return (
     <section className="page-pad page-shell py-8 md:py-12">
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 32 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
@@ -37,7 +37,7 @@ const Banner = () => {
           <p className="mt-4 text-white/65 text-sm md:text-base leading-relaxed font-light max-w-md">
             {t('banner.line1')}
           </p>
-          <motion.button
+          <Motion.button
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.98 }}
             type="button"
@@ -45,9 +45,9 @@ const Banner = () => {
             className="mt-7 self-start px-6 py-2.5 bg-primary hover:bg-primary-dull transition-colors text-white rounded-xl text-sm tracking-wide cursor-pointer"
           >
             {t('banner.cta')}
-          </motion.button>
+          </Motion.button>
         </div>
-      </motion.div>
+      </Motion.div>
     </section>
   )
 }

@@ -93,7 +93,9 @@ const CitySelect = ({ value, onChange, options = [], label, placeholder, classNa
   }, [open])
 
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus()
+    if (open && inputRef.current) {
+      inputRef.current.focus({ preventScroll: true })
+    }
   }, [open])
 
   const select = (city) => {

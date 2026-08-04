@@ -3,6 +3,7 @@ import {
   syncLicenseStatus,
   LICENSE_EXPIRED_CODE,
 } from '../services/licenseService.js';
+import { BRAND_NAME } from '../utils/brand.js';
 
 /**
  * Ensures the authenticated user is the agency owner AND has an active license/trial.
@@ -18,7 +19,7 @@ export const requireOwner = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         code: 'ACCOUNT_LOCKED',
-        message: 'This admin account has been suspended or disabled. Contact HDN Car Rental.',
+        message: `This admin account has been suspended or disabled. Contact ${BRAND_NAME}.`,
       });
     }
 
@@ -29,7 +30,7 @@ export const requireOwner = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         code: LICENSE_EXPIRED_CODE,
-        message: 'Your trial has expired. Contact HDN Car Rental to activate the full version.',
+        message: `Your trial has expired. Contact ${BRAND_NAME} to activate the full version.`,
         license: {
           licenseStatus: evaluation.status,
           trialEndsAt: evaluation.trialEndsAt,

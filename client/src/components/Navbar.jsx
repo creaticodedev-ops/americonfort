@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react'
 import { assets, menuLinks } from '../assets/assets'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from '../i18n/I18nContext'
+import { BRAND_NAME } from '../constants/brand'
 
 const Navbar = () => {
-  const { setShowLogin, logout, isOwner } = useAppContext()
+  const { logout, isOwner } = useAppContext()
   const { t } = useI18n()
   const location = useLocation()
   const [open, setOpen] = useState(false)
@@ -48,7 +49,7 @@ const Navbar = () => {
   const solid = !isHome || scrolled || open
 
   return (
-    <motion.header
+    <Motion.header
       initial={{ y: -16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -60,11 +61,11 @@ const Navbar = () => {
     >
       <div className="page-pad page-shell flex items-center justify-between gap-4 py-3.5 sm:py-4">
         <Link to="/" className="relative z-10 shrink-0 flex items-center">
-          <motion.img
+          <Motion.img
             whileHover={{ scale: 1.03 }}
             src={assets.logo}
-            alt="HDN Car Rental"
-            className="block h-7 sm:h-8 w-auto max-h-8 object-contain"
+            alt={BRAND_NAME}
+            className="block h-8 sm:h-9 lg:h-10 w-auto max-h-9 lg:max-h-10 object-contain"
           />
         </Link>
 
@@ -97,15 +98,7 @@ const Navbar = () => {
                 {t('nav.logout')}
               </button>
             </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowLogin(true)}
-              className="cursor-pointer px-5 py-2.5 rounded-xl text-sm transition-all bg-primary hover:bg-primary-dull text-white whitespace-nowrap"
-            >
-              {t('nav.admin')}
-            </button>
-          )}
+          ) : null}
         </nav>
 
         <button
@@ -165,23 +158,12 @@ const Navbar = () => {
                     {t('nav.logout')}
                   </button>
                 </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLogin(true)
-                    setOpen(false)
-                  }}
-                  className="cursor-pointer px-5 py-2.5 rounded-xl text-sm transition-all bg-primary hover:bg-primary-dull text-white"
-                >
-                  {t('nav.admin')}
-                </button>
-              )}
+              ) : null}
             </div>
           </nav>
         </>
       )}
-    </motion.header>
+    </Motion.header>
   )
 }
 

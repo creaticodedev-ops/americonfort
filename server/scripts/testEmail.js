@@ -23,7 +23,7 @@ if (!to) {
 console.log(`\n=== Sending test email to ${to} ===`);
 const result = await sendEmail({
   to,
-  subject: "HDN Car Rental — SMTP test",
+  subject: "Americonfort — SMTP test",
   html: `<p>SMTP test at ${new Date().toISOString()}</p><p>If you see this, delivery works.</p>`,
 });
 console.log(result);

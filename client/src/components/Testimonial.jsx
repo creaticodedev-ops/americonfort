@@ -1,7 +1,7 @@
 import React from 'react'
 import Title from './Title'
 import { assets } from '../assets/assets'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'framer-motion'
 import { useI18n } from '../i18n/I18nContext'
 
 const Testimonial = () => {
@@ -18,7 +18,7 @@ const Testimonial = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-12 mt-14 md:mt-16 max-w-6xl mx-auto">
         {testimonials.map((item, index) => (
-          <motion.blockquote
+          <Motion.blockquote
             key={index}
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -40,7 +40,7 @@ const Testimonial = () => {
               <p className="text-sm font-medium text-ink">{item.name}</p>
               <p className="text-xs text-muted mt-0.5 tracking-wide">{item.location}</p>
             </footer>
-          </motion.blockquote>
+          </Motion.blockquote>
         ))}
       </div>
     </section>

@@ -1,7 +1,7 @@
-import React from "react";
-import { assets } from "../assets/assets";
-import { motion } from "motion/react";
-import { useI18n } from "../i18n/I18nContext";
+import React from 'react'
+import { assets } from '../assets/assets'
+import { motion as Motion } from 'framer-motion'
+import { useI18n } from '../i18n/I18nContext'
 import { Link } from "react-router-dom";
 
 const fadeUp = (delay = 0) => ({
@@ -15,23 +15,23 @@ const Footer = () => {
 
   return (
     <footer className="page-pad page-shell mt-8 md:mt-16 text-sm text-muted bg-light">
-      <motion.div
+      <Motion.div
         {...fadeUp(0)}
         className="flex flex-col md:flex-row flex-wrap justify-between items-start gap-10 pb-10 border-b border-borderColor"
       >
         <div className="max-w-sm w-full">
-          <motion.img
+          <Motion.img
             {...fadeUp(0.2)}
             src={assets.logo}
             alt="logo"
-            className="block h-8 sm:h-9 mb-3 w-auto max-h-9 object-contain"
+            className="block h-9 sm:h-10 lg:h-11 mb-3 w-auto max-h-10 lg:max-h-11 object-contain"
           />
 
-          <motion.p {...fadeUp(0.3)} className="leading-relaxed">
+          <Motion.p {...fadeUp(0.3)} className="leading-relaxed">
             {t('footer.description')}
-          </motion.p>
+          </Motion.p>
 
-          <motion.div
+          <Motion.div
             {...fadeUp(0.4)}
             className="flex items-center gap-4 mt-6"
           >
@@ -42,10 +42,10 @@ const Footer = () => {
                 </a>
               )
             )}
-          </motion.div>
+          </Motion.div>
         </div>
 
-        <motion.div
+        <Motion.div
           {...fadeUp(0.3)}
           className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-10 w-full md:w-auto md:flex-1 md:max-w-2xl"
         >
@@ -82,22 +82,23 @@ const Footer = () => {
               {t('footer.contact')}
             </h2>
             <ul className="mt-4 flex flex-col gap-2 break-words">
-              <li>1234 HDN CAR</li>
-              <li>SAFI, MAROC </li>
-              <li>+212665330116</li>
-              <li>contact@hdncar.com</li>
+              <li>Aéroport international Mohamed V</li>
+              <li>Casablanca, Maroc</li>
+              <li>+212 6 70 55 10 55</li>
+              <li>americonfort@gmail.com</li>
             </ul>
           </div>
-        </motion.div>
-      </motion.div>
+        </Motion.div>
+      </Motion.div>
 
-      <motion.div
+      <Motion.div
         {...fadeUp(0.5)}
         className="flex flex-col md:flex-row gap-3 items-center justify-between py-6 text-gray-600 text-center md:text-left"
       >
         <p className="text-xs sm:text-sm">© {new Date().getFullYear()} ZAKARIA DOUAMI. {t('footer.rights')}</p>
 
-        <ul className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs sm:text-sm">
+        <div className="flex flex-col items-center gap-2 md:items-end">
+          <ul className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs sm:text-sm">
           {[t('footer.privacy'), t('footer.terms'), t('footer.cookies')].map((item, i) => (
             <React.Fragment key={item}>
               <li>
@@ -108,8 +109,15 @@ const Footer = () => {
               {i < 2 && <span className="text-borderColor" aria-hidden>|</span>}
             </React.Fragment>
           ))}
-        </ul>
-      </motion.div>
+          </ul>
+          <Link
+            to="/owner"
+            className="text-[10px] text-gray-400/70 hover:text-gray-500 transition tracking-wide"
+          >
+            {t('footer.staffPortal')}
+          </Link>
+        </div>
+      </Motion.div>
     </footer>
   );
 };
