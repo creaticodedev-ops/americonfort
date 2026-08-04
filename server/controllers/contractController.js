@@ -240,11 +240,14 @@ export const generateContract = async (req, res) => {
       contract,
     });
   } catch (error) {
-    console.error(error.message);
+    console.error('Contract generation failed:', error);
     if (error.code === 11000) {
       return res.status(409).json({ success: false, message: 'Contract number conflict, please retry' });
     }
-    res.status(500).json({ success: false, message: 'Failed to generate contract' });
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to generate contract',
+    });
   }
 };
 

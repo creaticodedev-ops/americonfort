@@ -220,7 +220,7 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     signatureComplete: booking.completion?.signatureComplete,
   });
 
-  // Always use the Admin-selected default contract template (SSOT). No hardcoded PDF fallback.
+  // Always use the Admin-selected default contract template (SSOT).
   await ensureDefaultTemplates(booking.owner);
   booking = await Booking.findById(bookingId).populate('car').populate('owner');
   const template = await getDefaultContractTemplate(booking.owner);
@@ -229,18 +229,23 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     throw new Error('No contract template found. Set a default contract template in Admin → Export Templates.');
   }
 
-  console.log('[FINALIZE] Template found:', template._id);
   const contractNumber = booking.reservationId || `CTR-${booking._id.toString().slice(-8).toUpperCase()}`;
-  console.log('[FINALIZE] Generating contract with booking signature:', booking.completion?.signatureUrl);
-  const contractResult = await generateContractPdf({
-    template,
-    booking: booking.toObject ? booking.toObject() : booking,
-    contractNumber,
-    owner: booking.owner,
-  });
+  let contractResult;
+  try {
+    contractResult = await generateContractPdf({
+      template,
+      booking: booking.toObject ? booking.toObject() : booking,
+      contractNumber,
+      owner: booking.owner,
+    });
+  } catch (pdfError) {
+    console.error('[FINALIZE] Contract PDF failed:', pdfError);
+    const err = new Error(pdfError.message || 'Contract PDF generation failed');
+    err.cause = pdfError;
+    throw err;
+  }
   contractPath = contractResult.filePath;
   contractPdfUrl = contractResult.pdfUrl;
-  console.log('[FINALIZE] Contract generated successfully');
 
   booking.completion.contractPdfUrl = contractPdfUrl || publicUploadUrl(contractPath);
   delete booking.completion.invoicePdfUrl;

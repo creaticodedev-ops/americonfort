@@ -33,15 +33,79 @@ const htmlToPlainText = (html) => {
     .trim();
 };
 
-const renderHtmlToPdf = async (html, filePath, pageSize = 'A4') => {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+const mimeFromUrlOrPath = (value = '') => {
+  const lower = String(value).toLowerCase();
+  if (lower.includes('.png') || lower.includes('image/png')) return 'image/png';
+  if (lower.includes('.webp') || lower.includes('image/webp')) return 'image/webp';
+  if (lower.includes('.gif') || lower.includes('image/gif')) return 'image/gif';
+  return 'image/jpeg';
+};
+
+/**
+ * Embed remote <img src="http(s):..."> as data URIs so PDF rendering does not
+ * depend on networkidle / external CDN availability.
+ */
+const embedRemoteImagesAsDataUris = async (html) => {
+  const matches = [...String(html || '').matchAll(/<img\b[^>]*\bsrc=["'](https?:\/\/[^"']+)["'][^>]*>/gi)];
+  if (!matches.length) return html;
+
+  const uniqueUrls = [...new Set(matches.map((m) => m[1]))];
+  const replacements = new Map();
+
+  await Promise.all(
+    uniqueUrls.map(async (url) => {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12_000);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) return;
+        const contentType = (res.headers.get('content-type') || mimeFromUrlOrPath(url)).split(';')[0].trim();
+        if (!contentType.startsWith('image/')) return;
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (!buf.length || buf.length > 8 * 1024 * 1024) return;
+        replacements.set(url, `data:${contentType};base64,${buf.toString('base64')}`);
+      } catch (error) {
+        console.warn('[PDF_GEN] Could not embed remote image:', url.slice(0, 120), error.message);
+      }
+    }),
+  );
+
+  let next = html;
+  for (const [url, dataUri] of replacements.entries()) {
+    next = next.split(url).join(dataUri);
+  }
+  return next;
+};
+
+const launchBrowser = async () => {
+  const executablePath =
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    process.env.CHROME_PATH ||
+    undefined;
+
+  return puppeteer.launch({
+    headless: true,
+    executablePath: executablePath || undefined,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--font-render-hinting=none',
+    ],
   });
+};
+
+const renderHtmlToPdf = async (html, filePath, pageSize = 'A4') => {
+  const preparedHtml = await embedRemoteImagesAsDataUris(html);
+  const browser = await launchBrowser();
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    page.setDefaultNavigationTimeout(45_000);
+    // Prefer load over networkidle0 — remote beacons/CDNs must not block PDF generation.
+    await page.setContent(preparedHtml, { waitUntil: 'load', timeout: 45_000 });
     await page.emulateMediaType('print');
     await page.pdf({
       path: filePath,
@@ -75,37 +139,29 @@ export const generatePdfFromHtml = async (html, { filePath, title = 'Document', 
 };
 
 export const generateContractPdf = async ({ template, booking, contractNumber, owner, includeCompanyStamp = true }) => {
-  console.log('[PDF_GEN] Starting contract generation for:', contractNumber);
-  console.log('[PDF_GEN] Booking signature URL:', booking?.completion?.signatureUrl);
-  
-  const variables = buildTemplateVariables(booking, { contractNumber, owner, template, includeCompanyStamp });
-  console.log('[PDF_GEN] Template variables built. Signature HTML:', 
-    variables.customer_signature_html?.substring(0, 100));
-  
-  const fullHtml = buildDocumentHtml(template, variables);
-  console.log('[PDF_GEN] HTML built. Checking for signature img tag...');
-  
-  if (fullHtml.includes('Customer signature') || fullHtml.includes('customer_signature_html')) {
-    console.log('[PDF_GEN] ✓ Signature placeholder found in HTML');
-    const sigMatch = fullHtml.match(/<img[^>]*alt="Customer signature"[^>]*>/);
-    console.log('[PDF_GEN] Signature img tag:', sigMatch ? sigMatch[0].substring(0, 150) : 'NOT FOUND');
+  if (!template) {
+    throw new Error('Contract template is required');
   }
+  if (!owner) {
+    throw new Error('Contract owner is required');
+  }
+
+  const variables = buildTemplateVariables(booking, { contractNumber, owner, template, includeCompanyStamp });
+  const fullHtml = buildDocumentHtml(template, variables);
 
   const dir = path.join(CONTRACTS_ROOT, String(owner._id || owner));
   ensureDir(dir);
   const token = Math.random().toString(36).slice(2, 10);
-  const fileName = `contract-${contractNumber.replace(/[^a-zA-Z0-9-]/g, '')}-${token}.pdf`;
+  const safeNumber = String(contractNumber || 'contract').replace(/[^a-zA-Z0-9-]/g, '');
+  const fileName = `contract-${safeNumber}-${token}.pdf`;
   const filePath = path.join(dir, fileName);
 
-  console.log('[PDF_GEN] Rendering HTML to PDF at:', filePath);
   await generatePdfFromTemplate({
     template,
     variables,
     filePath,
     title: `Contract ${contractNumber}`,
   });
-  
-  console.log('[PDF_GEN] PDF generated successfully');
 
   return {
     filePath,
@@ -116,6 +172,10 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
 };
 
 export const generateDocumentFromTemplate = async ({ template, booking, owner, documentTitle, includeCompanyStamp = true }) => {
+  if (!template) {
+    throw new Error('Export template is required');
+  }
+
   const variables = buildTemplateVariables(booking, { owner, template, includeCompanyStamp });
   const fullHtml = buildDocumentHtml(template, variables);
 

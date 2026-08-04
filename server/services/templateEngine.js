@@ -1,5 +1,6 @@
 import { defaultAgencyName } from '../utils/brand.js';
 import { logoToDataUri } from '../utils/uploadPaths.js';
+import { appendSignedQuery } from '../middleware/uploadAccess.js';
 
 export const TEMPLATE_VARIABLES = [
   { key: 'contract_number', label: 'Contract Number', group: 'contract' },
@@ -97,24 +98,30 @@ const firstNonEmpty = (source, keys) => {
   return undefined;
 };
 
+/**
+ * Resolve image src for HTML/PDF.
+ * Prefer local data-URI embeds (Puppeteer-safe). For protected /uploads/documents
+ * URLs that are not local, use appendSignedQuery (never double-prefix the host).
+ */
 const buildImageHtml = (imageUrl, alt, style = 'max-height:48px;max-width:140px;margin-top:6px;') => {
   if (!imageUrl) {
-    console.log('[IMAGE_HTML] Empty imageUrl for:', alt);
     return '';
   }
-  console.log('[IMAGE_HTML] Building image HTML for:', alt, 'URL:', imageUrl);
-  const dataUri = logoToDataUri(imageUrl);
-  let src = dataUri || imageUrl;
-  
-  // If we have a protected documents URL (from PDF generation), sign it for Puppeteer access
-  if (!dataUri && imageUrl && imageUrl.includes('/uploads/documents')) {
-    const { exp, sig } = signUploadAccess(imageUrl.replace(/.*\/uploads\//, ''));
-    const base = (process.env.API_PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
-    src = `${base}${imageUrl}?exp=${exp}&sig=${sig}`;
-    console.log('[IMAGE_HTML] Created signed URL for protected document');
+  try {
+    const dataUri = logoToDataUri(imageUrl);
+    if (dataUri) {
+      return `<img src="${dataUri}" alt="${alt}" style="${style}" />`;
+    }
+
+    let src = String(imageUrl);
+    if (src.includes('/uploads/documents') || src.includes('/uploads/templates')) {
+      src = appendSignedQuery(src);
+    }
+    return `<img src="${src}" alt="${alt}" style="${style}" />`;
+  } catch (error) {
+    console.error('[IMAGE_HTML] Failed for', alt, error.message);
+    return '';
   }
-  console.log('[IMAGE_HTML] Using src:', src.substring(0, 100));
-  return `<img src="${src}" alt="${alt}" style="${style}" />`;
 };
 
 /** Full signature row for PDF: agency + renter (+ 2nd driver when enabled). */
@@ -383,11 +390,15 @@ export const buildDocumentHtml = (template, variables) => {
     ? `${footer}<p class="page-indicator muted">Page 2 / 2</p>`
     : '';
   const logoDataUri = logoToDataUri(safeTemplate.logoUrl);
-  const logo = logoDataUri
-    ? `<img src="${logoDataUri}" alt="Logo" style="max-height:48px;margin-bottom:8px;" />`
-    : safeTemplate.logoUrl
-      ? `<img src="${safeTemplate.logoUrl}" alt="Logo" style="max-height:48px;margin-bottom:8px;" />`
-      : '';
+  const logoSrc = logoDataUri
+    || (safeTemplate.logoUrl
+      ? (String(safeTemplate.logoUrl).includes('/uploads/')
+        ? appendSignedQuery(safeTemplate.logoUrl)
+        : safeTemplate.logoUrl)
+      : '');
+  const logo = logoSrc
+    ? `<img src="${logoSrc}" alt="Logo" style="max-height:48px;margin-bottom:8px;" />`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">

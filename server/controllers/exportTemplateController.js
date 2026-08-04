@@ -10,6 +10,7 @@ import {
   DEFAULT_INVOICE_BODY,
 } from '../services/defaultTemplates.js';
 import { publicUploadUrl } from '../services/pdfDocuments.js';
+import { resolveOwnerId } from '../utils/resolveExportTemplate.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -42,6 +43,9 @@ const BUILTIN_INVOICE_VERSION = 2;
  * existing template HTML after the initial seed (Admin edits must stick).
  */
 export const ensureDefaultTemplates = async (ownerId) => {
+  const owner = resolveOwnerId(ownerId);
+  if (!owner) return;
+
   const contractDefaults = {
     name: 'Contrat de Location',
     type: 'contract',
@@ -72,11 +76,10 @@ export const ensureDefaultTemplates = async (ownerId) => {
   };
 
   const upsertBuiltin = async (systemKey, defaults) => {
-    const doc = await ExportTemplate.findOne({ owner: ownerId, systemKey });
+    const doc = await ExportTemplate.findOne({ owner, systemKey });
     if (!doc) {
-      await ExportTemplate.create({ owner: ownerId, ...defaults });
+      await ExportTemplate.create({ owner, ...defaults });
     }
-    // Intentionally no content overwrite — Admin panel is SSOT for future docs.
   };
 
   await upsertBuiltin('builtin_contract', contractDefaults);
@@ -84,10 +87,10 @@ export const ensureDefaultTemplates = async (ownerId) => {
 
   // Ensure exactly one active default per document type.
   const normalizeDefaults = async (type, builtinKey) => {
-    const activeDefaults = await ExportTemplate.find({ owner: ownerId, type, isDefault: true, isActive: true }).sort({ updatedAt: -1 }).lean();
+    const activeDefaults = await ExportTemplate.find({ owner, type, isDefault: true, isActive: true }).sort({ updatedAt: -1 }).lean();
     if (activeDefaults.length === 0) {
       await ExportTemplate.updateOne(
-        { owner: ownerId, type, systemKey: builtinKey },
+        { owner, type, systemKey: builtinKey },
         { $set: { isDefault: true } }
       );
       return;
@@ -108,7 +111,7 @@ export const ensureDefaultTemplates = async (ownerId) => {
 
     if (keep.systemKey === builtinKey) {
       await ExportTemplate.updateOne(
-        { owner: ownerId, type, systemKey: builtinKey },
+        { owner, type, systemKey: builtinKey },
         { $set: { isDefault: true } }
       );
     }
