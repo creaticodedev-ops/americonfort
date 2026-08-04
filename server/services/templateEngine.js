@@ -1,6 +1,5 @@
 import { defaultAgencyName } from '../utils/brand.js';
 import { logoToDataUri } from '../utils/uploadPaths.js';
-import { DEFAULT_CONTRACT_TERMS_HTML } from './rentalTermsConditions.js';
 
 export const TEMPLATE_VARIABLES = [
   { key: 'contract_number', label: 'Contract Number', group: 'contract' },
@@ -260,9 +259,7 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     booking_method:
       booking?.channel === 'walk_in'
         ? 'Walk-in'
-        : booking?.channel === 'online' || booking?.channel === 'whatsapp'
-          ? 'Website'
-          : '—',
+        : 'Online',
     notes: firstNonEmpty(mergedBooking, ['notes'])?.trim() || '—',
     second_driver_section: buildSecondDriverSection(booking),
     second_driver_yes_no: sd.enabled ? 'Oui' : 'Non',
@@ -374,13 +371,10 @@ export const buildDocumentHtml = (template, variables) => {
   const body = renderTemplate(safeTemplate.bodyHtml || '', variables);
   const footer = renderTemplate(safeTemplate.footerHtml || '', variables);
   const css = safeTemplate.customCss || '';
-  const isContract =
-    safeTemplate.type === 'contract' ||
-    safeTemplate.systemKey === 'builtin_contract';
-  const termsSource =
-    safeTemplate.termsHtml ||
-    (isContract ? DEFAULT_CONTRACT_TERMS_HTML : '');
-  const termsBody = termsSource ? renderTemplate(termsSource, variables) : '';
+  // Use only Admin-stored termsHtml — no hardcoded duplicate fallback at render time.
+  const termsBody = safeTemplate.termsHtml
+    ? renderTemplate(safeTemplate.termsHtml, variables)
+    : '';
   const twoPages = Boolean(termsBody);
   const footerPage1 = twoPages
     ? `${footer}<p class="page-indicator muted">Page 1 / 2</p>`

@@ -24,6 +24,7 @@ import {
 } from "../utils/carLocations.js";
 import { normalizeToE164 } from "../utils/phoneValidation.js";
 import { groupCarsForCatalog, resolveAvailableCarUnit } from "../utils/carCatalog.js";
+import { channelQuery } from "../utils/bookingChannel.js";
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'ready_for_pickup', 'active', 'completed', 'cancelled'];
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
@@ -48,11 +49,8 @@ const buildBookingQuery = (ownerId, filters = {}) => {
   if (filters.status) query.status = filters.status;
   if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
   if (filters.channel) {
-    if (['online', 'whatsapp'].includes(filters.channel)) {
-      query.channel = { $in: ['online', 'whatsapp'] };
-    } else if (filters.channel === 'walk_in') {
-      query.channel = 'walk_in';
-    }
+    const channelMatch = channelQuery(filters.channel);
+    if (channelMatch) query.channel = channelMatch;
   }
 
   if (filters.pickupDateFrom || filters.pickupDateTo) {
@@ -1169,7 +1167,7 @@ export const exportOwnerBookings = async (req, res) => {
 
     const rows = bookings.map((b) => [
       b.reservationId || `RES-${b._id.toString().slice(-8).toUpperCase()}`,
-      b.channel === 'walk_in' ? 'Walk-in' : b.channel === 'whatsapp' ? 'WhatsApp' : 'Online',
+      b.channel === 'walk_in' ? 'Walk-in' : 'Online',
       b.customerName || '',
       b.customerPhone || '',
       b.customerEmail || '',

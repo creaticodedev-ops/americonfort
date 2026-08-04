@@ -1,14 +1,18 @@
 import React from 'react'
 
-/** Online / Walk-in / WhatsApp badge — used across bookings, calendar, CRM */
+/** WhatsApp guest reservations are treated as Online in the admin UI. */
+const isOnlineChannel = (channel) => {
+  const value = String(channel || 'online').trim().toLowerCase()
+  return value !== 'walk_in' && value !== 'walk-in' && value !== 'walkin'
+}
+
+/** Online / Walk-in badge — WhatsApp reservations count as Online */
 const ChannelBadge = ({ channel, className = '' }) => {
-  const c = channel || 'online'
-  const normalized = c === 'whatsapp' ? 'online' : c
-  const styles =
-    normalized === 'walk_in'
-      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-      : 'bg-sky-100 text-sky-800 border border-sky-200'
-  const label = normalized === 'walk_in' ? 'Walk-in' : 'Online'
+  const online = isOnlineChannel(channel)
+  const styles = online
+    ? 'bg-sky-100 text-sky-800 border border-sky-200'
+    : 'bg-amber-100 text-amber-800 border border-amber-200'
+  const label = online ? 'Online' : 'Walk-in'
 
   return (
     <span

@@ -17,7 +17,7 @@ const exportTemplateSchema = new mongoose.Schema({
   footerHtml: { type: String, default: '' },
   customCss: { type: String, default: '' },
   pageSize: { type: String, enum: ['A4', 'Letter'], default: 'A4' },
-  /** Built-in template key — synced from code on each ensureDefaultTemplates call */
+  /** Built-in seed key — created once per owner; Admin edits are never auto-overwritten */
   systemKey: { type: String, default: '', index: true },
   templateVersion: { type: Number, default: 0 },
   isDefault: { type: Boolean, default: false },

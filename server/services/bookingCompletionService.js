@@ -7,23 +7,12 @@ import {
   isTokenExpired,
 } from "./completionToken.js";
 import { sendCompletionInviteEmail, sendFinalConfirmationEmail } from "./emailService.js";
-import {
-  generateInvoicePdf,
-  generateRentalContractPdf,
-  publicUploadUrl,
-} from "./pdfDocuments.js";
-import { generateContractPdf, generateDocumentFromTemplate } from "./templatePdfExport.js";
-import ExportTemplate from "../models/ExportTemplate.js";
-import Invoice from "../models/Invoice.js";
+import { publicUploadUrl } from "./pdfDocuments.js";
+import { generateContractPdf } from "./templatePdfExport.js";
 import { ensureDefaultTemplates } from "../controllers/exportTemplateController.js";
 import { getDefaultContractTemplate } from "../utils/resolveExportTemplate.js";
 import { logAudit } from "../utils/adminOps.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { storeDataUrlImage } from "./documentStore.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const formatDt = (v) => {
   if (!v) return "—";
@@ -222,18 +211,6 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     return { finalized: true, booking, flags, alreadyDone: true };
   }
 
-  // Persist signature locally for PDF embedding when possible
-  let signaturePath = null;
-  if (booking.completion.signatureUrl?.startsWith("data:")) {
-    // Should already be uploaded — skip
-  } else if (booking.completion.signatureUrl?.includes("/uploads/")) {
-    const rel = booking.completion.signatureUrl.split("/uploads/")[1];
-    if (rel) {
-      const candidate = path.join(__dirname, "..", "uploads", rel);
-      if (fs.existsSync(candidate)) signaturePath = candidate;
-    }
-  }
-
   let contractPath;
   let contractPdfUrl;
 
@@ -242,40 +219,28 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     signatureSignedAt: booking.completion?.signatureSignedAt,
     signatureComplete: booking.completion?.signatureComplete,
   });
-  try {
-    await ensureDefaultTemplates(booking.owner);
-    // Reload so contract PDF always reflects the latest saved customer fields
-    booking = await Booking.findById(bookingId).populate('car').populate('owner');
-    const template = await getDefaultContractTemplate(booking.owner);
 
-    if (template) {
-      console.log('[FINALIZE] Template found:', template._id);
-      const contractNumber = booking.reservationId || `CTR-${booking._id.toString().slice(-8).toUpperCase()}`;
-      console.log('[FINALIZE] Generating contract with booking signature:', booking.completion?.signatureUrl);
-      const contractResult = await generateContractPdf({
-        template,
-        booking: booking.toObject ? booking.toObject() : booking,
-        contractNumber,
-        owner: booking.owner,
-      });
-      contractPath = contractResult.filePath;
-      contractPdfUrl = contractResult.pdfUrl;
-      console.log('[FINALIZE] Contract generated successfully');
-    } else {
-      console.log('[FINALIZE] No default template found');
-    }
-  } catch (templateError) {
-    console.error('Contract template export failed, falling back to built-in contract PDF:', templateError.message || templateError);
+  // Always use the Admin-selected default contract template (SSOT). No hardcoded PDF fallback.
+  await ensureDefaultTemplates(booking.owner);
+  booking = await Booking.findById(bookingId).populate('car').populate('owner');
+  const template = await getDefaultContractTemplate(booking.owner);
+
+  if (!template) {
+    throw new Error('No contract template found. Set a default contract template in Admin → Export Templates.');
   }
 
-  if (!contractPath) {
-    const fallbackPath = await generateRentalContractPdf(booking, {
-      signaturePath,
-      signatureUrl: booking.completion?.signatureUrl,
-    });
-    contractPath = fallbackPath;
-    contractPdfUrl = publicUploadUrl(fallbackPath);
-  }
+  console.log('[FINALIZE] Template found:', template._id);
+  const contractNumber = booking.reservationId || `CTR-${booking._id.toString().slice(-8).toUpperCase()}`;
+  console.log('[FINALIZE] Generating contract with booking signature:', booking.completion?.signatureUrl);
+  const contractResult = await generateContractPdf({
+    template,
+    booking: booking.toObject ? booking.toObject() : booking,
+    contractNumber,
+    owner: booking.owner,
+  });
+  contractPath = contractResult.filePath;
+  contractPdfUrl = contractResult.pdfUrl;
+  console.log('[FINALIZE] Contract generated successfully');
 
   booking.completion.contractPdfUrl = contractPdfUrl || publicUploadUrl(contractPath);
   delete booking.completion.invoicePdfUrl;

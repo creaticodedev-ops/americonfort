@@ -2,13 +2,15 @@ import mongoose from 'mongoose';
 import Contract from '../models/Contract.js';
 import Booking from '../models/Booking.js';
 import Invoice from '../models/Invoice.js';
-import ExportTemplate from '../models/ExportTemplate.js';
-import { generateInvoicePdf, publicUploadUrl } from '../services/pdfDocuments.js';
+import { publicUploadUrl } from '../services/pdfDocuments.js';
 import { generateContractPdf, generateDocumentFromTemplate } from '../services/templatePdfExport.js';
 import { buildDocumentHtml, buildTemplateVariables } from '../services/templateEngine.js';
 import { logAudit } from '../utils/adminOps.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
-import { getDefaultContractTemplate } from '../utils/resolveExportTemplate.js';
+import {
+  getDefaultInvoiceTemplate,
+  resolveContractTemplate,
+} from '../utils/resolveExportTemplate.js';
 
 const generateContractNumber = async (ownerId) => {
   const year = new Date().getFullYear().toString().slice(-2);
@@ -37,37 +39,23 @@ const createInvoiceForBooking = async ({ owner, booking, user, includeCompanySta
     ? `INV-${booking.reservationId.replace(/^RES-/, '')}`
     : `INV-${booking._id.toString().slice(-8).toUpperCase()}`;
 
-  let invoicePath = null;
-  let invoicePdfUrl = '';
+  await ensureDefaultTemplates(owner._id || owner);
+  const invoiceTemplate = await getDefaultInvoiceTemplate(owner._id || owner);
 
-  try {
-    await ensureDefaultTemplates(owner._id || owner);
-    const invoiceTemplate = await ExportTemplate.findOne({
-      owner: owner._id || owner,
-      type: 'invoice',
-      isDefault: true,
-      isActive: true,
-    }).lean();
-
-    if (invoiceTemplate) {
-      const invoiceResult = await generateDocumentFromTemplate({
-        template: invoiceTemplate,
-        booking: booking.toObject ? booking.toObject() : booking,
-        owner: owner._id || owner,
-        documentTitle: `Invoice ${invoiceNumber}`,
-        includeCompanyStamp,
-      });
-      invoicePath = invoiceResult.filePath;
-      invoicePdfUrl = invoiceResult.pdfUrl;
-    }
-  } catch (error) {
-    console.error('Invoice generation failed during contract generation:', error.message || error);
+  if (!invoiceTemplate) {
+    throw new Error('No invoice template found. Set a default invoice template in Admin → Export Templates.');
   }
 
-  if (!invoicePath) {
-    invoicePath = await generateInvoicePdf(booking, { includeCompanyStamp });
-    invoicePdfUrl = publicUploadUrl(invoicePath);
-  }
+  const invoiceResult = await generateDocumentFromTemplate({
+    template: invoiceTemplate,
+    booking: booking.toObject ? booking.toObject() : booking,
+    owner: owner._id || owner,
+    documentTitle: `Invoice ${invoiceNumber}`,
+    includeCompanyStamp,
+  });
+
+  const invoicePath = invoiceResult.filePath;
+  const invoicePdfUrl = invoiceResult.pdfUrl;
 
   await Invoice.findOneAndUpdate(
     { booking: booking._id, owner: owner._id || owner },
@@ -209,18 +197,10 @@ export const generateContract = async (req, res) => {
 
     await ensureDefaultTemplates(req.user._id);
 
-    let template;
-    if (templateId && mongoose.isValidObjectId(templateId)) {
-      template = await ExportTemplate.findOne({
-        _id: templateId,
-        owner: req.user._id,
-        type: 'contract',
-        isActive: true,
-      });
-    }
-    if (!template) {
-      template = await getDefaultContractTemplate(req.user._id);
-    }
+    const template = await resolveContractTemplate(
+      req.user._id,
+      templateId && mongoose.isValidObjectId(templateId) ? templateId : null,
+    );
     if (!template) {
       return res.status(404).json({ success: false, message: 'No contract template found. Create one in Export Templates.' });
     }
@@ -305,22 +285,10 @@ export const previewContractFromBooking = async (req, res) => {
 
     await ensureDefaultTemplates(req.user._id);
 
-    let template;
-    if (templateId && mongoose.isValidObjectId(templateId)) {
-      template = await ExportTemplate.findOne({
-        _id: templateId,
-        owner: req.user._id,
-        isActive: true,
-      }).lean();
-    }
-    if (!template) {
-      template = await ExportTemplate.findOne({
-        owner: req.user._id,
-        type: 'contract',
-        isDefault: true,
-        isActive: true,
-      }).lean();
-    }
+    const template = await resolveContractTemplate(
+      req.user._id,
+      templateId && mongoose.isValidObjectId(templateId) ? templateId : null,
+    );
 
     if (!template) {
       return res.status(404).json({ success: false, message: 'No template found' });

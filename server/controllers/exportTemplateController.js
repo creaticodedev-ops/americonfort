@@ -36,7 +36,11 @@ const persistTemplateAsset = (templateId, uploadedFile, kind) => {
 const BUILTIN_CONTRACT_VERSION = 5;
 const BUILTIN_INVOICE_VERSION = 2;
 
-/** Seed / refresh built-in default contract + invoice for an owner */
+/**
+ * Ensure each owner has seed contract + invoice templates.
+ * Admin Export Templates are the single source of truth: never overwrite
+ * existing template HTML after the initial seed (Admin edits must stick).
+ */
 export const ensureDefaultTemplates = async (ownerId) => {
   const contractDefaults = {
     name: 'Contrat de Location',
@@ -68,15 +72,11 @@ export const ensureDefaultTemplates = async (ownerId) => {
   };
 
   const upsertBuiltin = async (systemKey, defaults) => {
-    let doc = await ExportTemplate.findOne({ owner: ownerId, systemKey });
+    const doc = await ExportTemplate.findOne({ owner: ownerId, systemKey });
     if (!doc) {
       await ExportTemplate.create({ owner: ownerId, ...defaults });
-      return;
     }
-    // Only auto-sync built-in HTML when we bump BUILTIN_*_VERSION — never overwrite admin edits on every PDF.
-    if ((doc.templateVersion || 0) < defaults.templateVersion) {
-      await ExportTemplate.updateOne({ _id: doc._id }, { $set: defaults });
-    }
+    // Intentionally no content overwrite — Admin panel is SSOT for future docs.
   };
 
   await upsertBuiltin('builtin_contract', contractDefaults);

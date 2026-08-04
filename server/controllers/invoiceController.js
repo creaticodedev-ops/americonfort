@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 import Invoice from '../models/Invoice.js';
 import Booking from '../models/Booking.js';
-import ExportTemplate from '../models/ExportTemplate.js';
-import { generateInvoicePdf, publicUploadUrl } from '../services/pdfDocuments.js';
+import { publicUploadUrl } from '../services/pdfDocuments.js';
 import { generateDocumentFromTemplate } from '../services/templatePdfExport.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
+import { getDefaultInvoiceTemplate } from '../utils/resolveExportTemplate.js';
 
 const buildInvoiceNumber = (booking, provided = '') => {
   const trimmed = String(provided || '').trim();
@@ -15,12 +15,11 @@ const buildInvoiceNumber = (booking, provided = '') => {
 
 const generateInvoiceDocument = async ({ owner, invoiceNumber, invoiceData, includeCompanyStamp, booking = null }) => {
   await ensureDefaultTemplates(owner._id || owner);
-  const invoiceTemplate = await ExportTemplate.findOne({
-    owner: owner._id || owner,
-    type: 'invoice',
-    isDefault: true,
-    isActive: true,
-  }).lean();
+  const invoiceTemplate = await getDefaultInvoiceTemplate(owner._id || owner);
+
+  if (!invoiceTemplate) {
+    throw new Error('No invoice template found. Set a default invoice template in Admin → Export Templates.');
+  }
 
   const bookingLike = {
     ...(booking || {}),
@@ -55,19 +54,14 @@ const generateInvoiceDocument = async ({ owner, invoiceNumber, invoiceData, incl
     customerAddress: invoiceData.customerAddress || '',
   };
 
-  if (invoiceTemplate) {
-    const invoiceResult = await generateDocumentFromTemplate({
-      template: invoiceTemplate,
-      booking: bookingLike,
-      owner: owner._id || owner,
-      documentTitle: `Invoice ${invoiceNumber}`,
-      includeCompanyStamp,
-    });
-    return { filePath: invoiceResult.filePath, pdfUrl: invoiceResult.pdfUrl };
-  }
-
-  const filePath = await generateInvoicePdf(bookingLike, { includeCompanyStamp });
-  return { filePath, pdfUrl: publicUploadUrl(filePath) };
+  const invoiceResult = await generateDocumentFromTemplate({
+    template: invoiceTemplate,
+    booking: bookingLike,
+    owner: owner._id || owner,
+    documentTitle: `Invoice ${invoiceNumber}`,
+    includeCompanyStamp,
+  });
+  return { filePath: invoiceResult.filePath, pdfUrl: invoiceResult.pdfUrl };
 };
 
 export const listInvoices = async (req, res) => {

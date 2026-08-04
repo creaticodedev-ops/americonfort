@@ -7,6 +7,7 @@ import { escapeRegex } from '../utils/helpers.js';
 import { logAudit } from '../utils/adminOps.js';
 import { refreshGuestStats, upsertGuestFromBooking } from '../services/guestCrm.js';
 import mongoose from 'mongoose';
+import { isOnlineChannel } from '../utils/bookingChannel.js';
 
 const asObjectId = (id) => {
   if (id instanceof mongoose.Types.ObjectId) return id;
@@ -67,8 +68,21 @@ export const getOpsDashboard = async (req, res) => {
       .reduce((s, b) => s + (b.price || 0), 0);
 
     const todayBookings = bookings.filter((b) => new Date(b.createdAt) >= today).length;
+    const onlineBookingsToday = bookings.filter(
+      (b) => new Date(b.createdAt) >= today && isOnlineChannel(b.channel),
+    ).length;
+    const walkInBookingsToday = bookings.filter(
+      (b) => new Date(b.createdAt) >= today && !isOnlineChannel(b.channel),
+    ).length;
     const activeRentals = bookings.filter((b) => b.status === 'active').length;
     const pendingBookings = bookings.filter((b) => b.status === 'pending').length;
+
+    const onlineRevenueMonth = bookings
+      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.createdAt) >= monthStart && isOnlineChannel(b.channel))
+      .reduce((s, b) => s + (b.price || 0), 0);
+    const walkInRevenueMonth = bookings
+      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.createdAt) >= monthStart && !isOnlineChannel(b.channel))
+      .reduce((s, b) => s + (b.price || 0), 0);
 
     const upcomingPickups = bookings
       .filter((b) => hasOperationalStatus(b.status)
@@ -96,9 +110,18 @@ export const getOpsDashboard = async (req, res) => {
       : 0;
 
     // Fleet utilization: days booked this month / (cars * days elapsed)
+    // Includes WhatsApp + online + walk-in reservations with revenue statuses.
     const daysElapsed = Math.max(1, today.getDate());
     const bookedDays = bookings
       .filter((b) => revenueStatuses.includes(b.status) && new Date(b.returnDate) >= monthStart)
+      .reduce((sum, b) => {
+        const start = new Date(Math.max(new Date(b.pickupDate), monthStart));
+        const end = new Date(Math.min(new Date(b.returnDate), endOfDay()));
+        if (end < start) return sum;
+        return sum + Math.max(1, Math.ceil((end - start) / 86400000));
+      }, 0);
+    const onlineBookedDays = bookings
+      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.returnDate) >= monthStart && isOnlineChannel(b.channel))
       .reduce((sum, b) => {
         const start = new Date(Math.max(new Date(b.pickupDate), monthStart));
         const end = new Date(Math.min(new Date(b.returnDate), endOfDay()));
@@ -113,6 +136,8 @@ export const getOpsDashboard = async (req, res) => {
       success: true,
       dashboard: {
         todayBookings,
+        onlineBookingsToday,
+        walkInBookingsToday,
         activeRentals,
         pendingBookings,
         upcomingPickups,
@@ -120,13 +145,18 @@ export const getOpsDashboard = async (req, res) => {
         overdueRentals,
         overdueCount: overdueRentals.length,
         monthlyRevenue,
+        onlineRevenueMonth,
+        walkInRevenueMonth,
         occupancyRate,
         fleetUtilization,
+        onlineOccupancyShare: bookedDays > 0 ? Math.round((onlineBookedDays / bookedDays) * 100) : 0,
         totalCars: cars.length,
         availableVehicles,
         maintenanceVehicles,
         rentedVehicles,
         totalBookings: bookings.length,
+        onlineBookings: bookings.filter((b) => isOnlineChannel(b.channel)).length,
+        walkInBookings: bookings.filter((b) => !isOnlineChannel(b.channel)).length,
         recentBookings: bookings.slice(0, 6),
       },
     });
@@ -140,7 +170,8 @@ export const getOpsDashboard = async (req, res) => {
 export const getRevenueAnalytics = async (req, res) => {
   try {
     const ownerId = req.user._id;
-    const revenueStatuses = ['confirmed', 'active', 'completed'];
+    // Include ready_for_pickup so completed online/WhatsApp flows count in revenue.
+    const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
     const bookings = await Booking.find({
       owner: ownerId,
       status: { $in: revenueStatuses },
@@ -202,6 +233,7 @@ export const getRevenueAnalytics = async (req, res) => {
       { $group: { _id: '$status', count: { $sum: 1 }, revenue: { $sum: '$price' } } },
     ]);
 
+    // WhatsApp counts as online in channel analytics.
     const byChannel = await Booking.aggregate([
       { $match: { owner: asObjectId(ownerId), status: { $in: revenueStatuses } } },
       {
@@ -221,6 +253,9 @@ export const getRevenueAnalytics = async (req, res) => {
       },
     ]);
 
+    const onlineBookings = bookings.filter((b) => isOnlineChannel(b.channel));
+    const walkInBookings = bookings.filter((b) => !isOnlineChannel(b.channel));
+
     res.json({
       success: true,
       analytics: {
@@ -229,13 +264,15 @@ export const getRevenueAnalytics = async (req, res) => {
         yearlyRevenue,
         totalRevenue: bookings.reduce((s, b) => s + (b.price || 0), 0),
         bookingCount: bookings.length,
+        onlineBookingCount: onlineBookings.length,
+        walkInBookingCount: walkInBookings.length,
         monthlyTrend,
         weeklyTrend,
         yearlyTrend,
         byStatus,
         byChannel,
-        onlineRevenue: bookings.filter((b) => ['online', 'whatsapp'].includes(b.channel || 'online')).reduce((s, b) => s + (b.price || 0), 0),
-        walkInRevenue: bookings.filter((b) => b.channel === 'walk_in').reduce((s, b) => s + (b.price || 0), 0),
+        onlineRevenue: onlineBookings.reduce((s, b) => s + (b.price || 0), 0),
+        walkInRevenue: walkInBookings.reduce((s, b) => s + (b.price || 0), 0),
       },
     });
   } catch (error) {
