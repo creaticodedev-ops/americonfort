@@ -6,3 +6,5 @@ dist
 uploads
 *.log
 .DS_Store
+.cache
+server/.cache

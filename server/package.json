@@ -7,6 +7,9 @@
   "scripts": {
     "server": "nodemon server.js",
     "start": "node server.js",
+    "install:chrome": "npx puppeteer browsers install chrome",
+    "postinstall": "npx puppeteer browsers install chrome",
+    "build": "npm run install:chrome",
     "seed:admin": "node scripts/seedAdmin.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "license": "node scripts/manageLicense.js",
@@ -17,7 +20,8 @@
     "license:expire": "node scripts/manageLicense.js expire",
     "test:email": "node scripts/testEmail.js",
     "test:contract-e2e": "node scripts/e2e-contract-field-audit.mjs",
-    "test:booking-routes": "node scripts/audit-booking-workflow-routes.mjs && node scripts/test-ensure-link-route.mjs"
+    "test:booking-routes": "node scripts/audit-booking-workflow-routes.mjs && node scripts/test-ensure-link-route.mjs",
+    "test:puppeteer": "node scripts/verify-puppeteer-launch.mjs"
   },
   "keywords": [],
   "author": "",

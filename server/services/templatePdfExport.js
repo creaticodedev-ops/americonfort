@@ -1,13 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import puppeteer from 'puppeteer';
 import {
   buildDocumentHtml,
   buildTemplateVariables,
   renderTemplate,
 } from './templateEngine.js';
 import { publicUploadUrl } from './pdfDocuments.js';
+import { launchPdfBrowser } from '../utils/launchPdfBrowser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONTRACTS_ROOT = path.join(__dirname, '..', 'uploads', 'contracts');
@@ -78,28 +78,9 @@ const embedRemoteImagesAsDataUris = async (html) => {
   return next;
 };
 
-const launchBrowser = async () => {
-  const executablePath =
-    process.env.PUPPETEER_EXECUTABLE_PATH ||
-    process.env.CHROME_PATH ||
-    undefined;
-
-  return puppeteer.launch({
-    headless: true,
-    executablePath: executablePath || undefined,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--font-render-hinting=none',
-    ],
-  });
-};
-
 const renderHtmlToPdf = async (html, filePath, pageSize = 'A4') => {
   const preparedHtml = await embedRemoteImagesAsDataUris(html);
-  const browser = await launchBrowser();
+  const browser = await launchPdfBrowser();
 
   try {
     const page = await browser.newPage();
