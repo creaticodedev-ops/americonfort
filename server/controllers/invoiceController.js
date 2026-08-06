@@ -1,3 +1,4 @@
+import fs from 'fs';
 import mongoose from 'mongoose';
 import Invoice from '../models/Invoice.js';
 import Booking from '../models/Booking.js';
@@ -5,6 +6,7 @@ import { publicUploadUrl } from '../services/pdfDocuments.js';
 import { generateDocumentFromTemplate } from '../services/templatePdfExport.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
 import { getDefaultInvoiceTemplate } from '../utils/resolveExportTemplate.js';
+import { resolveLocalUploadPath } from '../utils/uploadPaths.js';
 
 const buildInvoiceNumber = (booking, provided = '') => {
   const trimmed = String(provided || '').trim();
@@ -349,21 +351,86 @@ export const createManualInvoice = async (req, res) => {
   }
 };
 
+const resolveExistingInvoicePdf = (invoice) => {
+  if (invoice?.pdfPath && fs.existsSync(invoice.pdfPath)) return invoice.pdfPath;
+  const fromUrl = resolveLocalUploadPath(invoice?.pdfUrl);
+  if (fromUrl && fs.existsSync(fromUrl)) return fromUrl;
+  return null;
+};
+
+const regenerateInvoicePdfFile = async (invoice, owner) => {
+  let booking = null;
+  if (invoice.booking) {
+    booking = await Booking.findOne({ _id: invoice.booking, owner: owner._id }).populate('car');
+  }
+
+  const { filePath, pdfUrl } = await generateInvoiceDocument({
+    owner,
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceData: {
+      customerName: invoice.customerName,
+      customerEmail: invoice.customerEmail,
+      customerPhone: invoice.customerPhone,
+      customerAddress: invoice.customerAddress || '',
+      customerNationality: '',
+      customerDob: '',
+      invoiceDate: invoice.invoiceDate || new Date(),
+      dueDate: invoice.dueDate || invoice.invoiceDate || new Date(),
+      subtotal: invoice.subtotal || invoice.totalAmount || 0,
+      discountAmount: invoice.discountAmount || 0,
+      taxAmount: invoice.taxAmount || 0,
+      totalAmount: invoice.totalAmount || 0,
+      paymentStatus: invoice.paymentStatus || 'pending',
+      notes: invoice.notes || '',
+      vehicleBrand: invoice.vehicleBrand || booking?.car?.brand || '',
+      vehicleModel: invoice.vehicleModel || booking?.car?.model || '',
+      vehicleYear: invoice.vehicleYear || booking?.car?.year || '',
+      vehiclePlate: invoice.vehiclePlate || booking?.car?.licensePlate || '',
+      vehicleType: invoice.vehicleType || '',
+    },
+    includeCompanyStamp: invoice.includeCompanyStamp !== false,
+    booking,
+  });
+
+  const finalUrl = pdfUrl || publicUploadUrl(filePath);
+  invoice.pdfPath = filePath;
+  invoice.pdfUrl = finalUrl;
+  await invoice.save();
+  return filePath;
+};
+
 export const downloadInvoicePdf = async (req, res) => {
   try {
-    const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user._id }).lean();
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
+    }
+
+    const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user._id });
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
-    if (invoice.pdfUrl) {
-      return res.json({ success: true, pdfUrl: invoice.pdfUrl });
+    let filePath = resolveExistingInvoicePdf(invoice);
+    if (!filePath) {
+      filePath = await regenerateInvoicePdfFile(invoice, req.user);
     }
 
-    res.status(404).json({ success: false, message: 'PDF not available' });
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: 'PDF not available' });
+    }
+
+    const safeName = String(invoice.invoiceNumber || 'invoice').replace(/[^\w.-]+/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`);
+    return fs.createReadStream(filePath).pipe(res);
   } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ success: false, message: 'Failed to download invoice PDF' });
+    console.error('[invoice pdf]', error?.message || error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: error?.message || 'Failed to download invoice PDF',
+      });
+    }
   }
 };
 

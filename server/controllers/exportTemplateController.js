@@ -25,12 +25,22 @@ const ensureTemplateAssetDir = () => {
 
 const persistTemplateAsset = (templateId, uploadedFile, kind) => {
   ensureTemplateAssetDir();
-  const ext = path.extname(uploadedFile.originalname || '') || '.png';
-  const safeExt = ext.includes('.') ? ext : '.png';
+  const ext = path.extname(uploadedFile.originalname || '').toLowerCase();
+  const safeExt = ['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext) ? ext : '.png';
   const fileName = `${kind}-${templateId}${safeExt}`;
   const destPath = path.join(TEMPLATE_ASSET_DIR, fileName);
   if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
-  fs.renameSync(uploadedFile.path, destPath);
+  try {
+    fs.renameSync(uploadedFile.path, destPath);
+  } catch (error) {
+    // Windows/cross-device temp dirs often fail rename with EXDEV
+    if (error?.code === 'EXDEV') {
+      fs.copyFileSync(uploadedFile.path, destPath);
+      fs.unlinkSync(uploadedFile.path);
+    } else {
+      throw error;
+    }
+  }
   return destPath;
 };
 
@@ -280,8 +290,8 @@ export const uploadTemplateLogo = async (req, res) => {
     res.json({ success: true, message: 'Logo uploaded', logoUrl: template.logoUrl, template });
   } catch (error) {
     cleanupUploadedFile(req.file);
-    console.error(error.message);
-    res.status(500).json({ success: false, message: 'Failed to upload logo' });
+    console.error('[template logo]', error?.message || error);
+    res.status(500).json({ success: false, message: error?.message || 'Failed to upload logo' });
   }
 };
 
@@ -308,8 +318,8 @@ export const uploadTemplateSignature = async (req, res) => {
     res.json({ success: true, message: 'Signature uploaded', companySignatureUrl: template.companySignatureUrl, template });
   } catch (error) {
     cleanupUploadedFile(req.file);
-    console.error(error.message);
-    res.status(500).json({ success: false, message: 'Failed to upload signature' });
+    console.error('[template signature]', error?.message || error);
+    res.status(500).json({ success: false, message: error?.message || 'Failed to upload signature' });
   }
 };
 

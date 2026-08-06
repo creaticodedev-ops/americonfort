@@ -28,6 +28,8 @@ const ExportTemplates = () => {
   const [form, setForm] = useState(emptyForm)
   const [previewHtml, setPreviewHtml] = useState('')
   const [showPreview, setShowPreview] = useState(false)
+  const [assetUrls, setAssetUrls] = useState({ logoUrl: '', companySignatureUrl: '' })
+  const [uploadingAsset, setUploadingAsset] = useState('')
 
   const inputClass = 'border border-borderColor px-3 py-2 rounded-lg w-full text-sm'
   const labelClass = 'text-xs font-medium text-gray-600'
@@ -68,6 +70,7 @@ const ExportTemplates = () => {
   const openCreate = () => {
     setEditing('new')
     setForm(emptyForm)
+    setAssetUrls({ logoUrl: '', companySignatureUrl: '' })
     setPreviewHtml('')
     setShowPreview(false)
   }
@@ -84,6 +87,10 @@ const ExportTemplates = () => {
       pageSize: template.pageSize || 'A4',
       isDefault: Boolean(template.isDefault),
     })
+    setAssetUrls({
+      logoUrl: template.logoUrl || '',
+      companySignatureUrl: template.companySignatureUrl || '',
+    })
     setPreviewHtml('')
     setShowPreview(false)
   }
@@ -91,6 +98,7 @@ const ExportTemplates = () => {
   const closeEditor = () => {
     setEditing(null)
     setForm(emptyForm)
+    setAssetUrls({ logoUrl: '', companySignatureUrl: '' })
     setPreviewHtml('')
     setShowPreview(false)
   }
@@ -144,41 +152,52 @@ const ExportTemplates = () => {
     }
   }
 
-  const uploadLogo = async (templateId, file) => {
+  const uploadLogo = async (templateId, file, inputEl) => {
     if (!file) return
     const body = new FormData()
     body.append('logo', file)
+    setUploadingAsset('logo')
     try {
-      const { data } = await axios.post(`/api/export-templates/${templateId}/logo`, body, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      // Do not set Content-Type manually — browser must include the multipart boundary
+      const { data } = await axios.post(`/api/export-templates/${templateId}/logo`, body)
       if (data.success) {
         toast.success(data.message)
+        setAssetUrls((prev) => ({ ...prev, logoUrl: data.logoUrl || data.template?.logoUrl || prev.logoUrl }))
         fetchTemplates()
       } else {
         toast.error(data.message)
       }
     } catch (error) {
       toast.error(getErrorMessage(error))
+    } finally {
+      setUploadingAsset('')
+      if (inputEl) inputEl.value = ''
     }
   }
 
-  const uploadSignature = async (templateId, file) => {
+  const uploadSignature = async (templateId, file, inputEl) => {
     if (!file) return
     const body = new FormData()
     body.append('signature', file)
+    setUploadingAsset('signature')
     try {
-      const { data } = await axios.post(`/api/export-templates/${templateId}/signature`, body, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      // Do not set Content-Type manually — browser must include the multipart boundary
+      const { data } = await axios.post(`/api/export-templates/${templateId}/signature`, body)
       if (data.success) {
         toast.success(data.message)
+        setAssetUrls((prev) => ({
+          ...prev,
+          companySignatureUrl: data.companySignatureUrl || data.template?.companySignatureUrl || prev.companySignatureUrl,
+        }))
         fetchTemplates()
       } else {
         toast.error(data.message)
       }
     } catch (error) {
       toast.error(getErrorMessage(error))
+    } finally {
+      setUploadingAsset('')
+      if (inputEl) inputEl.value = ''
     }
   }
 
@@ -272,23 +291,45 @@ const ExportTemplates = () => {
 
           {editing !== 'new' && (
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className={labelClass}>{t('admin.templates.logo')}</label>
+                {assetUrls.logoUrl ? (
+                  <img
+                    src={assetUrls.logoUrl}
+                    alt=""
+                    className="h-14 w-auto max-w-full object-contain rounded border border-borderColor bg-light p-1"
+                  />
+                ) : null}
                 <input
                   type="file"
                   accept="image/*"
                   className="text-sm"
-                  onChange={(e) => uploadLogo(editing, e.target.files?.[0])}
+                  disabled={uploadingAsset === 'logo'}
+                  onChange={(e) => uploadLogo(editing, e.target.files?.[0], e.target)}
                 />
+                {uploadingAsset === 'logo' ? (
+                  <p className="text-xs text-muted">{t('admin.common.loading')}</p>
+                ) : null}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className={labelClass}>{t('admin.templates.companySignature')}</label>
+                {assetUrls.companySignatureUrl ? (
+                  <img
+                    src={assetUrls.companySignatureUrl}
+                    alt=""
+                    className="h-14 w-auto max-w-full object-contain rounded border border-borderColor bg-light p-1"
+                  />
+                ) : null}
                 <input
                   type="file"
                   accept="image/*"
                   className="text-sm"
-                  onChange={(e) => uploadSignature(editing, e.target.files?.[0])}
+                  disabled={uploadingAsset === 'signature'}
+                  onChange={(e) => uploadSignature(editing, e.target.files?.[0], e.target)}
                 />
+                {uploadingAsset === 'signature' ? (
+                  <p className="text-xs text-muted">{t('admin.common.loading')}</p>
+                ) : null}
               </div>
             </div>
           )}

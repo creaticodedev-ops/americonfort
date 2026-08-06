@@ -9,6 +9,7 @@ import PhoneInput from '../../components/PhoneInput'
 import { isPhoneValid } from '../../utils/phoneValidation'
 import { Link } from 'react-router-dom'
 import { buildOwnerCompletionWaUrl, buildWaMeUrl } from '../../utils/whatsapp'
+import { downloadPdfFromApi } from '../../utils/downloadPdf'
 
 const emptyFilters = {
   customerName: '',
@@ -402,8 +403,16 @@ const ManageBookings = () => {
       })
       if (data.success) {
         toast.success(data.message)
-        if (data.invoice?.pdfUrl) {
-          window.open(data.invoice.pdfUrl, '_blank', 'noopener,noreferrer')
+        if (data.invoice?._id) {
+          try {
+            await downloadPdfFromApi(
+              axios,
+              `/api/invoices/${data.invoice._id}/pdf`,
+              `${data.invoice.invoiceNumber || 'invoice'}.pdf`,
+            )
+          } catch (downloadError) {
+            toast.error(getErrorMessage(downloadError, 'Invoice created but PDF download failed'))
+          }
         }
         fetchOwnerBookings()
       } else {

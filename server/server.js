@@ -87,12 +87,14 @@ app.use(
   "/uploads",
   protectDocumentUploads,
   express.static(path.join(__dirname, "uploads"), {
-    fallthrough: false,
+    // Missing files should 404 cleanly — fallthrough:false throws and becomes "Internal server error"
+    fallthrough: true,
     setHeaders: (res) => {
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
     },
-  })
+  }),
+  (_req, res) => res.status(404).json({ success: false, message: "File not found" })
 );
 
 app.get("/", (_req, res) => res.json({ success: true, message: "Server is running" }));

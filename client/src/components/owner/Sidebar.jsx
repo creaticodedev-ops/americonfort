@@ -56,7 +56,7 @@ const Sidebar = () => {
           <input type="file" id="image" accept="image/*" hidden onChange={(e) => setImage(e.target.files[0])} />
 
           <div className="absolute hidden top-0 right-0 left-0 bottom-0 bg-black/10 rounded-full group-hover:flex items-center justify-center cursor-pointer">
-            <img src={assets.edit_icon} alt="" />
+            <img src={assets.edit_icon} alt="" className="brightness-0 invert" />
           </div>
         </label>
       </div>

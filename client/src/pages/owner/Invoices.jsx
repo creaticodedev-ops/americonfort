@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
+import { downloadPdfFromApi } from '../../utils/downloadPdf'
 
 const formatDateTime = (value) => {
   if (!value) return '—'
@@ -99,14 +100,13 @@ const Invoices = () => {
 
   const handleDownload = async (invoice) => {
     try {
-      const { data } = await axios.get(`/api/invoices/${invoice._id}/pdf`)
-      if (data.success && data.pdfUrl) {
-        window.open(data.pdfUrl, '_blank', 'noopener,noreferrer')
-      } else {
-        toast.error(data.message || 'PDF not available')
-      }
+      await downloadPdfFromApi(
+        axios,
+        `/api/invoices/${invoice._id}/pdf`,
+        `${invoice.invoiceNumber || 'invoice'}.pdf`,
+      )
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      toast.error(getErrorMessage(error, 'PDF not available'))
     }
   }
 
@@ -187,8 +187,16 @@ const Invoices = () => {
         setShowCreateModal(false)
         setForm(createEmptyForm())
         await fetchInvoices({ page: 1 })
-        if (data.invoice?.pdfUrl) {
-          window.open(data.invoice.pdfUrl, '_blank', 'noopener,noreferrer')
+        if (data.invoice?._id) {
+          try {
+            await downloadPdfFromApi(
+              axios,
+              `/api/invoices/${data.invoice._id}/pdf`,
+              `${data.invoice.invoiceNumber || 'invoice'}.pdf`,
+            )
+          } catch (downloadError) {
+            toast.error(getErrorMessage(downloadError, 'Invoice created but PDF download failed'))
+          }
         }
       } else {
         toast.error(data.message)

@@ -10,7 +10,7 @@ const gate = (perm) => [protect, requireOwner, requirePermission(perm)];
 router.get('/', ...gate('contracts'), listInvoices);
 router.post('/generate', ...gate('contracts'), generateInvoice);
 router.post('/manual', ...gate('contracts'), createManualInvoice);
-router.get('/:id', ...gate('contracts'), getInvoice);
 router.get('/:id/pdf', ...gate('contracts'), downloadInvoicePdf);
+router.get('/:id', ...gate('contracts'), getInvoice);
 
 export default router;

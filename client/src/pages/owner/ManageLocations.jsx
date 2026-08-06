@@ -257,25 +257,43 @@ const ManageLocations = () => {
                     </span>
                   </td>
                   <td className="p-3">
-                    <div className="flex items-center gap-3">
-                    <img
+                    <div className="flex items-center gap-2">
+                    <button
+                      type="button"
                       onClick={() => toggleLocation(location._id)}
-                      src={location.isActive ? assets.eye_close_icon : assets.eye_icon}
-                      alt=""
-                      className="cursor-pointer"
-                    />
-                    <img
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-gray-100 cursor-pointer"
+                      aria-label={location.isActive ? t('admin.locations.inactive') : t('admin.locations.active')}
+                    >
+                      <img
+                        src={location.isActive ? assets.eye_close_icon : assets.eye_icon}
+                        alt=""
+                        className="h-5 w-5"
+                      />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => startEdit(location)}
-                      src={assets.edit_icon}
-                      alt=""
-                      className="cursor-pointer"
-                    />
-                    <img
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-blue-50 cursor-pointer"
+                      aria-label={t('admin.common.edit')}
+                    >
+                      <img
+                        src={assets.edit_icon}
+                        alt=""
+                        className="h-5 w-5"
+                      />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => deleteLocation(location._id)}
-                      src={assets.delete_icon}
-                      alt=""
-                      className="cursor-pointer"
-                    />
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 cursor-pointer"
+                      aria-label={t('admin.common.delete')}
+                    >
+                      <img
+                        src={assets.delete_icon}
+                        alt=""
+                        className="h-5 w-5"
+                      />
+                    </button>
                     </div>
                   </td>
                 </tr>
