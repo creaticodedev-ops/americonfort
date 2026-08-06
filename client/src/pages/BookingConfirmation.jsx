@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react'
 import { Link, useLocation, Navigate } from 'react-router-dom'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { useAppContext } from '../context/AppContext'
+import Seo from '../components/Seo'
 
 const formatDisplay = (value) => {
   if (!value) return '-'
@@ -16,7 +17,7 @@ const BreakdownRows = ({ breakdown, currency, t }) => {
 
   return (
     <div className="rounded-xl bg-white border border-borderColor px-4 py-3 space-y-2 mt-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('confirmation.priceBreakdown')}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t('confirmation.priceBreakdown')}</p>
       <div className="flex justify-between text-sm gap-3">
         <span>{t('confirmation.rentalPrice')}</span>
         <span className="font-medium">{currency}{breakdown.rentalPrice ?? 0}</span>
@@ -77,6 +78,7 @@ const BookingConfirmation = () => {
       transition={{ duration: 0.5 }}
       className="page-pad mt-10 sm:mt-16 mb-16 sm:mb-24"
     >
+      <Seo title={t('confirmation.title')} path="/booking-confirmation" noindex />
       <div className="max-w-3xl mx-auto">
       <div className="rounded-2xl border border-borderColor bg-white p-6 sm:p-8 shadow-sm text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600 text-2xl font-bold">

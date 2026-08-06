@@ -1,17 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { assets } from '../assets/assets'
 import Loader from '../components/Loader'
+import Seo from '../components/Seo'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
 import { formatLocationsDisplay, getCarLocations } from '../utils/carLocations'
 import { calculateBookingPricePreview } from '../utils/pricing'
-import { isPhoneValid } from '../components/PhoneInput'
+import { isPhoneValid } from '../utils/phoneValidation'
 import { buildGuestReservationWaUrl } from '../utils/whatsapp'
-import ReservationPanel from '../components/reservation/ReservationPanel'
+
+const ReservationPanel = lazy(() => import('../components/reservation/ReservationPanel'))
 
 const toDateTimeLocal = (value) => {
   if (!value) return ''
@@ -193,12 +195,19 @@ const CarDetails = () => {
 
   return (
     <div className="page-pad page-shell mt-6 sm:mt-10 md:mt-12 pb-16 sm:pb-20 bg-gradient-to-b from-white to-sand/30 min-h-screen">
+      <Seo
+        title={`${car.brand} ${car.model}`}
+        description={car.description || `Rent ${car.brand} ${car.model} with Americonfort in Morocco.`}
+        path={`/car-details/${car._id}`}
+        type="product"
+        image={car.image || car.images?.[0]}
+      />
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-sm text-gray-500 transition hover:text-gray-800 cursor-pointer"
+        className="mb-6 flex items-center gap-2 text-sm text-muted transition hover:text-ink cursor-pointer"
       >
-        <img src={assets.arrow_icon} alt="" className="w-4 rotate-180 opacity-60" />
+        <img src={assets.arrow_icon} alt="" width={16} height={16} className="w-4 h-4 rotate-180 opacity-60" />
         {t('carDetails.back')}
       </button>
 
@@ -209,17 +218,21 @@ const CarDetails = () => {
               <img
                 src={car.image || car.images?.[0] || fallbackImage}
                 onError={(e) => { e.currentTarget.src = fallbackImage }}
-                alt=""
-                className="aspect-[16/10] w-full object-cover sm:aspect-[16/9]"
+                alt={`${car.brand} ${car.model}`}
+                width={1280}
+                height={720}
+                fetchPriority="high"
+                decoding="async"
+                className="aspect-[16/10] w-full h-auto object-cover sm:aspect-[16/9]"
               />
             </div>
 
             <div className="mt-6 sm:mt-8">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400">{car.category}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">{car.category}</p>
               <h1 className="font-display mt-1 text-2xl font-medium text-gray-900 sm:text-3xl lg:text-4xl">
                 {car.brand} {car.model}
               </h1>
-              <p className="mt-1 text-sm text-gray-500">{car.year}</p>
+              <p className="mt-1 text-sm text-muted">{car.year}</p>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -228,7 +241,7 @@ const CarDetails = () => {
                   key={text}
                   className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white px-3.5 py-2 text-xs font-medium text-gray-700 shadow-sm"
                 >
-                  <img src={icon} alt="" className="h-4 w-4 opacity-70" />
+                  <img src={icon} alt="" width={16} height={16} className="h-4 w-4 opacity-70" loading="lazy" />
                   {text}
                 </span>
               ))}
@@ -244,7 +257,7 @@ const CarDetails = () => {
                 <ul className="mt-3 space-y-2">
                   {(car.features?.length ? car.features : ['360 Camera', 'Bluetooth', 'GPS', 'Heated Seats']).map((item) => (
                     <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                      <img src={assets.check_icon} className="h-4 w-4 shrink-0" alt="" />
+                      <img src={assets.check_icon} className="h-4 w-4 shrink-0" alt="" width={16} height={16} loading="lazy" />
                       {item}
                     </li>
                   ))}
@@ -255,25 +268,27 @@ const CarDetails = () => {
         </div>
 
         <div className="order-1 lg:order-2 lg:col-span-5 xl:col-span-4 min-w-0">
-          <ReservationPanel
-            car={car}
-            form={form}
-            setForm={setForm}
-            pickupDate={pickupDate}
-            setPickupDate={setPickupDate}
-            returnDate={returnDate}
-            setReturnDate={setReturnDate}
-            bookableLocations={bookableLocations}
-            pickupLoc={pickupLoc}
-            returnLoc={returnLoc}
-            priceBreakdown={priceBreakdown}
-            currency={currency}
-            submitting={submitting}
-            onWhatsAppSubmit={() => submitReservation({ channel: 'whatsapp' })}
-            t={t}
-            formatFeeLabel={(loc) => formatFeeLabel(loc, currency, t('carDetails.free'))}
-            minDate={minDate}
-          />
+          <Suspense fallback={<Loader />}>
+            <ReservationPanel
+              car={car}
+              form={form}
+              setForm={setForm}
+              pickupDate={pickupDate}
+              setPickupDate={setPickupDate}
+              returnDate={returnDate}
+              setReturnDate={setReturnDate}
+              bookableLocations={bookableLocations}
+              pickupLoc={pickupLoc}
+              returnLoc={returnLoc}
+              priceBreakdown={priceBreakdown}
+              currency={currency}
+              submitting={submitting}
+              onWhatsAppSubmit={() => submitReservation({ channel: 'whatsapp' })}
+              t={t}
+              formatFeeLabel={(loc) => formatFeeLabel(loc, currency, t('carDetails.free'))}
+              minDate={minDate}
+            />
+          </Suspense>
         </div>
       </div>
     </div>

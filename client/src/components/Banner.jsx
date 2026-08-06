@@ -1,6 +1,6 @@
 import React from 'react'
 import { assets } from '../assets/assets'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { useNavigate } from 'react-router-dom'
 
@@ -21,6 +21,10 @@ const Banner = () => {
           <img
             src={assets.banner_car_image}
             alt=""
+            width={1200}
+            height={576}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover object-center opacity-40 md:opacity-50"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/90 to-ink/40" />
@@ -28,13 +32,13 @@ const Banner = () => {
         </div>
 
         <div className="relative z-10 flex flex-col justify-center px-6 py-12 sm:px-8 md:px-14 md:py-16 max-w-xl">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-white/50 mb-3 font-medium">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-white/80 mb-3 font-medium">
             {t('banner.eyebrow')}
           </p>
           <h2 className="font-display text-3xl md:text-4xl lg:text-5xl text-white font-medium leading-tight">
             {t('banner.title')}
           </h2>
-          <p className="mt-4 text-white/65 text-sm md:text-base leading-relaxed font-light max-w-md">
+          <p className="mt-4 text-white/90 text-sm md:text-base leading-relaxed font-light max-w-md">
             {t('banner.line1')}
           </p>
           <Motion.button

@@ -1,7 +1,7 @@
 import React from 'react'
 import Title from './Title'
 import { assets } from '../assets/assets'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 
 const Testimonial = () => {
@@ -30,7 +30,7 @@ const Testimonial = () => {
               {Array(5)
                 .fill(0)
                 .map((_, i) => (
-                  <img key={i} src={assets.star_icon} alt="" className="h-3.5 opacity-90" />
+                  <img key={i} src={assets.star_icon} alt="" width={14} height={14} loading="lazy" className="h-3.5 w-3.5 opacity-90" />
                 ))}
             </div>
             <p className="font-display text-xl md:text-2xl text-ink leading-snug font-medium">

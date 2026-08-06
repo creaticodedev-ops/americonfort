@@ -175,6 +175,7 @@ const CitySelect = ({ value, onChange, options = [], label, placeholder, classNa
           open ? 'bg-sand/70' : 'hover:bg-sand/40'
         }`}
         aria-expanded={open}
+        aria-haspopup="listbox"
       >
         <p className="text-[11px] uppercase tracking-[0.14em] text-muted font-medium mb-1">
           {label || t('hero.pickupLocation')}

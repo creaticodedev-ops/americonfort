@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import PhoneInput from '../PhoneInput'
 import LocationSelect from './LocationSelect'
 import ReservationDateTimes from './ReservationDateTimes'

@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import DateRangePicker from './DateRangePicker'
 import CitySelect from './CitySelect'
 import { BRAND_NAME } from '../constants/brand'
+import toast from 'react-hot-toast'
 
 const Hero = () => {
   const [pickupLocation, setPickupLocation] = useState('')
@@ -55,7 +56,7 @@ const Hero = () => {
           className="text-center w-full max-w-3xl"
         >
           <p className="font-display text-primary text-5xl sm:text-6xl md:text-7xl font-medium leading-none tracking-tight">
-            
+            {BRAND_NAME}
           </p>
           <h1 className="font-display text-ink text-3xl sm:text-4xl md:text-5xl font-medium mt-3 sm:mt-4 leading-tight">
             {t('hero.title')}
@@ -102,7 +103,7 @@ const Hero = () => {
                   type="submit"
                   className="w-full md:w-[9.5rem] min-h-[3.25rem] rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                     <circle cx="11" cy="11" r="7" />
                     <path d="M20 20l-3.5-3.5" />
                   </svg>
@@ -117,18 +118,26 @@ const Hero = () => {
           </p>
         </Motion.form>
 
-        <Motion.div
-          initial={{ opacity: 0, y: 36 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.22, ease: 'easeOut' }}
-          className="mt-8 sm:mt-10 md:mt-14 w-full max-w-3xl flex justify-center px-2"
-        >
-          <img
-            src={assets.main_car}
-            alt={`${BRAND_NAME} premium rental`}
-            className="w-full max-h-[200px] sm:max-h-[280px] md:max-h-[340px] object-contain select-none drop-shadow-[0_30px_60px_rgba(22,18,16,0.18)]"
-          />
-        </Motion.div>
+        {/* LCP image: no opacity animation — keep visible from first paint */}
+        <div className="mt-8 sm:mt-10 md:mt-14 w-full max-w-3xl flex justify-center px-2">
+          <picture>
+            <source type="image/avif" srcSet={assets.main_car_avif} />
+            <source
+              type="image/webp"
+              srcSet={`${assets.main_car_640} 640w, ${assets.main_car} 960w, ${assets.main_car_1280} 1280w`}
+              sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 768px"
+            />
+            <img
+              src={assets.main_car}
+              alt={`${BRAND_NAME} premium rental`}
+              width={960}
+              height={383}
+              fetchPriority="high"
+              decoding="async"
+              className="w-full max-h-[200px] sm:max-h-[280px] md:max-h-[340px] h-auto object-contain select-none drop-shadow-[0_30px_60px_rgba(22,18,16,0.18)]"
+            />
+          </picture>
+        </div>
       </div>
     </section>
   )

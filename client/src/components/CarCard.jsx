@@ -20,6 +20,10 @@ const CarCard = ({ car }) => {
           src={car.image || car.images?.[0] || fallbackImage}
           onError={(e) => { e.currentTarget.src = fallbackImage }}
           alt={`${car.brand} ${car.model}`}
+          width={640}
+          height={400}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-ink/50 via-transparent to-transparent opacity-80" />
@@ -27,14 +31,14 @@ const CarCard = ({ car }) => {
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
           <div>
             {car.isAvaliable && (
-              <p className="text-[10px] uppercase tracking-[0.16em] text-white/90 mb-1">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-white mb-1">
                 {t('carCard.available')}
               </p>
             )}
             <h3 className="text-white font-display text-xl font-medium leading-tight">
               {car.brand} {car.model}
             </h3>
-            <p className="text-white/70 text-xs mt-0.5">{car.category} · {car.year}</p>
+            <p className="text-white/90 text-xs mt-0.5">{car.category} · {car.year}</p>
           </div>
           <div className="text-right shrink-0 rounded-lg bg-white/95 px-2.5 py-1.5 backdrop-blur-sm">
             <p className="text-ink font-semibold text-sm leading-none">{currency}{car.pricePerDay}</p>
@@ -45,19 +49,19 @@ const CarCard = ({ car }) => {
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
         <span className="inline-flex items-center gap-1.5">
-          <img src={assets.users_icon} alt="" className="h-3.5 opacity-70" />
+          <img src={assets.users_icon} alt="" width={14} height={14} className="h-3.5 w-3.5 opacity-70" loading="lazy" />
           {t('carDetails.seats', { count: car.seating_capacity })}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <img src={assets.fuel_icon} alt="" className="h-3.5 opacity-70" />
+          <img src={assets.fuel_icon} alt="" width={14} height={14} className="h-3.5 w-3.5 opacity-70" loading="lazy" />
           {car.fuel_type}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <img src={assets.car_icon} alt="" className="h-3.5 opacity-70" />
+          <img src={assets.car_icon} alt="" width={14} height={14} className="h-3.5 w-3.5 opacity-70" loading="lazy" />
           {car.transmission}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <img src={assets.location_icon} alt="" className="h-3.5 opacity-70" />
+          <img src={assets.location_icon} alt="" width={14} height={14} className="h-3.5 w-3.5 opacity-70" loading="lazy" />
           {formatLocationsDisplay(car)}
         </span>
       </div>

@@ -17,6 +17,8 @@ const LanguageSwitcher = ({ className = '', variant = 'default' }) => {
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-sm transition-colors cursor-pointer ${btnClass}`}
         aria-label="Change language"
+        aria-expanded={open}
+        aria-haspopup="listbox"
       >
         <span className="font-medium tracking-wide">{language.toUpperCase()}</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-70">

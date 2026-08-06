@@ -1,0 +1,23 @@
+# Americonfort
+
+> Americonfort is a premium car rental service in Morocco. Customers browse the fleet, choose pickup location and dates, and reserve vehicles online.
+
+The public website is a React single-page application. Staff and owner tools live under `/owner` and are not intended for general users or AI booking agents.
+
+## Pages
+
+- [Home](https://www.americonfort.com/): Brand landing page with search (location + dates), featured vehicles, and company highlights
+- [Cars](https://www.americonfort.com/cars): Full fleet listing with search and category filters; supports query params `pickupLocation`, `pickupDate`, `returnDate`, and `category`
+- [Car details](https://www.americonfort.com/cars): Individual vehicle pages at `/car-details/:id` with specs, pricing preview, and reservation form
+
+## Contact
+
+- Email: americonfort@gmail.com
+- Phone: +212 6 70 55 10 55
+- Address: Aéroport international Mohamed V, Casablanca, Maroc
+- Website: https://www.americonfort.com
+
+## Optional
+
+- [Sitemap](https://www.americonfort.com/sitemap.xml)
+- [Robots](https://www.americonfort.com/robots.txt)

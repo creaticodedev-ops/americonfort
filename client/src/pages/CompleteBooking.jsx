@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 import { resolveApiBaseUrl } from '../utils/apiBase'

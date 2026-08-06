@@ -1,8 +1,9 @@
 import React from 'react'
 import { assets } from '../assets/assets'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { Link } from "react-router-dom";
+import { BRAND_NAME } from '../constants/brand'
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 },
@@ -23,7 +24,11 @@ const Footer = () => {
           <Motion.img
             {...fadeUp(0.2)}
             src={assets.logo}
-            alt="logo"
+            alt={BRAND_NAME}
+            width={200}
+            height={96}
+            loading="lazy"
+            decoding="async"
             className="block h-9 sm:h-10 lg:h-11 mb-3 w-auto max-h-10 lg:max-h-11 object-contain"
           />
 
@@ -35,13 +40,16 @@ const Footer = () => {
             {...fadeUp(0.4)}
             className="flex items-center gap-4 mt-6"
           >
-            {[assets.facebook_logo, assets.instagram_logo, assets.twitter_logo, assets.gmail_logo].map(
-              (logo, i) => (
-                <a key={i} href="#" aria-label="Social link">
-                  <img src={logo} className="w-5 h-5 hover:opacity-70 transition" alt="" />
-                </a>
-              )
-            )}
+            {[
+              { src: assets.facebook_logo, label: 'Facebook' },
+              { src: assets.instagram_logo, label: 'Instagram' },
+              { src: assets.twitter_logo, label: 'X (Twitter)' },
+              { src: assets.gmail_logo, label: 'Email' },
+            ].map(({ src, label }) => (
+              <a key={label} href="#" aria-label={label}>
+                <img src={src} width={20} height={20} loading="lazy" className="w-5 h-5 hover:opacity-70 transition" alt="" />
+              </a>
+            ))}
           </Motion.div>
         </div>
 
@@ -50,9 +58,9 @@ const Footer = () => {
           className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-10 w-full md:w-auto md:flex-1 md:max-w-2xl"
         >
           <div>
-            <h2 className="text-base font-medium text-gray-900 uppercase tracking-wide">
+            <h3 className="text-base font-medium text-gray-900 uppercase tracking-wide">
               {t('footer.quickLinks')}
-            </h2>
+            </h3>
             <ul className="mt-4 flex flex-col gap-2">
               <li><Link className="hover:text-gray-700 transition" to="/">{t('footer.home')}</Link></li>
               <li><Link className="hover:text-gray-700 transition" to="/cars">{t('footer.browseCars')}</Link></li>
@@ -61,9 +69,9 @@ const Footer = () => {
           </div>
 
           <div>
-            <h2 className="text-base font-medium text-gray-900 uppercase tracking-wide">
+            <h3 className="text-base font-medium text-gray-900 uppercase tracking-wide">
               {t('footer.resources')}
-            </h2>
+            </h3>
             <ul className="mt-4 flex flex-col gap-2">
               {[t('footer.helpCenter'), t('footer.termsOfService'), t('footer.privacyPolicy'), t('footer.insurance')].map(
                 (item) => (
@@ -78,9 +86,9 @@ const Footer = () => {
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <h2 className="text-base font-medium text-gray-900 uppercase tracking-wide">
+            <h3 className="text-base font-medium text-gray-900 uppercase tracking-wide">
               {t('footer.contact')}
-            </h2>
+            </h3>
             <ul className="mt-4 flex flex-col gap-2 break-words">
               <li>Aéroport international Mohamed V</li>
               <li>Casablanca, Maroc</li>
@@ -112,7 +120,7 @@ const Footer = () => {
           </ul>
           <Link
             to="/owner"
-            className="text-[10px] text-gray-400/70 hover:text-gray-500 transition tracking-wide"
+            className="text-[10px] text-muted hover:text-ink transition tracking-wide"
           >
             {t('footer.staffPortal')}
           </Link>

@@ -7,7 +7,8 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { getCarLocations } from '../../utils/carLocations'
-import PhoneInput, { isPhoneValid } from '../../components/PhoneInput'
+import PhoneInput from '../../components/PhoneInput'
+import { isPhoneValid } from '../../utils/phoneValidation'
 
 const emptyForm = {
   car: '',

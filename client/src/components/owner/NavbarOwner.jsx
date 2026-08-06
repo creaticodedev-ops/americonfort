@@ -20,7 +20,7 @@ const NavbarOwner = () => {
   return (
     <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 lg:px-10 py-3 text-gray-500 border-b border-borderColor bg-white min-h-[57px]">
       <Link to="/" className="shrink-0">
-        <img src={assets.logo} alt={BRAND_NAME} className="block h-8 sm:h-9 w-auto max-h-9 object-contain" />
+        <img src={assets.logo} alt={BRAND_NAME} width={200} height={96} decoding="async" className="block h-8 sm:h-9 w-auto max-h-9 object-contain" />
       </Link>
 
       {!licenseLocked && (

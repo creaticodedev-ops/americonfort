@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Title from '../components/Title'
+import Seo from '../components/Seo'
 import { assets } from '../assets/assets'
 import CarCard from '../components/CarCard'
 import { useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
 import { VEHICLE_CATEGORIES, groupCarsByCategory } from '../utils/vehicleCategories'
@@ -111,6 +112,11 @@ const Cars = () => {
 
   return (
     <div className="pb-20 sm:pb-28">
+      <Seo
+        title={t('cars.title')}
+        description={t('cars.subtitle')}
+        path="/cars"
+      />
       <Motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -136,13 +142,14 @@ const Cars = () => {
           transition={{ delay: 0.25, duration: 0.5 }}
           className="relative z-10 flex items-center bg-white px-4 mt-6 max-w-xl w-full h-12 rounded-xl border border-borderColor shadow-sm"
         >
-          <img src={assets.search_icon} alt="" className="w-[1.125rem] h-[1.125rem] mr-2 shrink-0" />
+          <img src={assets.search_icon} alt="" width={18} height={18} className="w-[1.125rem] h-[1.125rem] mr-2 shrink-0" />
           <input
             onChange={(e) => setInput(e.target.value)}
             value={input}
-            type="text"
+            type="search"
             placeholder={t('cars.searchPlaceholder')}
-            className="w-full min-w-0 h-full outline-none text-gray-500 text-sm sm:text-base"
+            aria-label={t('cars.searchPlaceholder')}
+            className="w-full min-w-0 h-full outline-none text-muted text-sm sm:text-base"
           />
         </Motion.div>
 

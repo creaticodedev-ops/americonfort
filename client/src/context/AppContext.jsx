@@ -60,7 +60,7 @@ export const AppProvider = ({ children })=>{
             const { data } = await axios.get('/api/pickup-locations')
             if (data.success) setPickupLocations(data.locations)
         } catch (error) {
-            console.error(getErrorMessage(error))
+            if (import.meta.env.DEV) console.error(getErrorMessage(error))
             toast.error('Failed to load pickup locations')
         }
     }, [])

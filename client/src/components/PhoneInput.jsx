@@ -1,7 +1,9 @@
 import React from 'react'
 import PhoneInputBase from 'react-phone-number-input'
-import { isValidPhoneNumber } from 'libphonenumber-js'
 import 'react-phone-number-input/style.css'
+import { isPhoneValid } from '../utils/phoneValidation'
+
+export { isPhoneValid }
 
 const inputClass =
   'border border-borderColor px-3 py-2 rounded-lg w-full bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30'
@@ -29,14 +31,5 @@ const PhoneInput = ({
     }}
   />
 )
-
-export const isPhoneValid = (value) => {
-  if (!value) return false
-  try {
-    return isValidPhoneNumber(value)
-  } catch {
-    return false
-  }
-}
 
 export default PhoneInput

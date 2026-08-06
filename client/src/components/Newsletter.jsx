@@ -1,5 +1,5 @@
 import React from 'react'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import toast from 'react-hot-toast'
 

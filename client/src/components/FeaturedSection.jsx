@@ -4,7 +4,7 @@ import { assets } from '../assets/assets'
 import CarCard from './CarCard'
 import { useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { groupCarsByCategory } from '../utils/vehicleCategories'
 
@@ -90,7 +90,7 @@ const FeaturedSection = () => {
           className="group inline-flex items-center gap-2 px-7 py-3 border border-ink/15 hover:border-primary hover:text-primary rounded-xl text-sm tracking-wide transition-all duration-300 cursor-pointer"
         >
           {t('featured.exploreAll')}
-          <img src={assets.arrow_icon} alt="" className="h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+          <img src={assets.arrow_icon} alt="" width={14} height={14} loading="lazy" className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
         </button>
       </Motion.div>
     </section>

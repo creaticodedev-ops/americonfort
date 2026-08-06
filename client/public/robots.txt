@@ -1,0 +1,13 @@
+# https://www.americonfort.com/robots.txt
+User-agent: *
+Allow: /
+Disallow: /owner
+Disallow: /owner/
+Disallow: /superadmin
+Disallow: /superadmin/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /booking-confirmation
+Disallow: /complete-booking
+
+Sitemap: https://www.americonfort.com/sitemap.xml

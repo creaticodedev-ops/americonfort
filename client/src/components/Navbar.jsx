@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { assets, menuLinks } from '../assets/assets'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { motion as Motion } from 'framer-motion'
+import { motion as Motion } from 'motion/react'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from '../i18n/I18nContext'
 import { BRAND_NAME } from '../constants/brand'
@@ -65,12 +65,16 @@ const Navbar = () => {
             whileHover={{ scale: 1.03 }}
             src={assets.logo}
             alt={BRAND_NAME}
+            width={200}
+            height={96}
+            decoding="async"
+            fetchPriority="high"
             className="block h-8 sm:h-9 lg:h-10 w-auto max-h-9 lg:max-h-10 object-contain"
           />
         </Link>
 
         {/* Desktop: logo left, controls right — independent of mobile drawer */}
-        <nav className="hidden sm:flex items-center gap-5 lg:gap-7 shrink-0">
+        <nav className="hidden sm:flex items-center gap-5 lg:gap-7 shrink-0" aria-label="Primary">
           {menuLinks.map((link, index) => (
             <Link
               key={index}
@@ -108,7 +112,7 @@ const Navbar = () => {
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
-          <img src={open ? assets.close_icon : assets.menu_icon} alt="" className="block w-5 h-5 object-contain" />
+          <img src={open ? assets.close_icon : assets.menu_icon} alt="" width={20} height={20} className="block w-5 h-5 object-contain" />
         </button>
       </div>
 
@@ -120,7 +124,7 @@ const Navbar = () => {
             className="sm:hidden fixed inset-0 z-40 bg-ink/40"
             onClick={() => setOpen(false)}
           />
-          <nav className="sm:hidden fixed inset-x-0 top-[57px] z-50 h-[calc(100svh-57px)] overflow-y-auto border-t border-borderColor bg-white p-5 pb-10 flex flex-col gap-1">
+          <nav className="sm:hidden fixed inset-x-0 top-[57px] z-50 h-[calc(100svh-57px)] overflow-y-auto border-t border-borderColor bg-white p-5 pb-10 flex flex-col gap-1" aria-label="Mobile">
             {menuLinks.map((link, index) => (
               <Link
                 key={index}
