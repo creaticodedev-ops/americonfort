@@ -39,7 +39,14 @@ bookingRouter.post('/change-status', ...bookingsGate, changeBookingStatus);
 bookingRouter.post('/change-payment-status', ...bookingsGate, changePaymentStatus);
 bookingRouter.post('/update', ...bookingsGate, updateBooking);
 bookingRouter.post('/assign-vehicle', ...bookingsGate, assignBookingVehicle);
-bookingRouter.post('/owner/:bookingId/documents', ...bookingsGate, upload.single('file'), handleMulterError, uploadBookingDocuments);
+bookingRouter.post(
+  '/owner/:bookingId/documents',
+  ...bookingsGate,
+  rateLimit({ windowMs: 60_000, max: 20, message: 'Too many document uploads' }),
+  upload.single('file'),
+  handleMulterError,
+  uploadBookingDocuments
+);
 bookingRouter.get('/owner/:bookingId/documents/:docType', ...bookingsGate, getBookingDocumentUrl);
 bookingRouter.post('/delete', ...bookingsGate, deleteBooking);
 

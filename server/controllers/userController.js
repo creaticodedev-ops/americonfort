@@ -18,6 +18,9 @@ const generateToken = (user) => {
     return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
+/** Dummy hash so missing-user login takes similar time to a real bcrypt compare. */
+const DUMMY_PASSWORD_HASH = '$2b$10$Ic6xS.w.3qa11b9um2Q0dOGirMB.eiqyf6gI.d0j2eLZIwBHKwAMy';
+
 export const loginUser = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -27,9 +30,14 @@ export const loginUser = async (req, res) => {
 
         const normalizedEmail = normalizeEmail(email);
         const user = await findUserByEmail(User, normalizedEmail);
-        if (!user) {
-            return res.status(401).json({ success: false, message: 'Admin account not found' });
+
+        // Always bcrypt-compare to reduce timing/email enumeration side channels
+        const isMatch = await bcrypt.compare(password, user?.password || DUMMY_PASSWORD_HASH);
+        if (!user || !isMatch) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
+
+        // Role / portal hints only after successful password verification
         if (user.role === 'superadmin') {
             return res.status(403).json({
                 success: false,
@@ -46,11 +54,6 @@ export const loginUser = async (req, res) => {
                 code: 'ACCOUNT_LOCKED',
                 message: `This admin account has been suspended or disabled. Contact ${BRAND_NAME}.`,
             });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
 
         // Ensure trial fields exist; auto-mark expired if needed (login still allowed)

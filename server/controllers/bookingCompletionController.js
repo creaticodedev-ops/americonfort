@@ -17,7 +17,7 @@ import {
   retrieveStripeSession,
 } from "../services/paymentService.js";
 import { cleanupUploadedFile } from "../middleware/multer.js";
-import { appendSignedQuery } from "../middleware/uploadAccess.js";
+import { signDocumentAccessUrl } from "../middleware/uploadAccess.js";
 import {
   applyCompletionDetailsToBooking,
   validateCompletionDetails,
@@ -25,8 +25,7 @@ import {
 
 const signIfLocalUpload = (url) => {
   if (!url || typeof url !== "string") return url || "";
-  if (url.includes("/uploads/documents")) return appendSignedQuery(url);
-  return url;
+  return signDocumentAccessUrl(url);
 };
 
 const publicBookingView = (booking) => {

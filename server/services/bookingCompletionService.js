@@ -123,7 +123,7 @@ export const initiateBookingCompletion = async (bookingId, { resend = false } = 
     console.error(
       '[email] Completion invite NOT delivered:',
       emailResult.reason || emailResult.error,
-      { to: booking.customerEmail, reservationId: booking.reservationId },
+      { reservationId: booking.reservationId },
     );
   }
 
@@ -134,7 +134,7 @@ export const initiateBookingCompletion = async (bookingId, { resend = false } = 
       entityType: 'Booking',
       entityId: booking._id,
       details: emailResult.success
-        ? `Completion email accepted by SMTP for ${booking.reservationId} → ${booking.customerEmail}`
+        ? `Completion email accepted by SMTP for ${booking.reservationId}`
         : `Completion link ensured for ${booking.reservationId} (email: ${emailResult.reason || 'skipped'})`,
     });
   } catch { /* ignore */ }
@@ -213,12 +213,6 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
 
   let contractPath;
   let contractPdfUrl;
-
-  console.log('[FINALIZE] Booking completion object:', {
-    signatureUrl: booking.completion?.signatureUrl,
-    signatureSignedAt: booking.completion?.signatureSignedAt,
-    signatureComplete: booking.completion?.signatureComplete,
-  });
 
   // Always use the Admin-selected default contract template (SSOT).
   await ensureDefaultTemplates(booking.owner);
@@ -312,7 +306,7 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     console.error(
       "[email] Final confirmation NOT delivered:",
       finalEmailResult.reason,
-      { to: booking.customerEmail, reservationId: booking.reservationId }
+      { reservationId: booking.reservationId }
     );
   }
 
@@ -348,9 +342,7 @@ export const saveSignatureAndMaybeFinalize = async (
   booking,
   { signatureDataUrl, secondDriverSignatureDataUrl } = {}
 ) => {
-  console.log('[SIGNATURE] Storing signature for booking:', booking.reservationId);
   const url = await storeDataUrlImage(signatureDataUrl, `signature-${booking.reservationId}.png`);
-  console.log('[SIGNATURE] Stored signature URL:', url);
   booking.completion = booking.completion || {};
   booking.completion.signatureUrl = url;
   booking.completion.signatureSignedAt = new Date();
@@ -374,8 +366,7 @@ export const saveSignatureAndMaybeFinalize = async (
   }
 
   refreshCompletionFlags(booking);
-  const saved = await booking.save();
-  console.log('[SIGNATURE] Booking saved with signatureUrl:', saved.completion?.signatureUrl);
+  await booking.save();
   return tryFinalizeBookingCompletion(booking._id);
 };
 

@@ -20,7 +20,8 @@ import upload, { handleMulterError } from "../middleware/multer.js";
 
 const completionRouter = express.Router();
 
-const tokenLimit = rateLimit({ windowMs: 60_000, max: 40, message: "Too many requests" });
+const tokenLimit = rateLimit({ windowMs: 60_000, max: 30, message: "Too many requests" });
+const documentUploadLimit = rateLimit({ windowMs: 60_000, max: 15, message: "Too many document uploads" });
 
 const ownerGate = [protect, requireOwner, requirePermission("bookings")];
 
@@ -33,11 +34,12 @@ completionRouter.post("/owner/test-email", ...ownerGate, sendTestEmail);
 completionRouter.get("/:token", tokenLimit, getCompletionBooking);
 completionRouter.post(
   "/:token/documents",
-  tokenLimit,
+  documentUploadLimit,
   upload.single("file"),
   handleMulterError,
   uploadCompletionDocument
-);completionRouter.post("/:token/details", tokenLimit, saveCompletionDetails);
+);
+completionRouter.post("/:token/details", tokenLimit, saveCompletionDetails);
 completionRouter.post("/:token/payment/create", tokenLimit, createCompletionPayment);
 completionRouter.post("/:token/payment/demo-confirm", tokenLimit, confirmDemoPayment);
 completionRouter.post("/:token/payment/stripe-confirm", tokenLimit, confirmStripePayment);

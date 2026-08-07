@@ -3,14 +3,10 @@ import Booking from '../models/Booking.js';
 import { storeDocumentImage } from '../services/documentStore.js';
 import { applyAdminDocumentUpload, getDocumentUrls } from '../services/customerDocuments.js';
 import { cleanupUploadedFile } from '../middleware/multer.js';
-import { appendSignedQuery } from '../middleware/uploadAccess.js';
+import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
 import { logAudit } from '../utils/adminOps.js';
 
-const signDocUrl = (url) => {
-  if (!url) return '';
-  if (url.includes('/uploads/documents')) return appendSignedQuery(url);
-  return url;
-};
+const signDocUrl = (url) => signDocumentAccessUrl(url);
 
 /** Upload customer documents for a reservation (walk-in / admin). */
 export const uploadBookingDocuments = async (req, res) => {

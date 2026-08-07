@@ -64,17 +64,15 @@ export const superAdminLogin = async (req, res) => {
 
     const normalizedEmail = normalizeEmail(email);
     const user = await findUserByEmail(User, normalizedEmail);
-    if (!user || user.role !== 'superadmin') {
+    // Dummy compare when user missing / not superadmin — reduces email enumeration timing
+    const DUMMY = '$2b$10$Ic6xS.w.3qa11b9um2Q0dOGirMB.eiqyf6gI.d0j2eLZIwBHKwAMy';
+    const ok = await bcrypt.compare(password, user?.role === 'superadmin' ? user.password : DUMMY);
+    if (!user || user.role !== 'superadmin' || !ok) {
       return res.status(401).json({ success: false, message: 'Invalid Super Admin credentials' });
     }
 
     if (user.accountStatus && user.accountStatus !== 'active') {
       return res.status(403).json({ success: false, message: 'This Super Admin account is locked' });
-    }
-
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) {
-      return res.status(401).json({ success: false, message: 'Invalid Super Admin credentials' });
     }
 
     user.lastLoginAt = new Date();

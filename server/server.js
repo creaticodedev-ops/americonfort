@@ -76,6 +76,31 @@ app.use((_req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
   }
+
+  // CSP for API + optional SPA serve. Stripe origins included so enabling payments later is not broken.
+  const connectSrc = [
+    "'self'",
+    ...allowedOrigins,
+    "https://api.americonfort.com",
+    "https://ik.imagekit.io",
+    "https://api.stripe.com",
+    "https://checkout.stripe.com",
+  ];
+  const csp = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self' https://checkout.stripe.com",
+    "img-src 'self' data: blob: https://ik.imagekit.io https://images.unsplash.com",
+    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
+    `connect-src ${connectSrc.join(" ")}`,
+    "frame-src 'self' https://js.stripe.com https://checkout.stripe.com",
+    "worker-src 'self' blob:",
+  ].join("; ");
+  res.setHeader("Content-Security-Policy", csp);
   next();
 });
 

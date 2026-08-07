@@ -20,6 +20,9 @@ import {
 } from "../utils/carLocations.js";
 
 const uploadToImageKit = async (imageFile, folder, width = '1280') => {
+  if (!imagekit) {
+    throw Object.assign(new Error('ImageKit is not configured'), { status: 503 });
+  }
   const fileBuffer = fs.readFileSync(imageFile.path);
   const response = await imagekit.upload({
     file: fileBuffer,

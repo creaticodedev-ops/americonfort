@@ -1,6 +1,6 @@
 import { defaultAgencyName } from '../utils/brand.js';
 import { logoToDataUri } from '../utils/uploadPaths.js';
-import { appendSignedQuery } from '../middleware/uploadAccess.js';
+import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
 
 export const TEMPLATE_VARIABLES = [
   { key: 'contract_number', label: 'Contract Number', group: 'contract' },
@@ -100,8 +100,8 @@ const firstNonEmpty = (source, keys) => {
 
 /**
  * Resolve image src for HTML/PDF.
- * Prefer local data-URI embeds (Puppeteer-safe). For protected /uploads/documents
- * URLs that are not local, use appendSignedQuery (never double-prefix the host).
+ * Prefer local data-URI embeds (Puppeteer-safe). Otherwise mint a short-lived
+ * signed URL for private ImageKit / gated local document paths.
  */
 const buildImageHtml = (imageUrl, alt, style = 'max-height:48px;max-width:140px;margin-top:6px;') => {
   if (!imageUrl) {
@@ -113,10 +113,8 @@ const buildImageHtml = (imageUrl, alt, style = 'max-height:48px;max-width:140px;
       return `<img src="${dataUri}" alt="${alt}" style="${style}" />`;
     }
 
-    let src = String(imageUrl);
-    if (src.includes('/uploads/documents') || src.includes('/uploads/templates')) {
-      src = appendSignedQuery(src);
-    }
+    // Mint short-lived access for private ImageKit / local document URLs (PDF render).
+    const src = signDocumentAccessUrl(String(imageUrl), 60 * 60);
     return `<img src="${src}" alt="${alt}" style="${style}" />`;
   } catch (error) {
     console.error('[IMAGE_HTML] Failed for', alt, error.message);
@@ -206,8 +204,6 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     booking?.franchiseAmount ??
     car.securityDeposit ??
     0;
-  console.log('[TEMPLATE_VARS] Building for booking:', booking?.reservationId, 'signature:', booking?.completion?.signatureUrl);
-
   const values = {
     contract_number: contractNumber || '—',
     reservation_id: firstNonEmpty(mergedBooking, ['reservationId', 'reservation_id']) || '—',
@@ -391,11 +387,7 @@ export const buildDocumentHtml = (template, variables) => {
     : '';
   const logoDataUri = logoToDataUri(safeTemplate.logoUrl);
   const logoSrc = logoDataUri
-    || (safeTemplate.logoUrl
-      ? (String(safeTemplate.logoUrl).includes('/uploads/')
-        ? appendSignedQuery(safeTemplate.logoUrl)
-        : safeTemplate.logoUrl)
-      : '');
+    || (safeTemplate.logoUrl ? signDocumentAccessUrl(safeTemplate.logoUrl, 60 * 60) : '');
   const logo = logoSrc
     ? `<img src="${logoSrc}" alt="Logo" style="max-height:48px;margin-bottom:8px;" />`
     : '';

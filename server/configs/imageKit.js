@@ -1,9 +1,12 @@
 import ImageKit from "imagekit";
 
-var imagekit = new ImageKit({
-    publicKey : process.env.IMAGEKIT_PUBLIC_KEY,
-    privateKey : process.env.IMAGEKIT_PRIVATE_KEY,
-    urlEndpoint : process.env.IMAGEKIT_URL_ENDPOINT
-});
+const publicKey = process.env.IMAGEKIT_PUBLIC_KEY;
+const privateKey = process.env.IMAGEKIT_PRIVATE_KEY;
+const urlEndpoint = process.env.IMAGEKIT_URL_ENDPOINT;
+
+const imagekit =
+  publicKey && privateKey && urlEndpoint
+    ? new ImageKit({ publicKey, privateKey, urlEndpoint })
+    : null;
 
 export default imagekit;

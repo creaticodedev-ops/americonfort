@@ -3,6 +3,7 @@ import path from "path";
 import PDFDocument from "pdfkit";
 import { fileURLToPath } from "url";
 import { defaultAgencyName } from "../utils/brand.js";
+import { signDocumentAccessUrl } from "../middleware/uploadAccess.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_ROOT = path.join(__dirname, "..", "uploads", "documents");
@@ -53,7 +54,8 @@ const getSignatureBuffer = async (signaturePath, signatureUrl) => {
 
   if (/^https?:\/\//.test(signatureUrl)) {
     try {
-      const res = await fetch(signatureUrl);
+      const accessUrl = signDocumentAccessUrl(signatureUrl, 60 * 60);
+      const res = await fetch(accessUrl);
       if (!res.ok) return null;
       return Buffer.from(await res.arrayBuffer());
     } catch {
