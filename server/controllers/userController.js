@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import Car from "../models/Car.js";
 import mongoose from 'mongoose';
-import { groupCarsForCatalog } from '../utils/carCatalog.js';
+import { groupCarsForCatalog, PUBLIC_CATALOG_FIELDS, toPublicCatalogCar } from '../utils/carCatalog.js';
 import {
   syncLicenseStatus,
   serializeLicense,
@@ -135,6 +135,7 @@ export const getCars = async (req, res) => {
             owner: { $ne: null },
             status: { $ne: 'maintenance' },
         })
+            .select(PUBLIC_CATALOG_FIELDS)
             .sort({ createdAt: -1 })
             .lean();
         res.json({ success: true, cars: groupCarsForCatalog(cars) });
@@ -151,12 +152,19 @@ export const getCarById = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid car ID' });
         }
 
-        const car = await Car.findOne({ _id: id, isAvaliable: true, owner: { $ne: null } });
+        const car = await Car.findOne({
+            _id: id,
+            isAvaliable: true,
+            owner: { $ne: null },
+            status: { $ne: 'maintenance' },
+        })
+            .select(PUBLIC_CATALOG_FIELDS)
+            .lean();
         if (!car) {
             return res.status(404).json({ success: false, message: 'Car not found' });
         }
 
-        res.json({ success: true, car });
+        res.json({ success: true, car: toPublicCatalogCar(car) });
     } catch (error) {
         console.error(error.message);
         res.status(500).json({ success: false, message: 'Failed to fetch car' });

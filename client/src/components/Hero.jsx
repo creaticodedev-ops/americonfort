@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
-import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import DateRangePicker from './DateRangePicker'
 import CitySelect from './CitySelect'
@@ -49,12 +48,7 @@ const Hero = () => {
       </div>
 
       <div className="relative z-10 page-pad page-shell flex flex-col items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 md:pb-20">
-        <Motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.65, ease: 'easeOut' }}
-          className="text-center w-full max-w-3xl"
-        >
+        <div className="text-center w-full max-w-3xl motion-safe:animate-fade-up">
           <p className="font-display text-primary text-5xl sm:text-6xl md:text-7xl font-medium leading-none tracking-tight">
             {BRAND_NAME}
           </p>
@@ -64,14 +58,11 @@ const Hero = () => {
           <p className="mt-3 sm:mt-4 text-muted text-sm sm:text-base md:text-lg font-light leading-relaxed max-w-xl mx-auto">
             {t('hero.subtitle')}
           </p>
-        </Motion.div>
+        </div>
 
-        <Motion.form
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.65, delay: 0.12, ease: 'easeOut' }}
+        <form
           onSubmit={handleSearch}
-          className="mt-8 sm:mt-10 md:mt-12 w-full max-w-4xl"
+          className="mt-8 sm:mt-10 md:mt-12 w-full max-w-4xl motion-safe:animate-fade-up-delay"
         >
           <div className="rounded-2xl md:rounded-[1.75rem] bg-white border border-borderColor shadow-[0_18px_50px_-28px_rgba(22,18,16,0.35)] overflow-visible">
             <div className="flex flex-col md:flex-row md:items-stretch">
@@ -97,18 +88,16 @@ const Hero = () => {
               </div>
 
               <div className="p-3 md:p-2.5 md:pl-2 flex items-stretch">
-                <Motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.985 }}
+                <button
                   type="submit"
-                  className="w-full md:w-[9.5rem] min-h-[3.25rem] rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full md:w-[9.5rem] min-h-[3.25rem] rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-2 active:scale-[0.985]"
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                     <circle cx="11" cy="11" r="7" />
                     <path d="M20 20l-3.5-3.5" />
                   </svg>
                   {t('hero.search')}
-                </Motion.button>
+                </button>
               </div>
             </div>
           </div>
@@ -116,12 +105,16 @@ const Hero = () => {
           <p className="mt-3.5 text-center text-xs sm:text-sm text-muted tracking-wide px-2 leading-relaxed">
             {t('hero.trustLine')}
           </p>
-        </Motion.form>
+        </form>
 
-        {/* LCP image: no opacity animation — keep visible from first paint */}
+        {/* LCP image: responsive AVIF/WebP, no opacity animation */}
         <div className="mt-8 sm:mt-10 md:mt-14 w-full max-w-3xl flex justify-center px-2">
           <picture>
-            <source type="image/avif" srcSet={assets.main_car_avif} />
+            <source
+              type="image/avif"
+              srcSet={`${assets.main_car_avif_640} 640w, ${assets.main_car_avif_960} 960w, ${assets.main_car_avif_1280} 1280w`}
+              sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 768px"
+            />
             <source
               type="image/webp"
               srcSet={`${assets.main_car_640} 640w, ${assets.main_car} 960w, ${assets.main_car_1280} 1280w`}

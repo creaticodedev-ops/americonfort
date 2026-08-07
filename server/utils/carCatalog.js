@@ -1,6 +1,48 @@
 import Car from '../models/Car.js';
 import Booking from '../models/Booking.js';
 
+/**
+ * Fields required by the public website (CarCard, Cars filters, CarDetails)
+ * plus owner/status needed for grouping and availability filtering.
+ * Excludes fleet ops PII: vin, licensePlate, fleetId, mileage, deposits, maintenance, etc.
+ */
+export const PUBLIC_CATALOG_FIELDS = [
+  '_id',
+  'owner',
+  'brand',
+  'model',
+  'year',
+  'category',
+  'image',
+  'images',
+  'seating_capacity',
+  'fuel_type',
+  'transmission',
+  'pricePerDay',
+  'locations',
+  'location',
+  'description',
+  'features',
+  'isAvaliable',
+  'status',
+].join(' ');
+
+/** Fields needed server-side to price/assign a public booking (not all returned to client). */
+export const PUBLIC_BOOKING_CAR_FIELDS = [
+  '_id',
+  'owner',
+  'brand',
+  'model',
+  'isAvaliable',
+  'status',
+  'pricePerDay',
+  'securityDeposit',
+  'mileage',
+  'licensePlate',
+  'locations',
+  'location',
+].join(' ');
+
 /** Convert Mongoose doc or lean object to a plain JSON-safe car record. */
 export const toPlainCar = (car) => {
   if (!car) return null;
@@ -14,6 +56,32 @@ export const toPlainCar = (car) => {
   return { ...car };
 };
 
+/** Slim public catalog shape — never leak fleet/maintenance fields even if over-selected. */
+export const toPublicCatalogCar = (car) => {
+  const plain = toPlainCar(car);
+  if (!plain?._id) return null;
+  return {
+    _id: plain._id,
+    owner: plain.owner,
+    brand: plain.brand,
+    model: plain.model,
+    year: plain.year,
+    category: plain.category,
+    image: plain.image || '',
+    images: Array.isArray(plain.images) ? plain.images : [],
+    seating_capacity: plain.seating_capacity,
+    fuel_type: plain.fuel_type,
+    transmission: plain.transmission,
+    pricePerDay: plain.pricePerDay,
+    locations: Array.isArray(plain.locations) ? plain.locations : [],
+    location: plain.location || '',
+    description: plain.description || '',
+    features: Array.isArray(plain.features) ? plain.features : [],
+    isAvaliable: Boolean(plain.isAvaliable),
+    status: plain.status,
+  };
+};
+
 export const buildModelKey = (car) => {
   const plain = toPlainCar(car) || {};
   return `${String(plain.owner || '')}|${String(plain.brand || '').trim().toLowerCase()}|${String(plain.model || '').trim().toLowerCase()}`;
@@ -24,7 +92,7 @@ export const groupCarsForCatalog = (cars = []) => {
   const map = new Map();
 
   for (const raw of cars) {
-    const car = toPlainCar(raw);
+    const car = toPublicCatalogCar(raw);
     if (!car?._id) continue;
 
     const key = buildModelKey(car);
@@ -61,6 +129,23 @@ export const isCarAvailableForDates = async (carId, pickupDate, returnDate, excl
 };
 
 /**
+ * Bulk availability: one booking query for many cars (same rules as isCarAvailableForDates).
+ * Returns Set of carId strings that are busy for the date range.
+ */
+export const findBusyCarIds = async (carIds, pickupDate, returnDate, excludeBookingId = null) => {
+  if (!carIds?.length) return new Set();
+  const query = {
+    car: { $in: carIds },
+    status: { $in: ACTIVE_STATUSES },
+    pickupDate: { $lte: returnDate },
+    returnDate: { $gte: pickupDate },
+  };
+  if (excludeBookingId) query._id = { $ne: excludeBookingId };
+  const overlaps = await Booking.find(query).select('car').lean();
+  return new Set(overlaps.map((b) => String(b.car)));
+};
+
+/**
  * Pick an available physical unit for a model group.
  * Prefers preferredCarId when free; otherwise first free unit with same brand+model.
  */
@@ -81,29 +166,35 @@ export const resolveAvailableCarUnit = async ({
     status: { $ne: 'maintenance' },
   };
 
-  const units = await Car.find(baseQuery).sort({ createdAt: 1 }).lean();
+  const units = await Car.find(baseQuery)
+    .select(PUBLIC_BOOKING_CAR_FIELDS)
+    .sort({ createdAt: 1 })
+    .lean();
   if (!units.length) return null;
+
+  const busy = await findBusyCarIds(
+    units.map((u) => u._id),
+    pickupDate,
+    returnDate,
+    excludeBookingId,
+  );
 
   if (preferredCarId) {
     const preferred = units.find((u) => String(u._id) === String(preferredCarId));
-    if (preferred) {
-      const ok = await isCarAvailableForDates(preferred._id, pickupDate, returnDate, excludeBookingId);
-      if (ok) return preferred;
-    }
+    if (preferred && !busy.has(String(preferred._id))) return preferred;
   }
 
-  for (const unit of units) {
-    const ok = await isCarAvailableForDates(unit._id, pickupDate, returnDate, excludeBookingId);
-    if (ok) return unit;
-  }
-
-  return null;
+  return units.find((unit) => !busy.has(String(unit._id))) || null;
 };
 
 export default {
+  PUBLIC_CATALOG_FIELDS,
+  PUBLIC_BOOKING_CAR_FIELDS,
   toPlainCar,
+  toPublicCatalogCar,
   buildModelKey,
   groupCarsForCatalog,
   isCarAvailableForDates,
+  findBusyCarIds,
   resolveAvailableCarUnit,
 };

@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { assets } from '../assets/assets'
+import ResponsiveImage from '../components/ResponsiveImage'
 import Loader from '../components/Loader'
 import Seo from '../components/Seo'
 import { useAppContext } from '../context/AppContext'
@@ -215,10 +216,12 @@ const CarDetails = () => {
         <div className="order-2 lg:order-1 lg:col-span-7 xl:col-span-8 min-w-0">
           <Motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
             <div className="overflow-hidden rounded-2xl bg-gray-100 shadow-sm ring-1 ring-gray-200/60">
-              <img
+              <ResponsiveImage
                 src={car.image || car.images?.[0] || fallbackImage}
-                onError={(e) => { e.currentTarget.src = fallbackImage }}
+                fallbackSrc={fallbackImage}
                 alt={`${car.brand} ${car.model}`}
+                widths={[640, 960, 1280, 1600]}
+                sizes="(max-width: 1024px) 100vw, 720px"
                 width={1280}
                 height={720}
                 fetchPriority="high"

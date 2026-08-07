@@ -1,4 +1,4 @@
-import { ownerMenuLinks } from '../../assets/assets'
+import { ownerMenuLinks } from '../../assets/ownerAssets'
 
 /**
  * Admin navigation architecture — groups existing ownerMenuLinks without

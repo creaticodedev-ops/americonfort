@@ -12,20 +12,9 @@ const asObjectId = (id) => {
   }
 };
 
-/**
- * Sync guest CRM profile from booking data (admin-only CRM).
- */
-export const upsertGuestFromBooking = async (booking) => {
-  if (!booking?.customerEmail || !booking?.owner) return null;
+const SPENT_STATUSES = ['confirmed', 'active', 'completed'];
 
-  const email = booking.customerEmail.trim().toLowerCase();
-  const ownerId = asObjectId(booking.owner);
-  const city = (booking.pickupLocation || '').split(',')[0]?.trim()
-    || (booking.pickupLocation || '').split('-')[0]?.trim()
-    || '';
-
-  let guest = await GuestCustomer.findOne({ owner: ownerId, email });
-
+const aggregateGuestStats = async (ownerId, email) => {
   const stats = await Booking.aggregate([
     { $match: { owner: ownerId, customerEmail: email } },
     {
@@ -40,23 +29,35 @@ export const upsertGuestFromBooking = async (booking) => {
         },
         totalSpent: {
           $sum: {
-            $cond: [
-              { $in: ['$status', ['confirmed', 'active', 'completed']] },
-              '$price',
-              0,
-            ],
+            $cond: [{ $in: ['$status', SPENT_STATUSES] }, '$price', 0],
           },
         },
         lastBookingAt: { $max: '$createdAt' },
       },
     },
   ]);
+  return stats[0] || null;
+};
 
-  const s = stats[0] || {
+/**
+ * Sync guest CRM profile from booking data (admin-only CRM).
+ */
+export const upsertGuestFromBooking = async (booking) => {
+  if (!booking?.customerEmail || !booking?.owner) return null;
+
+  const email = booking.customerEmail.trim().toLowerCase();
+  const ownerId = asObjectId(booking.owner);
+  const city = (booking.pickupLocation || '').split(',')[0]?.trim()
+    || (booking.pickupLocation || '').split('-')[0]?.trim()
+    || '';
+
+  let guest = await GuestCustomer.findOne({ owner: ownerId, email });
+
+  const s = (await aggregateGuestStats(ownerId, email)) || {
     totalReservations: 1,
     cancelledReservations: 0,
     completedReservations: 0,
-    totalSpent: ['confirmed', 'active', 'completed'].includes(booking.status) ? (booking.price || 0) : 0,
+    totalSpent: SPENT_STATUSES.includes(booking.status) ? (booking.price || 0) : 0,
     lastBookingAt: booking.createdAt || new Date(),
   };
 
@@ -99,21 +100,22 @@ export const upsertGuestFromBooking = async (booking) => {
 export const refreshGuestStats = async (ownerId, email) => {
   const normalized = email.trim().toLowerCase();
   const oid = asObjectId(ownerId);
-  const bookings = await Booking.find({
-    owner: oid,
-    customerEmail: normalized,
-  }).sort({ createdAt: -1 });
-
   const guest = await GuestCustomer.findOne({ owner: oid, email: normalized });
   if (!guest) return null;
 
-  guest.totalReservations = bookings.length;
-  guest.cancelledReservations = bookings.filter((b) => b.status === 'cancelled').length;
-  guest.completedReservations = bookings.filter((b) => b.status === 'completed').length;
-  guest.totalSpent = bookings
-    .filter((b) => ['confirmed', 'active', 'completed'].includes(b.status))
-    .reduce((sum, b) => sum + (b.price || 0), 0);
-  guest.lastBookingAt = bookings[0]?.createdAt || null;
+  const [s, latest] = await Promise.all([
+    aggregateGuestStats(oid, normalized),
+    Booking.findOne({ owner: oid, customerEmail: normalized })
+      .select('customerName customerPhone createdAt')
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  guest.totalReservations = s?.totalReservations || 0;
+  guest.cancelledReservations = s?.cancelledReservations || 0;
+  guest.completedReservations = s?.completedReservations || 0;
+  guest.totalSpent = s?.totalSpent || 0;
+  guest.lastBookingAt = s?.lastBookingAt || latest?.createdAt || null;
 
   if (guest.status !== 'vip' && guest.status !== 'blacklisted') {
     if (guest.totalReservations <= 1) guest.status = 'new';
@@ -121,9 +123,9 @@ export const refreshGuestStats = async (ownerId, email) => {
     else guest.status = 'regular';
   }
 
-  if (bookings[0]) {
-    guest.name = bookings[0].customerName || guest.name;
-    guest.phone = bookings[0].customerPhone || guest.phone;
+  if (latest) {
+    guest.name = latest.customerName || guest.name;
+    guest.phone = latest.customerPhone || guest.phone;
   }
 
   await guest.save();

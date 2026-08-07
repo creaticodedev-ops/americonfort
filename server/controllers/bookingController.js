@@ -23,7 +23,13 @@ import {
   locationAvailabilityFilter,
 } from "../utils/carLocations.js";
 import { normalizeToE164 } from "../utils/phoneValidation.js";
-import { groupCarsForCatalog, resolveAvailableCarUnit } from "../utils/carCatalog.js";
+import {
+  findBusyCarIds,
+  groupCarsForCatalog,
+  PUBLIC_BOOKING_CAR_FIELDS,
+  PUBLIC_CATALOG_FIELDS,
+  resolveAvailableCarUnit,
+} from "../utils/carCatalog.js";
 import { channelQuery } from "../utils/bookingChannel.js";
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'ready_for_pickup', 'active', 'completed', 'cancelled'];
@@ -129,29 +135,33 @@ const getSortField = (sortBy) => {
   return sortMap[sortBy] || 'createdAt';
 };
 
-const filterByVehicleAndCategory = (bookings, filters) => {
-  let result = bookings;
+/** Resolve vehicle/category/plate filters to Booking.car $in for DB-level pagination. */
+const applyVehicleFiltersToQuery = async (ownerId, query, filters = {}) => {
+  if (!filters.vehicle && !filters.category && !filters.licensePlate) return query;
 
-  if (filters.vehicle) {
-    const search = filters.vehicle.toLowerCase();
-    result = result.filter((b) => {
-      const car = b.car;
-      if (!car) return false;
-      return `${car.brand} ${car.model}`.toLowerCase().includes(search);
-    });
-  }
-
+  const carQuery = { owner: ownerId };
   if (filters.category) {
-    result = result.filter((b) => b.car?.category?.toLowerCase() === filters.category.toLowerCase());
+    carQuery.category = new RegExp(`^${escapeRegex(filters.category)}$`, 'i');
   }
-
   if (filters.licensePlate) {
-    const plate = filters.licensePlate.toLowerCase().trim();
-    result = result.filter((b) => (b.car?.licensePlate || '').toLowerCase().includes(plate));
+    carQuery.licensePlate = { $regex: escapeRegex(filters.licensePlate.trim()), $options: 'i' };
+  }
+  if (filters.vehicle) {
+    const term = escapeRegex(filters.vehicle.trim());
+    carQuery.$expr = {
+      $regexMatch: {
+        input: { $toLower: { $concat: [{ $ifNull: ['$brand', ''] }, ' ', { $ifNull: ['$model', ''] }] } },
+        regex: term.toLowerCase(),
+      },
+    };
   }
 
-  return result;
+  const cars = await Car.find(carQuery).select('_id').lean();
+  query.car = { $in: cars.map((c) => c._id) };
+  return query;
 };
+
+const OWNER_BOOKING_CAR_FIELDS = 'brand model year category licensePlate image status isAvaliable fleetId';
 
 const checkAvailability = async (carId, pickupDate, returnDate, excludeBookingId = null) => {
   const query = {
@@ -162,7 +172,7 @@ const checkAvailability = async (carId, pickupDate, returnDate, excludeBookingId
   };
   if (excludeBookingId) query._id = { $ne: excludeBookingId };
 
-  const overlap = await Booking.findOne(query);
+  const overlap = await Booking.findOne(query).select('_id').lean();
   return !overlap;
 };
 
@@ -201,19 +211,22 @@ export const checkAvailabilityOfCar = async (req, res) => {
       return res.status(400).json({ success: false, message: dates.message });
     }
 
-    const carQuery = { isAvaliable: true, owner: { $ne: null } };
+    const carQuery = {
+      isAvaliable: true,
+      owner: { $ne: null },
+      status: { $ne: 'maintenance' },
+    };
     if (location) {
       Object.assign(carQuery, locationAvailabilityFilter(location));
     }
 
-    const cars = await Car.find(carQuery).lean();
-    const availableCars = [];
-
-    for (const car of cars) {
-      if (car.status === 'maintenance') continue;
-      const isAvailable = await checkAvailability(car._id, dates.picked, dates.returned);
-      if (isAvailable) availableCars.push(car);
-    }
+    const cars = await Car.find(carQuery).select(PUBLIC_CATALOG_FIELDS).lean();
+    const busy = await findBusyCarIds(
+      cars.map((c) => c._id),
+      dates.picked,
+      dates.returned,
+    );
+    const availableCars = cars.filter((car) => !busy.has(String(car._id)));
 
     res.json({ success: true, availableCars: groupCarsForCatalog(availableCars) });
   } catch (error) {
@@ -267,7 +280,7 @@ export const createBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: dates.message });
     }
 
-    const carData = await Car.findById(carId);
+    const carData = await Car.findById(carId).select(PUBLIC_BOOKING_CAR_FIELDS).lean();
     if (!carData || !carData.isAvaliable || !carData.owner || carData.status === 'maintenance') {
       return res.status(404).json({ success: false, message: 'Car is not available for booking' });
     }
@@ -703,19 +716,21 @@ export const getOwnerBookings = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const query = buildBookingQuery(req.user._id, filters);
+    await applyVehicleFiltersToQuery(req.user._id, query, filters);
 
-    let bookings = await Booking.find(query)
-      .populate('car')
-      .sort({ [sortBy]: sortOrder })
-      .lean();
-
-    bookings = filterByVehicleAndCategory(bookings, filters);
-    const total = bookings.length;
-    const paginatedBookings = bookings.slice(skip, skip + limit);
+    const [total, bookings] = await Promise.all([
+      Booking.countDocuments(query),
+      Booking.find(query)
+        .populate('car', OWNER_BOOKING_CAR_FIELDS)
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
 
     res.json({
       success: true,
-      bookings: paginatedBookings,
+      bookings,
       pagination: {
         total,
         page,
@@ -1148,13 +1163,12 @@ export const exportOwnerBookings = async (req, res) => {
   try {
     const filters = parseFilters(req.query);
     const query = buildBookingQuery(req.user._id, filters);
+    await applyVehicleFiltersToQuery(req.user._id, query, filters);
 
-    let bookings = await Booking.find(query)
-      .populate('car')
+    const bookings = await Booking.find(query)
+      .populate('car', OWNER_BOOKING_CAR_FIELDS)
       .sort({ createdAt: -1 })
       .lean();
-
-    bookings = filterByVehicleAndCategory(bookings, filters);
 
     const formatDate = (date) => (date ? new Date(date).toISOString().split('T')[0] : '');
     const formatDateTime = (date) => (date ? new Date(date).toLocaleString() : '');

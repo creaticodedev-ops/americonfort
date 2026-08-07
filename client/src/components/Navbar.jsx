@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { assets, menuLinks } from '../assets/assets'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { motion as Motion } from 'motion/react'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from '../i18n/I18nContext'
 import { BRAND_NAME } from '../constants/brand'
@@ -49,11 +48,8 @@ const Navbar = () => {
   const solid = !isHome || scrolled || open
 
   return (
-    <Motion.header
-      initial={{ y: -16, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className={`fixed top-0 inset-x-0 z-40 border-b transition-all duration-300 ${
+    <header
+      className={`fixed top-0 inset-x-0 z-40 border-b transition-all duration-300 motion-safe:animate-nav-in ${
         solid
           ? 'bg-white/95 backdrop-blur-md border-borderColor text-ink'
           : 'bg-transparent border-transparent text-ink'
@@ -61,16 +57,18 @@ const Navbar = () => {
     >
       <div className="page-pad page-shell flex items-center justify-between gap-4 py-3.5 sm:py-4">
         <Link to="/" className="relative z-10 shrink-0 flex items-center">
-          <Motion.img
-            whileHover={{ scale: 1.03 }}
-            src={assets.logo}
-            alt={BRAND_NAME}
-            width={200}
-            height={96}
-            decoding="async"
-            fetchPriority="high"
-            className="block h-8 sm:h-9 lg:h-10 w-auto max-h-9 lg:max-h-10 object-contain"
-          />
+          <picture>
+            <source type="image/avif" srcSet={assets.logo_avif} />
+            <img
+              src={assets.logo}
+              alt={BRAND_NAME}
+              width={200}
+              height={96}
+              decoding="async"
+              fetchPriority="high"
+              className="block h-8 sm:h-9 lg:h-10 w-auto max-h-9 lg:max-h-10 object-contain transition-transform duration-200 hover:scale-[1.03]"
+            />
+          </picture>
         </Link>
 
         {/* Desktop: logo left, controls right — independent of mobile drawer */}
@@ -167,7 +165,7 @@ const Navbar = () => {
           </nav>
         </>
       )}
-    </Motion.header>
+    </header>
   )
 }
 

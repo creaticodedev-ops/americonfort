@@ -652,51 +652,72 @@ export const deleteCar = async (req, res) => {
 export const getDashboardData = async (req, res) => {
   try {
     const { _id } = req.user;
-
-    const cars = await Car.find({ owner: _id });
-    const bookings = await Booking.find({ owner: _id }).populate('car').sort({ createdAt: -1 });
-
-    const pendingBookings = await Booking.countDocuments({ owner: _id, status: 'pending' });
-    const confirmedBookings = await Booking.countDocuments({ owner: _id, status: 'confirmed' });
-    const activeBookings = await Booking.countDocuments({ owner: _id, status: 'active' });
-    const completedBookings = await Booking.countDocuments({ owner: _id, status: 'completed' });
+    const ownerOid = _id instanceof mongoose.Types.ObjectId ? _id : new mongoose.Types.ObjectId(_id);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
-
-    const todayBookings = await Booking.countDocuments({ owner: _id, createdAt: { $gte: today } });
-
-    const upcomingPickups = await Booking.find({
-      owner: _id,
-      status: { $in: ['confirmed', 'active'] },
-      pickupDate: { $gte: today, $lte: nextWeek },
-    }).populate('car').sort({ pickupDate: 1 }).limit(5);
-
-    const upcomingReturns = await Booking.find({
-      owner: _id,
-      status: { $in: ['active', 'confirmed'] },
-      returnDate: { $gte: today, $lte: nextWeek },
-    }).populate('car').sort({ returnDate: 1 }).limit(5);
-
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthlyBookings = bookings.filter((b) =>
-      ['confirmed', 'active', 'completed'].includes(b.status) &&
-      new Date(b.createdAt) >= startOfMonth,
-    );
-    const monthlyRevenue = monthlyBookings.reduce((acc, booking) => acc + booking.price, 0);
+
+    const [
+      cars,
+      totalBookings,
+      pendingBookings,
+      confirmedBookings,
+      activeBookings,
+      completedBookings,
+      todayBookings,
+      upcomingPickups,
+      upcomingReturns,
+      recentBookings,
+      monthlyRevenueAgg,
+    ] = await Promise.all([
+      Car.find({ owner: _id }).select('isAvaliable').lean(),
+      Booking.countDocuments({ owner: _id }),
+      Booking.countDocuments({ owner: _id, status: 'pending' }),
+      Booking.countDocuments({ owner: _id, status: 'confirmed' }),
+      Booking.countDocuments({ owner: _id, status: 'active' }),
+      Booking.countDocuments({ owner: _id, status: 'completed' }),
+      Booking.countDocuments({ owner: _id, createdAt: { $gte: today } }),
+      Booking.find({
+        owner: _id,
+        status: { $in: ['confirmed', 'active'] },
+        pickupDate: { $gte: today, $lte: nextWeek },
+      }).populate('car', 'brand model').sort({ pickupDate: 1 }).limit(5).lean(),
+      Booking.find({
+        owner: _id,
+        status: { $in: ['active', 'confirmed'] },
+        returnDate: { $gte: today, $lte: nextWeek },
+      }).populate('car', 'brand model').sort({ returnDate: 1 }).limit(5).lean(),
+      Booking.find({ owner: _id })
+        .populate('car', 'brand model')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      Booking.aggregate([
+        {
+          $match: {
+            owner: ownerOid,
+            status: { $in: ['confirmed', 'active', 'completed'] },
+            createdAt: { $gte: startOfMonth },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$price' } } },
+      ]),
+    ]);
 
     const totalCars = cars.length;
     const availableVehicles = cars.filter((car) => car.isAvaliable).length;
     const rentedVehicles = totalCars - availableVehicles;
     const occupancyRate = totalCars > 0 ? Math.round((rentedVehicles / totalCars) * 100) : 0;
+    const monthlyRevenue = monthlyRevenueAgg[0]?.total || 0;
 
     res.json({
       success: true,
       dashboardData: {
         totalCars,
-        totalBookings: bookings.length,
+        totalBookings,
         pendingBookings,
         confirmedBookings,
         activeBookings,
@@ -707,7 +728,7 @@ export const getDashboardData = async (req, res) => {
         occupancyRate,
         upcomingPickups,
         upcomingReturns,
-        recentBookings: bookings.slice(0, 5),
+        recentBookings,
         monthlyRevenue,
       },
     });
@@ -720,28 +741,50 @@ export const getDashboardData = async (req, res) => {
 export const getAdminOverview = async (req, res) => {
   try {
     const ownerId = req.user._id;
-    const cars = await Car.find({ owner: ownerId }).lean();
-    const bookings = await Booking.find({ owner: ownerId }).populate('car').sort({ createdAt: -1 }).lean();
+    const ownerOid = ownerId instanceof mongoose.Types.ObjectId
+      ? ownerId
+      : new mongoose.Types.ObjectId(ownerId);
 
-    const customers = await Booking.aggregate([
-      { $match: { owner: ownerId, customerEmail: { $ne: '' } } },
-      { $group: { _id: { $toLower: '$customerEmail' } } },
+    const [
+      cars,
+      totalReservations,
+      customers,
+      revenueAgg,
+      recentReservations,
+    ] = await Promise.all([
+      Car.find({ owner: ownerId }).select('isAvaliable').lean(),
+      Booking.countDocuments({ owner: ownerId }),
+      Booking.aggregate([
+        { $match: { owner: ownerOid, customerEmail: { $ne: '' } } },
+        { $group: { _id: { $toLower: '$customerEmail' } } },
+        { $count: 'total' },
+      ]),
+      Booking.aggregate([
+        {
+          $match: {
+            owner: ownerOid,
+            status: { $in: ['confirmed', 'active', 'completed'] },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$price' } } },
+      ]),
+      Booking.find({ owner: ownerId })
+        .populate('car', 'brand model')
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
     ]);
-
-    const revenue = bookings
-      .filter((item) => ['confirmed', 'active', 'completed'].includes(item.status))
-      .reduce((acc, item) => acc + item.price, 0);
 
     res.json({
       success: true,
       overview: {
         totalVehicles: cars.length,
-        totalReservations: bookings.length,
+        totalReservations,
         availableVehicles: cars.filter((car) => car.isAvaliable).length,
         rentedVehicles: cars.filter((car) => !car.isAvaliable).length,
-        totalCustomers: customers.length,
-        revenue,
-        recentReservations: bookings.slice(0, 6),
+        totalCustomers: customers[0]?.total || 0,
+        revenue: revenueAgg[0]?.total || 0,
+        recentReservations,
       },
     });
   } catch (error) {
@@ -752,42 +795,44 @@ export const getAdminOverview = async (req, res) => {
 
 export const getCustomers = async (req, res) => {
   try {
-    const bookings = await Booking.find({ owner: req.user._id })
-      .select('customerName customerEmail customerPhone createdAt status price')
-      .sort({ createdAt: -1 })
-      .lean();
+    const ownerOid = req.user._id instanceof mongoose.Types.ObjectId
+      ? req.user._id
+      : new mongoose.Types.ObjectId(req.user._id);
 
-    const byEmail = new Map();
-    for (const booking of bookings) {
-      const email = (booking.customerEmail || '').toLowerCase().trim();
-      if (!email) continue;
-      const existing = byEmail.get(email);
-      if (!existing) {
-        byEmail.set(email, {
-          _id: email,
-          name: booking.customerName || 'Guest',
-          email: booking.customerEmail,
-          phone: booking.customerPhone || '',
-          bookingsCount: 1,
-          lastBookingAt: booking.createdAt,
-          totalSpent: ['confirmed', 'active', 'completed'].includes(booking.status) ? booking.price : 0,
-        });
-      } else {
-        existing.bookingsCount += 1;
-        if (['confirmed', 'active', 'completed'].includes(booking.status)) {
-          existing.totalSpent += booking.price || 0;
-        }
-        if (new Date(booking.createdAt) > new Date(existing.lastBookingAt)) {
-          existing.lastBookingAt = booking.createdAt;
-          existing.name = booking.customerName || existing.name;
-          existing.phone = booking.customerPhone || existing.phone;
-        }
-      }
-    }
+    const rows = await Booking.aggregate([
+      { $match: { owner: ownerOid, customerEmail: { $ne: '' } } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: { $toLower: '$customerEmail' },
+          name: { $first: '$customerName' },
+          email: { $first: '$customerEmail' },
+          phone: { $first: '$customerPhone' },
+          bookingsCount: { $sum: 1 },
+          lastBookingAt: { $first: '$createdAt' },
+          totalSpent: {
+            $sum: {
+              $cond: [
+                { $in: ['$status', ['confirmed', 'active', 'completed']] },
+                '$price',
+                0,
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { lastBookingAt: -1 } },
+    ]);
 
-    const customers = Array.from(byEmail.values()).sort(
-      (a, b) => new Date(b.lastBookingAt) - new Date(a.lastBookingAt),
-    );
+    const customers = rows.map((row) => ({
+      _id: row._id,
+      name: row.name || 'Guest',
+      email: row.email,
+      phone: row.phone || '',
+      bookingsCount: row.bookingsCount,
+      lastBookingAt: row.lastBookingAt,
+      totalSpent: row.totalSpent || 0,
+    }));
 
     res.json({ success: true, customers });
   } catch (error) {

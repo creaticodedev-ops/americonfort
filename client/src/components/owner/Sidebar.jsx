@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { assets } from '../../assets/assets'
+import { assets } from '../../assets/ownerAssets'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'

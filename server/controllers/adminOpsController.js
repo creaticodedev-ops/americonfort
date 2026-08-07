@@ -37,10 +37,6 @@ const monthKey = (date) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
-const hasOperationalStatus = (status) => ['pending', 'confirmed', 'ready_for_pickup', 'active'].includes(status);
-const hasRevenueStatus = (status) => ['confirmed', 'ready_for_pickup', 'active', 'completed'].includes(status);
-const hasReturnStatus = (status) => ['confirmed', 'ready_for_pickup', 'active'].includes(status);
-
 const weekKey = (date) => {
   const d = new Date(date);
   const onejan = new Date(d.getFullYear(), 0, 1);
@@ -48,59 +44,122 @@ const weekKey = (date) => {
   return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
 };
 
+const sumPrice = (rows) => (rows[0]?.total || 0);
+
+const bookedDaysFromRows = (rows, monthStart, dayEnd) =>
+  rows.reduce((sum, b) => {
+    const start = new Date(Math.max(new Date(b.pickupDate), monthStart));
+    const end = new Date(Math.min(new Date(b.returnDate), dayEnd));
+    if (end < start) return sum;
+    return sum + Math.max(1, Math.ceil((end - start) / 86400000));
+  }, 0);
+
 /** KPI + operational dashboard */
 export const getOpsDashboard = async (req, res) => {
   try {
     const ownerId = req.user._id;
+    const ownerOid = asObjectId(ownerId);
     const today = startOfDay();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
     const next7 = new Date(today);
     next7.setDate(next7.getDate() + 7);
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    const cars = await Car.find({ owner: ownerId });
-    const bookings = await Booking.find({ owner: ownerId }).populate('car', 'brand model').sort({ createdAt: -1 });
+    const dayEnd = endOfDay();
 
     const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
-    const monthlyRevenue = bookings
-      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.createdAt) >= monthStart)
-      .reduce((s, b) => s + (b.price || 0), 0);
+    const operationalStatuses = ['pending', 'confirmed', 'ready_for_pickup', 'active'];
+    const returnStatuses = ['confirmed', 'ready_for_pickup', 'active'];
+    const listFields = 'reservationId customerName pickupDate returnDate status channel price createdAt car';
 
-    const todayBookings = bookings.filter((b) => new Date(b.createdAt) >= today).length;
-    const onlineBookingsToday = bookings.filter(
-      (b) => new Date(b.createdAt) >= today && isOnlineChannel(b.channel),
-    ).length;
-    const walkInBookingsToday = bookings.filter(
-      (b) => new Date(b.createdAt) >= today && !isOnlineChannel(b.channel),
-    ).length;
-    const activeRentals = bookings.filter((b) => b.status === 'active').length;
-    const pendingBookings = bookings.filter((b) => b.status === 'pending').length;
+    const walkInMatch = { channel: 'walk_in' };
+    const onlineMatch = { channel: { $ne: 'walk_in' } };
 
-    const onlineRevenueMonth = bookings
-      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.createdAt) >= monthStart && isOnlineChannel(b.channel))
-      .reduce((s, b) => s + (b.price || 0), 0);
-    const walkInRevenueMonth = bookings
-      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.createdAt) >= monthStart && !isOnlineChannel(b.channel))
-      .reduce((s, b) => s + (b.price || 0), 0);
+    const [
+      cars,
+      totalBookings,
+      onlineBookings,
+      walkInBookings,
+      todayBookings,
+      onlineBookingsToday,
+      walkInBookingsToday,
+      activeRentals,
+      pendingBookings,
+      monthlyRevenueAgg,
+      onlineRevenueMonthAgg,
+      walkInRevenueMonthAgg,
+      upcomingPickups,
+      upcomingReturns,
+      overdueRentals,
+      recentBookings,
+      utilizationRows,
+    ] = await Promise.all([
+      Car.find({ owner: ownerId }).select('isAvaliable status').lean(),
+      Booking.countDocuments({ owner: ownerId }),
+      Booking.countDocuments({ owner: ownerId, ...onlineMatch }),
+      Booking.countDocuments({ owner: ownerId, ...walkInMatch }),
+      Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today } }),
+      Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today }, ...onlineMatch }),
+      Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today }, ...walkInMatch }),
+      Booking.countDocuments({ owner: ownerId, status: 'active' }),
+      Booking.countDocuments({ owner: ownerId, status: 'pending' }),
+      Booking.aggregate([
+        { $match: { owner: ownerOid, status: { $in: revenueStatuses }, createdAt: { $gte: monthStart } } },
+        { $group: { _id: null, total: { $sum: '$price' } } },
+      ]),
+      Booking.aggregate([
+        { $match: { owner: ownerOid, status: { $in: revenueStatuses }, createdAt: { $gte: monthStart }, ...onlineMatch } },
+        { $group: { _id: null, total: { $sum: '$price' } } },
+      ]),
+      Booking.aggregate([
+        { $match: { owner: ownerOid, status: { $in: revenueStatuses }, createdAt: { $gte: monthStart }, ...walkInMatch } },
+        { $group: { _id: null, total: { $sum: '$price' } } },
+      ]),
+      Booking.find({
+        owner: ownerId,
+        status: { $in: operationalStatuses },
+        pickupDate: { $gte: today, $lte: next7 },
+      })
+        .select(listFields)
+        .populate('car', 'brand model')
+        .sort({ pickupDate: 1 })
+        .limit(8)
+        .lean(),
+      Booking.find({
+        owner: ownerId,
+        status: { $in: returnStatuses },
+        returnDate: { $gte: today, $lte: next7 },
+      })
+        .select(listFields)
+        .populate('car', 'brand model')
+        .sort({ returnDate: 1 })
+        .limit(8)
+        .lean(),
+      Booking.find({
+        owner: ownerId,
+        status: { $in: returnStatuses },
+        returnDate: { $lt: today },
+      })
+        .select(listFields)
+        .populate('car', 'brand model')
+        .sort({ returnDate: 1 })
+        .lean(),
+      Booking.find({ owner: ownerId })
+        .select(listFields)
+        .populate('car', 'brand model')
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+      Booking.find({
+        owner: ownerId,
+        status: { $in: revenueStatuses },
+        returnDate: { $gte: monthStart },
+      })
+        .select('pickupDate returnDate channel')
+        .lean(),
+    ]);
 
-    const upcomingPickups = bookings
-      .filter((b) => hasOperationalStatus(b.status)
-        && new Date(b.pickupDate) >= today
-        && new Date(b.pickupDate) <= next7)
-      .sort((a, b) => new Date(a.pickupDate) - new Date(b.pickupDate))
-      .slice(0, 8);
-
-    const upcomingReturns = bookings
-      .filter((b) => hasReturnStatus(b.status)
-        && new Date(b.returnDate) >= today
-        && new Date(b.returnDate) <= next7)
-      .sort((a, b) => new Date(a.returnDate) - new Date(b.returnDate))
-      .slice(0, 8);
-
-    const overdueRentals = bookings.filter((b) =>
-      hasReturnStatus(b.status) && new Date(b.returnDate) < today,
-    );
+    const monthlyRevenue = sumPrice(monthlyRevenueAgg);
+    const onlineRevenueMonth = sumPrice(onlineRevenueMonthAgg);
+    const walkInRevenueMonth = sumPrice(walkInRevenueMonthAgg);
 
     const availableVehicles = cars.filter((c) => c.isAvaliable && c.status !== 'maintenance').length;
     const maintenanceVehicles = cars.filter((c) => c.status === 'maintenance' || !c.isAvaliable).length;
@@ -110,24 +169,13 @@ export const getOpsDashboard = async (req, res) => {
       : 0;
 
     // Fleet utilization: days booked this month / (cars * days elapsed)
-    // Includes WhatsApp + online + walk-in reservations with revenue statuses.
     const daysElapsed = Math.max(1, today.getDate());
-    const bookedDays = bookings
-      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.returnDate) >= monthStart)
-      .reduce((sum, b) => {
-        const start = new Date(Math.max(new Date(b.pickupDate), monthStart));
-        const end = new Date(Math.min(new Date(b.returnDate), endOfDay()));
-        if (end < start) return sum;
-        return sum + Math.max(1, Math.ceil((end - start) / 86400000));
-      }, 0);
-    const onlineBookedDays = bookings
-      .filter((b) => revenueStatuses.includes(b.status) && new Date(b.returnDate) >= monthStart && isOnlineChannel(b.channel))
-      .reduce((sum, b) => {
-        const start = new Date(Math.max(new Date(b.pickupDate), monthStart));
-        const end = new Date(Math.min(new Date(b.returnDate), endOfDay()));
-        if (end < start) return sum;
-        return sum + Math.max(1, Math.ceil((end - start) / 86400000));
-      }, 0);
+    const bookedDays = bookedDaysFromRows(utilizationRows, monthStart, dayEnd);
+    const onlineBookedDays = bookedDaysFromRows(
+      utilizationRows.filter((b) => isOnlineChannel(b.channel)),
+      monthStart,
+      dayEnd,
+    );
     const fleetUtilization = cars.length > 0
       ? Math.min(100, Math.round((bookedDays / (cars.length * daysElapsed)) * 100))
       : 0;
@@ -154,10 +202,10 @@ export const getOpsDashboard = async (req, res) => {
         availableVehicles,
         maintenanceVehicles,
         rentedVehicles,
-        totalBookings: bookings.length,
-        onlineBookings: bookings.filter((b) => isOnlineChannel(b.channel)).length,
-        walkInBookings: bookings.filter((b) => !isOnlineChannel(b.channel)).length,
-        recentBookings: bookings.slice(0, 6),
+        totalBookings,
+        onlineBookings,
+        walkInBookings,
+        recentBookings,
       },
     });
   } catch (error) {
@@ -170,12 +218,9 @@ export const getOpsDashboard = async (req, res) => {
 export const getRevenueAnalytics = async (req, res) => {
   try {
     const ownerId = req.user._id;
+    const ownerOid = asObjectId(ownerId);
     // Include ready_for_pickup so completed online/WhatsApp flows count in revenue.
     const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
-    const bookings = await Booking.find({
-      owner: ownerId,
-      status: { $in: revenueStatuses },
-    }).select('price createdAt pickupDate status channel').lean();
 
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
@@ -183,96 +228,167 @@ export const getRevenueAnalytics = async (req, res) => {
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const eightWeeksAgo = new Date(now);
+    eightWeeksAgo.setDate(now.getDate() - 56);
+    eightWeeksAgo.setHours(0, 0, 0, 0);
+    const fiveYearsAgo = new Date(now.getFullYear() - 4, 0, 1);
 
-    const yearlyRevenue = bookings
-      .filter((b) => new Date(b.createdAt) >= yearStart)
-      .reduce((s, b) => s + (b.price || 0), 0);
-    const monthlyRevenue = bookings
-      .filter((b) => new Date(b.createdAt) >= monthStart)
-      .reduce((s, b) => s + (b.price || 0), 0);
-    const weeklyRevenue = bookings
-      .filter((b) => new Date(b.createdAt) >= weekStart)
-      .reduce((s, b) => s + (b.price || 0), 0);
+    const revenueMatch = { owner: ownerOid, status: { $in: revenueStatuses } };
 
-    // Last 12 months
+    const [
+      periodTotals,
+      lifetime,
+      byStatus,
+      byChannel,
+      monthlyGroups,
+      yearlyGroups,
+      weekSlice,
+    ] = await Promise.all([
+      Booking.aggregate([
+        { $match: revenueMatch },
+        {
+          $group: {
+            _id: null,
+            weeklyRevenue: {
+              $sum: { $cond: [{ $gte: ['$createdAt', weekStart] }, '$price', 0] },
+            },
+            monthlyRevenue: {
+              $sum: { $cond: [{ $gte: ['$createdAt', monthStart] }, '$price', 0] },
+            },
+            yearlyRevenue: {
+              $sum: { $cond: [{ $gte: ['$createdAt', yearStart] }, '$price', 0] },
+            },
+          },
+        },
+      ]),
+      Booking.aggregate([
+        { $match: revenueMatch },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$price' },
+            bookingCount: { $sum: 1 },
+            onlineRevenue: {
+              $sum: { $cond: [{ $ne: ['$channel', 'walk_in'] }, '$price', 0] },
+            },
+            walkInRevenue: {
+              $sum: { $cond: [{ $eq: ['$channel', 'walk_in'] }, '$price', 0] },
+            },
+            onlineBookingCount: {
+              $sum: { $cond: [{ $ne: ['$channel', 'walk_in'] }, 1, 0] },
+            },
+            walkInBookingCount: {
+              $sum: { $cond: [{ $eq: ['$channel', 'walk_in'] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+      Booking.aggregate([
+        { $match: { owner: ownerOid } },
+        { $group: { _id: '$status', count: { $sum: 1 }, revenue: { $sum: '$price' } } },
+      ]),
+      Booking.aggregate([
+        { $match: revenueMatch },
+        {
+          $project: {
+            price: 1,
+            normalizedChannel: {
+              $cond: [{ $eq: ['$channel', 'walk_in'] }, 'walk_in', 'online'],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: '$normalizedChannel',
+            count: { $sum: 1 },
+            revenue: { $sum: '$price' },
+          },
+        },
+      ]),
+      Booking.aggregate([
+        { $match: { ...revenueMatch, createdAt: { $gte: twelveMonthsAgo } } },
+        {
+          $group: {
+            _id: { y: { $year: '$createdAt' }, m: { $month: '$createdAt' } },
+            amount: { $sum: '$price' },
+          },
+        },
+      ]),
+      Booking.aggregate([
+        { $match: { ...revenueMatch, createdAt: { $gte: fiveYearsAgo } } },
+        {
+          $group: {
+            _id: { $year: '$createdAt' },
+            amount: { $sum: '$price' },
+          },
+        },
+      ]),
+      // Week buckets use JS weekKey — load only the last ~8 weeks of lean rows.
+      Booking.find({
+        owner: ownerId,
+        status: { $in: revenueStatuses },
+        createdAt: { $gte: eightWeeksAgo },
+      })
+        .select('price createdAt')
+        .lean(),
+    ]);
+
+    const periods = periodTotals[0] || {};
+    const life = lifetime[0] || {};
+
+    const monthlyMap = new Map(
+      monthlyGroups.map((g) => [
+        `${g._id.y}-${String(g._id.m).padStart(2, '0')}`,
+        g.amount || 0,
+      ]),
+    );
     const monthlyTrend = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = monthKey(d);
-      const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
-      const amount = bookings
-        .filter((b) => monthKey(b.createdAt) === key)
-        .reduce((s, b) => s + (b.price || 0), 0);
-      monthlyTrend.push({ key, label, amount });
+      monthlyTrend.push({
+        key,
+        label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
+        amount: monthlyMap.get(key) || 0,
+      });
     }
 
-    // Last 8 weeks
     const weeklyTrend = [];
     for (let i = 7; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(now.getDate() - (i * 7));
       const key = weekKey(d);
-      const amount = bookings
+      const amount = weekSlice
         .filter((b) => weekKey(b.createdAt) === key)
         .reduce((s, b) => s + (b.price || 0), 0);
       weeklyTrend.push({ key, label: key, amount });
     }
 
-    // Last 5 years
+    const yearlyMap = new Map(yearlyGroups.map((g) => [String(g._id), g.amount || 0]));
     const yearlyTrend = [];
     for (let i = 4; i >= 0; i--) {
-      const y = now.getFullYear() - i;
-      const amount = bookings
-        .filter((b) => new Date(b.createdAt).getFullYear() === y)
-        .reduce((s, b) => s + (b.price || 0), 0);
-      yearlyTrend.push({ key: String(y), label: String(y), amount });
+      const y = String(now.getFullYear() - i);
+      yearlyTrend.push({ key: y, label: y, amount: yearlyMap.get(y) || 0 });
     }
-
-    const byStatus = await Booking.aggregate([
-      { $match: { owner: asObjectId(ownerId) } },
-      { $group: { _id: '$status', count: { $sum: 1 }, revenue: { $sum: '$price' } } },
-    ]);
-
-    // WhatsApp counts as online in channel analytics.
-    const byChannel = await Booking.aggregate([
-      { $match: { owner: asObjectId(ownerId), status: { $in: revenueStatuses } } },
-      {
-        $project: {
-          price: 1,
-          normalizedChannel: {
-            $cond: [{ $eq: ['$channel', 'walk_in'] }, 'walk_in', 'online'],
-          },
-        },
-      },
-      {
-        $group: {
-          _id: '$normalizedChannel',
-          count: { $sum: 1 },
-          revenue: { $sum: '$price' },
-        },
-      },
-    ]);
-
-    const onlineBookings = bookings.filter((b) => isOnlineChannel(b.channel));
-    const walkInBookings = bookings.filter((b) => !isOnlineChannel(b.channel));
 
     res.json({
       success: true,
       analytics: {
-        weeklyRevenue,
-        monthlyRevenue,
-        yearlyRevenue,
-        totalRevenue: bookings.reduce((s, b) => s + (b.price || 0), 0),
-        bookingCount: bookings.length,
-        onlineBookingCount: onlineBookings.length,
-        walkInBookingCount: walkInBookings.length,
+        weeklyRevenue: periods.weeklyRevenue || 0,
+        monthlyRevenue: periods.monthlyRevenue || 0,
+        yearlyRevenue: periods.yearlyRevenue || 0,
+        totalRevenue: life.totalRevenue || 0,
+        bookingCount: life.bookingCount || 0,
+        onlineBookingCount: life.onlineBookingCount || 0,
+        walkInBookingCount: life.walkInBookingCount || 0,
         monthlyTrend,
         weeklyTrend,
         yearlyTrend,
         byStatus,
         byChannel,
-        onlineRevenue: onlineBookings.reduce((s, b) => s + (b.price || 0), 0),
-        walkInRevenue: walkInBookings.reduce((s, b) => s + (b.price || 0), 0),
+        onlineRevenue: life.onlineRevenue || 0,
+        walkInRevenue: life.walkInRevenue || 0,
       },
     });
   } catch (error) {
@@ -286,34 +402,43 @@ export const getCrmCustomers = async (req, res) => {
   try {
     const ownerId = req.user._id;
 
-    // Ensure CRM profiles exist for booking emails
-    const bookingEmails = await Booking.aggregate([
-      { $match: { owner: asObjectId(ownerId), customerEmail: { $ne: '' } } },
-      {
-        $group: {
-          _id: { $toLower: '$customerEmail' },
-          name: { $last: '$customerName' },
-          phone: { $last: '$customerPhone' },
-          pickupLocation: { $last: '$pickupLocation' },
-          lastBooking: { $last: '$$ROOT' },
+    // Lightweight legacy backfill: create missing CRM rows without per-email findOne N+1.
+    // New bookings already upsert GuestCustomer on create.
+    const [bookingEmails, existingGuests] = await Promise.all([
+      Booking.aggregate([
+        { $match: { owner: asObjectId(ownerId), customerEmail: { $ne: '' } } },
+        {
+          $group: {
+            _id: { $toLower: '$customerEmail' },
+            name: { $last: '$customerName' },
+            phone: { $last: '$customerPhone' },
+            pickupLocation: { $last: '$pickupLocation' },
+            createdAt: { $last: '$createdAt' },
+            status: { $last: '$status' },
+            price: { $last: '$price' },
+          },
         },
-      },
+      ]),
+      GuestCustomer.find({ owner: ownerId }).select('email').lean(),
     ]);
 
-    for (const row of bookingEmails) {
-      const existing = await GuestCustomer.findOne({ owner: ownerId, email: row._id });
-      if (!existing) {
-        await upsertGuestFromBooking({
-          owner: ownerId,
-          customerEmail: row._id,
-          customerName: row.name,
-          customerPhone: row.phone,
-          pickupLocation: row.pickupLocation,
-          createdAt: row.lastBooking?.createdAt,
-          status: row.lastBooking?.status,
-          price: row.lastBooking?.price || 0,
-        });
-      }
+    const existingSet = new Set(existingGuests.map((g) => g.email));
+    const missing = bookingEmails.filter((row) => row._id && !existingSet.has(row._id));
+    if (missing.length) {
+      await Promise.all(
+        missing.map((row) =>
+          upsertGuestFromBooking({
+            owner: ownerId,
+            customerEmail: row._id,
+            customerName: row.name,
+            customerPhone: row.phone,
+            pickupLocation: row.pickupLocation,
+            createdAt: row.createdAt,
+            status: row.status,
+            price: row.price || 0,
+          }),
+        ),
+      );
     }
 
     const {
@@ -381,7 +506,8 @@ export const getCrmCustomerDetail = async (req, res) => {
     }
 
     const bookings = await Booking.find({ owner: ownerId, customerEmail: normalized })
-      .populate('car', 'brand model image')
+      .select('reservationId status price pickupDate car createdAt')
+      .populate('car', 'brand model')
       .sort({ createdAt: -1 })
       .lean();
 

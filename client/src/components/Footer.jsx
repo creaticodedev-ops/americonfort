@@ -1,45 +1,34 @@
 import React from 'react'
 import { assets } from '../assets/assets'
-import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { Link } from "react-router-dom";
 import { BRAND_NAME } from '../constants/brand'
-
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 20 },
-  whileInView: { opacity: 1, y: 0 },
-  transition: { duration: 0.6, delay },
-});
 
 const Footer = () => {
   const { t } = useI18n();
 
   return (
     <footer className="page-pad page-shell mt-8 md:mt-16 text-sm text-muted bg-light">
-      <Motion.div
-        {...fadeUp(0)}
-        className="flex flex-col md:flex-row flex-wrap justify-between items-start gap-10 pb-10 border-b border-borderColor"
-      >
+      <div className="flex flex-col md:flex-row flex-wrap justify-between items-start gap-10 pb-10 border-b border-borderColor">
         <div className="max-w-sm w-full">
-          <Motion.img
-            {...fadeUp(0.2)}
-            src={assets.logo}
-            alt={BRAND_NAME}
-            width={200}
-            height={96}
-            loading="lazy"
-            decoding="async"
-            className="block h-9 sm:h-10 lg:h-11 mb-3 w-auto max-h-10 lg:max-h-11 object-contain"
-          />
+          <picture>
+            <source type="image/avif" srcSet={assets.logo_avif} />
+            <img
+              src={assets.logo}
+              alt={BRAND_NAME}
+              width={200}
+              height={96}
+              loading="lazy"
+              decoding="async"
+              className="block h-9 sm:h-10 lg:h-11 mb-3 w-auto max-h-10 lg:max-h-11 object-contain"
+            />
+          </picture>
 
-          <Motion.p {...fadeUp(0.3)} className="leading-relaxed">
+          <p className="leading-relaxed">
             {t('footer.description')}
-          </Motion.p>
+          </p>
 
-          <Motion.div
-            {...fadeUp(0.4)}
-            className="flex items-center gap-4 mt-6"
-          >
+          <div className="flex items-center gap-4 mt-6">
             {[
               { src: assets.facebook_logo, label: 'Facebook' },
               { src: assets.instagram_logo, label: 'Instagram' },
@@ -50,13 +39,10 @@ const Footer = () => {
                 <img src={src} width={20} height={20} loading="lazy" className="w-5 h-5 hover:opacity-70 transition" alt="" />
               </a>
             ))}
-          </Motion.div>
+          </div>
         </div>
 
-        <Motion.div
-          {...fadeUp(0.3)}
-          className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-10 w-full md:w-auto md:flex-1 md:max-w-2xl"
-        >
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-10 w-full md:w-auto md:flex-1 md:max-w-2xl">
           <div>
             <h3 className="text-base font-medium text-gray-900 uppercase tracking-wide">
               {t('footer.quickLinks')}
@@ -96,13 +82,10 @@ const Footer = () => {
               <li>americonfort@gmail.com</li>
             </ul>
           </div>
-        </Motion.div>
-      </Motion.div>
+        </div>
+      </div>
 
-      <Motion.div
-        {...fadeUp(0.5)}
-        className="flex flex-col md:flex-row gap-3 items-center justify-between py-6 text-gray-600 text-center md:text-left"
-      >
+      <div className="flex flex-col md:flex-row gap-3 items-center justify-between py-6 text-gray-600 text-center md:text-left">
         <p className="text-xs sm:text-sm">© {new Date().getFullYear()} ZAKARIA DOUAMI. {t('footer.rights')}</p>
 
         <div className="flex flex-col items-center gap-2 md:items-end">
@@ -125,7 +108,7 @@ const Footer = () => {
             {t('footer.staffPortal')}
           </Link>
         </div>
-      </Motion.div>
+      </div>
     </footer>
   );
 };

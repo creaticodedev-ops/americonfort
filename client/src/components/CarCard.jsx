@@ -3,6 +3,7 @@ import { assets } from '../assets/assets'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../i18n/I18nContext'
 import { formatLocationsDisplay } from '../utils/carLocations'
+import ResponsiveImage from './ResponsiveImage'
 
 const CarCard = ({ car }) => {
   const currency = import.meta.env.VITE_CURRENCY || 'MAD '
@@ -16,10 +17,12 @@ const CarCard = ({ car }) => {
       className="group cursor-pointer"
     >
       <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-sand">
-        <img
+        <ResponsiveImage
           src={car.image || car.images?.[0] || fallbackImage}
-          onError={(e) => { e.currentTarget.src = fallbackImage }}
+          fallbackSrc={fallbackImage}
           alt={`${car.brand} ${car.model}`}
+          widths={[400, 640, 960]}
+          sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 360px"
           width={640}
           height={400}
           loading="lazy"

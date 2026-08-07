@@ -1,5 +1,6 @@
 import React from 'react'
-import { assets } from '../assets/assets'
+import banner_car_image from '../assets/banner_car_image.webp'
+import banner_car_avif from '../assets/banner_car_image.avif'
 import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { useNavigate } from 'react-router-dom'
@@ -18,15 +19,18 @@ const Banner = () => {
         className="relative overflow-hidden rounded-2xl bg-ink min-h-[280px] md:min-h-[320px] flex flex-col md:flex-row items-stretch"
       >
         <div className="absolute inset-0">
-          <img
-            src={assets.banner_car_image}
-            alt=""
-            width={1200}
-            height={576}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover object-center opacity-40 md:opacity-50"
-          />
+          <picture>
+            <source type="image/avif" srcSet={banner_car_avif} />
+            <img
+              src={banner_car_image}
+              alt=""
+              width={1200}
+              height={576}
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover object-center opacity-40 md:opacity-50"
+            />
+          </picture>
           <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/90 to-ink/40" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_50%,rgba(143,31,31,0.35),transparent_55%)]" />
         </div>

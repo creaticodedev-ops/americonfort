@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from 'axios'
 import {toast} from 'react-hot-toast'
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getErrorMessage } from '../utils/apiError';
 import { resolveOwnerPermissions, ownerHasPermission } from '../utils/ownerPermissions';
 
@@ -23,9 +23,33 @@ const clearOwnerSession = () => {
   delete axios.defaults.headers.common['Authorization']
 }
 
+/** Browse/home/detail need the catalog; search-mode Cars uses check-availability instead. */
+const needsPublicCatalog = (pathname, search = '') => {
+  if (pathname === '/') return true
+  if (pathname.startsWith('/car-details')) return true
+  if (pathname === '/cars' || pathname.startsWith('/cars/')) {
+    const params = new URLSearchParams(search)
+    if (params.get('pickupLocation') && params.get('pickupDate') && params.get('returnDate')) {
+      return false
+    }
+    return true
+  }
+  return false
+}
+
+const needsPickupLocations = (pathname) =>
+  pathname === '/' ||
+  pathname.startsWith('/cars') ||
+  pathname.startsWith('/car-details') ||
+  pathname.startsWith('/owner/add-car') ||
+  pathname.startsWith('/owner/edit-car') ||
+  pathname.startsWith('/owner/walk-in') ||
+  pathname.startsWith('/owner/locations')
+
 export const AppProvider = ({ children })=>{
 
     const navigate = useNavigate()
+    const { pathname, search } = useLocation()
     const currency = import.meta.env.VITE_CURRENCY || 'MAD '
 
     const [token, setToken] = useState(null)
@@ -38,8 +62,15 @@ export const AppProvider = ({ children })=>{
     const [returnDate, setReturnDate] = useState('')
 
     const [cars, setCars] = useState([])
-    const [carsLoading, setCarsLoading] = useState(true)
+    // True on first paint for catalog routes so CarDetails waits for list hydration.
+    const [carsLoading, setCarsLoading] = useState(() =>
+      typeof window !== 'undefined'
+        ? needsPublicCatalog(window.location.pathname, window.location.search)
+        : false
+    )
     const [pickupLocations, setPickupLocations] = useState([])
+    const carsFetchedRef = useRef(false)
+    const locationsFetchedRef = useRef(false)
 
     const applyLicense = useCallback((nextLicense, nextUser) => {
       const resolved = nextLicense || nextUser?.license || null
@@ -58,7 +89,10 @@ export const AppProvider = ({ children })=>{
     const fetchPickupLocations = useCallback(async () => {
         try {
             const { data } = await axios.get('/api/pickup-locations')
-            if (data.success) setPickupLocations(data.locations)
+            if (data.success) {
+              setPickupLocations(data.locations)
+              locationsFetchedRef.current = true
+            }
         } catch (error) {
             if (import.meta.env.DEV) console.error(getErrorMessage(error))
             toast.error('Failed to load pickup locations')
@@ -89,11 +123,17 @@ export const AppProvider = ({ children })=>{
         }
     }, [applyLicense, resetOwnerAuth])
 
-    const fetchCars = useCallback(async () =>{
+    const fetchCars = useCallback(async ({ force = false } = {}) =>{
+        if (!force && carsFetchedRef.current) return
         setCarsLoading(true)
         try {
             const {data} = await axios.get('/api/user/cars')
-            data.success ? setCars(data.cars) : toast.error(data.message)
+            if (data.success) {
+              setCars(data.cars)
+              carsFetchedRef.current = true
+            } else {
+              toast.error(data.message)
+            }
         } catch (error) {
             toast.error(getErrorMessage(error, 'Failed to load cars'))
         } finally {
@@ -155,9 +195,7 @@ export const AppProvider = ({ children })=>{
         } else {
             setAuthReady(true)
         }
-        fetchCars()
-        fetchPickupLocations()
-    },[fetchCars, fetchPickupLocations])
+    },[])
 
     useEffect(()=>{
         if(token){
@@ -165,6 +203,22 @@ export const AppProvider = ({ children })=>{
             fetchUser()
         }
     },[token, fetchUser])
+
+    // Load public catalog only on routes that actually need it.
+    useEffect(() => {
+      if (needsPublicCatalog(pathname, search)) {
+        fetchCars()
+      } else if (!carsFetchedRef.current) {
+        setCarsLoading(false)
+      }
+    }, [pathname, search, fetchCars])
+
+    // Load pickup locations only when Hero / booking / owner location UIs need them.
+    useEffect(() => {
+      if (needsPickupLocations(pathname) && !locationsFetchedRef.current) {
+        fetchPickupLocations()
+      }
+    }, [pathname, fetchPickupLocations])
 
     const licenseLocked = isLicenseLocked(license)
 
