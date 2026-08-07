@@ -18,6 +18,14 @@ export const adminEn = {
     contracts: 'Contracts',
     invoices: 'Invoices',
     templates: 'Export Templates',
+    navigation: 'Navigation',
+    groups: {
+      overview: 'Overview',
+      bookings: 'Bookings',
+      fleet: 'Fleet',
+      documents: 'Documents',
+      reporting: 'Reporting & System',
+    },
   },
   shell: {
     welcome: 'Welcome, {{name}}',
@@ -35,6 +43,8 @@ export const adminEn = {
     backDashboard: 'Back to dashboard',
     loadError: 'Could not load data. Please try again.',
     retry: 'Retry',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
   },
   trial: {
     eyebrow: 'Americonfort',
@@ -705,6 +715,14 @@ export const adminFr = {
     contracts: 'Contrats',
     invoices: 'Factures',
     templates: 'Modèles d\'export',
+    navigation: 'Navigation',
+    groups: {
+      overview: 'Vue d’ensemble',
+      bookings: 'Réservations',
+      fleet: 'Flotte',
+      documents: 'Documents',
+      reporting: 'Rapports & système',
+    },
   },
   shell: {
     welcome: 'Bienvenue, {{name}}',
@@ -722,6 +740,8 @@ export const adminFr = {
     backDashboard: 'Retour au tableau de bord',
     loadError: 'Impossible de charger les données. Veuillez réessayer.',
     retry: 'Réessayer',
+    openMenu: 'Ouvrir le menu',
+    closeMenu: 'Fermer le menu',
   },
   trial: {
     eyebrow: 'Americonfort',
@@ -1388,6 +1408,14 @@ export const adminEs = {
     contracts: 'Contratos',
     invoices: 'Facturas',
     templates: 'Plantillas de exportación',
+    navigation: 'Navegación',
+    groups: {
+      overview: 'Resumen',
+      bookings: 'Reservas',
+      fleet: 'Flota',
+      documents: 'Documentos',
+      reporting: 'Informes y sistema',
+    },
   },
   shell: {
     welcome: 'Bienvenido, {{name}}',
@@ -1405,6 +1433,8 @@ export const adminEs = {
     backDashboard: 'Volver al panel',
     loadError: 'No se pudieron cargar los datos. Inténtelo de nuevo.',
     retry: 'Reintentar',
+    openMenu: 'Abrir menú',
+    closeMenu: 'Cerrar menú',
   },
   trial: {
     eyebrow: 'Americonfort',

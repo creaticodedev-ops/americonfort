@@ -8,7 +8,7 @@ import LanguageSwitcher from '../LanguageSwitcher'
 import NotificationBell from './NotificationBell'
 import GlobalSearch from './GlobalSearch'
 
-const NavbarOwner = () => {
+const NavbarOwner = ({ onOpenNav, navOpen = false }) => {
   const { user, logout, license, licenseLocked } = useAppContext()
   const { t } = useI18n()
 
@@ -19,9 +19,22 @@ const NavbarOwner = () => {
 
   return (
     <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 lg:px-10 py-3 text-gray-500 border-b border-borderColor bg-white min-h-[57px]">
-      <Link to="/" className="shrink-0">
-        <img src={assets.logo} alt={BRAND_NAME} width={200} height={96} decoding="async" className="block h-8 sm:h-9 w-auto max-h-9 object-contain" />
-      </Link>
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {!licenseLocked && typeof onOpenNav === 'function' && (
+          <button
+            type="button"
+            onClick={onOpenNav}
+            className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-borderColor text-gray-600 hover:bg-gray-50 cursor-pointer shrink-0"
+            aria-label={t('admin.shell.openMenu')}
+            aria-expanded={navOpen}
+          >
+            <img src={assets.menu_icon} alt="" className="h-4 w-4" />
+          </button>
+        )}
+        <Link to="/" className="shrink-0">
+          <img src={assets.logo} alt={BRAND_NAME} width={200} height={96} decoding="async" className="block h-8 sm:h-9 w-auto max-h-9 object-contain" />
+        </Link>
+      </div>
 
       {!licenseLocked && (
         <div className="hidden md:flex min-w-0 flex-1 justify-center px-2 lg:px-6">
