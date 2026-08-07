@@ -1,5 +1,6 @@
 import React from 'react'
 import { assets } from '../../assets/ownerAssets'
+import brandLogo from '../../assets/logo.webp'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import { BRAND_NAME } from '../../constants/brand'
@@ -32,7 +33,7 @@ const NavbarOwner = ({ onOpenNav, navOpen = false }) => {
           </button>
         )}
         <Link to="/" className="shrink-0">
-          <img src={assets.logo} alt={BRAND_NAME} width={200} height={96} decoding="async" className="block h-8 sm:h-9 w-auto max-h-9 object-contain" />
+          <img src={brandLogo} alt={BRAND_NAME} width={200} height={96} decoding="async" className="block h-8 sm:h-9 w-auto max-h-9 object-contain" />
         </Link>
       </div>
 

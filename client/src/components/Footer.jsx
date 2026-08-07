@@ -1,5 +1,6 @@
 import React from 'react'
 import { assets } from '../assets/assets'
+import brandLogo from '../assets/logo.webp'
 import { useI18n } from '../i18n/I18nContext'
 import { Link } from "react-router-dom";
 import { BRAND_NAME } from '../constants/brand'
@@ -11,18 +12,15 @@ const Footer = () => {
     <footer className="page-pad page-shell mt-8 md:mt-16 text-sm text-muted bg-light">
       <div className="flex flex-col md:flex-row flex-wrap justify-between items-start gap-10 pb-10 border-b border-borderColor">
         <div className="max-w-sm w-full">
-          <picture>
-            <source type="image/avif" srcSet={assets.logo_avif} />
-            <img
-              src={assets.logo}
-              alt={BRAND_NAME}
-              width={200}
-              height={96}
-              loading="lazy"
-              decoding="async"
-              className="block h-9 sm:h-10 lg:h-11 mb-3 w-auto max-h-10 lg:max-h-11 object-contain"
-            />
-          </picture>
+          <img
+            src={brandLogo}
+            alt={BRAND_NAME}
+            width={200}
+            height={96}
+            loading="lazy"
+            decoding="async"
+            className="block h-9 sm:h-10 lg:h-11 mb-3 w-auto max-h-10 lg:max-h-11 object-contain"
+          />
 
           <p className="leading-relaxed">
             {t('footer.description')}

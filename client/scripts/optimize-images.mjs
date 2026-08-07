@@ -28,30 +28,20 @@ async function writeWebpAvif(inputPath, outBase, { width, webpQuality = 78, avif
 }
 
 async function extractLogo() {
-  const svgPath = path.join(assetsDir, 'logo.svg')
-  if (!fs.existsSync(svgPath)) {
-    console.warn('skip logo.svg')
+  // Keep the authored logo.webp untouched (brand colors). Do not regenerate from SVG.
+  const logoWebp = path.join(assetsDir, 'logo.webp')
+  if (!fs.existsSync(logoWebp)) {
+    console.warn('skip logo — logo.webp missing')
     return
   }
-  const svg = fs.readFileSync(svgPath, 'utf8')
-  const match = svg.match(/data:image\/([a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=]+)/)
-  const source = match ? Buffer.from(match[2], 'base64') : svgPath
 
-  // Nav logo ~40px CSS height — 160px covers 4x retina without oversized decode
-  const pipeline = () => sharp(source).resize({ height: 160, withoutEnlargement: true })
-  await pipeline().webp({ quality: 86, effort: 6 }).toFile(path.join(assetsDir, 'logo.webp'))
-  await pipeline().avif({ quality: 52, effort: 4 }).toFile(path.join(assetsDir, 'logo.avif'))
-  await pipeline().png({ compressionLevel: 9 }).toFile(path.join(assetsDir, 'logo.png'))
-
-  await sharp(source)
+  // Optional apple-touch icon from the provided colored webp only
+  await sharp(logoWebp)
     .resize({ width: 180, height: 180, fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png()
     .toFile(path.join(publicDir, 'apple-touch-icon.png'))
 
-  console.log(
-    'logo',
-    `${(fs.statSync(path.join(assetsDir, 'logo.webp')).size / 1024).toFixed(1)}KB webp / ${(fs.statSync(path.join(assetsDir, 'logo.avif')).size / 1024).toFixed(1)}KB avif`,
-  )
+  console.log('logo.webp preserved', `${(fs.statSync(logoWebp).size / 1024).toFixed(1)}KB`)
 }
 
 async function makeHeroResponsive() {

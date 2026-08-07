@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { assets, menuLinks } from '../assets/assets'
+import brandLogo from '../assets/logo.webp'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -57,18 +58,15 @@ const Navbar = () => {
     >
       <div className="page-pad page-shell flex items-center justify-between gap-4 py-3.5 sm:py-4">
         <Link to="/" className="relative z-10 shrink-0 flex items-center">
-          <picture>
-            <source type="image/avif" srcSet={assets.logo_avif} />
-            <img
-              src={assets.logo}
-              alt={BRAND_NAME}
-              width={200}
-              height={96}
-              decoding="async"
-              fetchPriority="high"
-              className="block h-8 sm:h-9 lg:h-10 w-auto max-h-9 lg:max-h-10 object-contain transition-transform duration-200 hover:scale-[1.03]"
-            />
-          </picture>
+          <img
+            src={brandLogo}
+            alt={BRAND_NAME}
+            width={200}
+            height={96}
+            decoding="async"
+            fetchPriority="high"
+            className="block h-8 sm:h-9 lg:h-10 w-auto max-h-9 lg:max-h-10 object-contain transition-transform duration-200 hover:scale-[1.03]"
+          />
         </Link>
 
         {/* Desktop: logo left, controls right — independent of mobile drawer */}

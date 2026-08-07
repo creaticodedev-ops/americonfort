@@ -1,6 +1,5 @@
 /** Public-site assets only — keep owner/admin icons out of the critical bundle. */
 import logo from "./logo.webp";
-import logo_avif from "./logo.avif";
 import gmail_logo from "./gmail_logo.svg";
 import facebook_logo from "./facebook_logo.svg";
 import instagram_logo from "./instagram_logo.svg";
@@ -28,7 +27,6 @@ import car_image1_avif from "./car_image1.avif";
 
 export const assets = {
   logo,
-  logo_avif,
   gmail_logo,
   facebook_logo,
   instagram_logo,
