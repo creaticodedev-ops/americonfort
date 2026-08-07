@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { documentVersionSchema, templateSnapshotSchema } from './documentVersionSchema.js';
 
 const invoiceItemSchema = new mongoose.Schema({
   description: { type: String, default: '' },
@@ -35,11 +36,20 @@ const invoiceSchema = new mongoose.Schema({
   paymentMethod: { type: String, default: 'cash' },
   paymentReference: { type: String, default: '' },
   notes: { type: String, default: '' },
+  /** Frozen template sections for this instance */
+  templateSnapshot: { type: templateSnapshotSchema, default: () => ({}) },
+  /** Canonical JSON: { variables, structured, meta } */
+  sourceData: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   renderedHtml: { type: String, default: '' },
   pdfUrl: { type: String, default: '' },
   pdfPath: { type: String, default: '' },
   generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   includeCompanyStamp: { type: Boolean, default: true },
+  version: { type: Number, default: 1 },
+  versions: { type: [documentVersionSchema], default: [] },
+  lastGeneratedAt: { type: Date, default: null },
   status: {
     type: String,
     enum: ['draft', 'final'],
@@ -48,6 +58,10 @@ const invoiceSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 invoiceSchema.index({ owner: 1, invoiceNumber: 1 }, { unique: true });
+invoiceSchema.index(
+  { owner: 1, booking: 1 },
+  { unique: true, partialFilterExpression: { booking: { $type: 'objectId' } } }
+);
 invoiceSchema.index({ owner: 1, createdAt: -1 });
 
 const Invoice = mongoose.model('Invoice', invoiceSchema);

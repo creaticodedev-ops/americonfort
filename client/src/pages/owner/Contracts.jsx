@@ -1,10 +1,78 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Title from '../../components/owner/Title'
+import DocumentEditor from '../../components/owner/DocumentEditor'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
+import { downloadPdfFromApi } from '../../utils/downloadPdf'
+
+const toDateInput = (value) => {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10)
+  return d.toISOString().slice(0, 10)
+}
+
+const initContractForm = (doc) => {
+  const s = doc?.sourceData?.structured || {}
+  return {
+    customerName: s.customerName || doc.customerName || '',
+    customerEmail: s.customerEmail || doc.customerEmail || '',
+    customerPhone: s.customerPhone || doc.customerPhone || '',
+    customerAddress: s.customerAddress || '',
+    nationality: s.nationality || '',
+    dateOfBirth: toDateInput(s.dateOfBirth),
+    placeOfBirth: s.placeOfBirth || '',
+    driverLicenseNumber: s.driverLicenseNumber || '',
+    driverLicenseExpiry: toDateInput(s.driverLicenseExpiry),
+    passportNumber: s.passportNumber || '',
+    identityDocumentNumber: s.identityDocumentNumber || '',
+    pickupDate: toDateInput(s.pickupDate),
+    returnDate: toDateInput(s.returnDate),
+    pickupLocation: s.pickupLocation || '',
+    returnLocation: s.returnLocation || '',
+    price: s.price ?? '',
+    paymentStatus: s.paymentStatus || '',
+    notes: s.notes || '',
+    franchiseAmount: s.franchiseAmount ?? '',
+    vehicleBrand: s.vehicleBrand || '',
+    vehicleModel: s.vehicleModel || '',
+    vehicleYear: s.vehicleYear || '',
+    vehiclePlate: s.vehiclePlate || '',
+    vehicleCategory: s.vehicleCategory || '',
+    includeCompanyStamp: doc.includeCompanyStamp !== false,
+  }
+}
+
+const buildContractPatch = (form) => ({
+  customerName: form.customerName,
+  customerEmail: form.customerEmail,
+  customerPhone: form.customerPhone,
+  customerAddress: form.customerAddress,
+  nationality: form.nationality,
+  dateOfBirth: form.dateOfBirth || '',
+  placeOfBirth: form.placeOfBirth,
+  driverLicenseNumber: form.driverLicenseNumber,
+  driverLicenseExpiry: form.driverLicenseExpiry || '',
+  passportNumber: form.passportNumber,
+  identityDocumentNumber: form.identityDocumentNumber,
+  pickupDate: form.pickupDate || null,
+  returnDate: form.returnDate || null,
+  pickupLocation: form.pickupLocation,
+  returnLocation: form.returnLocation,
+  price: form.price === '' ? 0 : Number(form.price),
+  paymentStatus: form.paymentStatus,
+  notes: form.notes,
+  franchiseAmount: form.franchiseAmount === '' ? undefined : Number(form.franchiseAmount),
+  vehicleBrand: form.vehicleBrand,
+  vehicleModel: form.vehicleModel,
+  vehicleYear: form.vehicleYear,
+  vehiclePlate: form.vehiclePlate,
+  vehicleCategory: form.vehicleCategory,
+  includeCompanyStamp: form.includeCompanyStamp,
+})
 
 const formatDateTime = (value) => {
   if (!value) return '—'
@@ -48,8 +116,68 @@ const Contracts = () => {
   })
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewTitle, setPreviewTitle] = useState('')
+  const [editingId, setEditingId] = useState(null)
 
   const inputClass = 'border border-borderColor px-3 py-2 rounded-lg w-full text-sm'
+
+  const renderContractFields = (form, setForm, fieldClass, labelClass) => {
+    const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
+    const field = (key, label, type = 'text') => (
+      <div key={key}>
+        <label className={labelClass}>{label}</label>
+        <input
+          type={type}
+          className={fieldClass}
+          value={form[key] ?? ''}
+          onChange={(e) => set(key, type === 'number' ? e.target.value : e.target.value)}
+        />
+      </div>
+    )
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          {field('customerName', t('admin.invoices.customerName'))}
+          {field('customerEmail', t('admin.invoices.customerEmail'), 'email')}
+          {field('customerPhone', t('admin.invoices.customerPhone'))}
+          {field('customerAddress', t('admin.invoices.customerAddress'))}
+          {field('nationality', t('admin.contracts.nationality'))}
+          {field('dateOfBirth', t('admin.contracts.dateOfBirth'), 'date')}
+          {field('placeOfBirth', 'Place of birth')}
+          {field('driverLicenseNumber', t('admin.contracts.driverLicense'))}
+          {field('driverLicenseExpiry', t('admin.contracts.licenseExpiry'), 'date')}
+          {field('passportNumber', t('admin.contracts.passport'))}
+          {field('identityDocumentNumber', t('admin.invoices.cinPlaceholder'))}
+          {field('vehicleBrand', t('admin.invoices.vehicleBrand'))}
+          {field('vehicleModel', t('admin.invoices.vehicleModel'))}
+          {field('vehicleYear', t('admin.invoices.vehicleYear'))}
+          {field('vehiclePlate', t('admin.invoices.vehiclePlate'))}
+          {field('pickupDate', 'Pickup date', 'date')}
+          {field('returnDate', 'Return date', 'date')}
+          {field('pickupLocation', 'Pickup location')}
+          {field('returnLocation', 'Return location')}
+          {field('price', t('admin.contracts.total'), 'number')}
+          {field('paymentStatus', t('admin.invoices.paymentStatus'))}
+          {field('franchiseAmount', 'Franchise', 'number')}
+        </div>
+        <div>
+          <label className={labelClass}>{t('admin.invoices.notes')}</label>
+          <textarea
+            className={`${fieldClass} min-h-[80px]`}
+            value={form.notes || ''}
+            onChange={(e) => set('notes', e.target.value)}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={form.includeCompanyStamp !== false}
+            onChange={(e) => set('includeCompanyStamp', e.target.checked)}
+          />
+          {t('admin.contracts.includeStamp')}
+        </label>
+      </div>
+    )
+  }
 
   const fetchContracts = async (override = {}) => {
     setLoading(true)
@@ -252,14 +380,13 @@ const Contracts = () => {
 
   const downloadPdf = async (contract) => {
     try {
-      const { data } = await axios.get(`/api/contracts/${contract._id}/pdf`)
-      if (data.success && data.pdfUrl) {
-        window.open(data.pdfUrl, '_blank', 'noopener,noreferrer')
-      } else {
-        toast.error(data.message || t('admin.contracts.noPdf'))
-      }
+      await downloadPdfFromApi(
+        axios,
+        `/api/contracts/${contract._id}/pdf`,
+        `${contract.contractNumber || 'contract'}.pdf`,
+      )
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      toast.error(getErrorMessage(error, t('admin.contracts.noPdf')))
     }
   }
 
@@ -497,14 +624,17 @@ const Contracts = () => {
                       <td className="px-4 py-3 font-medium">{contract.contractNumber}</td>
                       <td className="px-4 py-3">{booking.reservationId || '—'}</td>
                       <td className="px-4 py-3">
-                        <p>{booking.customerName || '—'}</p>
-                        <p className="text-xs text-gray-500">{booking.customerPhone || ''}</p>
+                        <p>{contract.customerName || booking.customerName || '—'}</p>
+                        <p className="text-xs text-gray-500">{contract.customerPhone || booking.customerPhone || ''}</p>
                       </td>
                       <td className="px-4 py-3">{car.brand ? `${car.brand} ${car.model}` : '—'}</td>
                       <td className="px-4 py-3">{booking.price != null ? `${currency}${booking.price}` : '—'}</td>
                       <td className="px-4 py-3">{formatDateTime(contract.createdAt)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => setEditingId(contract._id)} className="text-primary text-xs font-medium">
+                            {t('admin.contracts.edit')}
+                          </button>
                           <button type="button" onClick={() => previewContract(contract)} className="text-primary text-xs font-medium">
                             {t('admin.contracts.preview')}
                           </button>
@@ -544,6 +674,19 @@ const Contracts = () => {
             →
           </button>
         </div>
+      )}
+
+      {editingId && (
+        <DocumentEditor
+          type="contract"
+          documentId={editingId}
+          axios={axios}
+          onClose={() => setEditingId(null)}
+          onSaved={() => fetchContracts()}
+          initForm={initContractForm}
+          buildPatch={buildContractPatch}
+          renderFields={renderContractFields}
+        />
       )}
     </div>
   )

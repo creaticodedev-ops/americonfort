@@ -1,16 +1,25 @@
+import fs from 'fs';
 import mongoose from 'mongoose';
 import Contract from '../models/Contract.js';
 import Booking from '../models/Booking.js';
-import Invoice from '../models/Invoice.js';
-import { publicUploadUrl } from '../services/pdfDocuments.js';
-import { generateContractPdf, generateDocumentFromTemplate } from '../services/templatePdfExport.js';
+import { generateContractPdf } from '../services/templatePdfExport.js';
 import { buildDocumentHtml, buildTemplateVariables } from '../services/templateEngine.js';
 import { logAudit } from '../utils/adminOps.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
+import { resolveContractTemplate } from '../utils/resolveExportTemplate.js';
 import {
-  getDefaultInvoiceTemplate,
-  resolveContractTemplate,
-} from '../utils/resolveExportTemplate.js';
+  snapshotTemplate,
+  buildContractSourceData,
+  pushVersion,
+  applySectionEdits,
+  applyContractStructuredEdits,
+  rebuildVariablesFromStructured,
+  renderAndStorePdf,
+  hydrateLegacyDocument,
+  resolveExistingPdfPath,
+  versionSummary,
+  templateFromSnapshot,
+} from '../services/documentInstanceService.js';
 
 const generateContractNumber = async (ownerId) => {
   const year = new Date().getFullYear().toString().slice(-2);
@@ -34,45 +43,89 @@ const generateContractNumber = async (ownerId) => {
   return `${prefix}${String(seq).padStart(4, '0')}`;
 };
 
-const createInvoiceForBooking = async ({ owner, booking, user, includeCompanyStamp = true }) => {
-  const invoiceNumber = booking.reservationId
-    ? `INV-${booking.reservationId.replace(/^RES-/, '')}`
-    : `INV-${booking._id.toString().slice(-8).toUpperCase()}`;
+/** Upsert a Contract instance from a booking (admin generate + completion). */
+export const upsertContractFromBooking = async ({
+  owner,
+  booking,
+  user,
+  template,
+  includeCompanyStamp = true,
+  contractNumber: providedNumber,
+  note = 'Generated',
+}) => {
+  const ownerId = owner._id || owner;
+  const bookingObj = booking.toObject ? booking.toObject() : booking;
+  const templateObj = template.toObject ? template.toObject() : template;
+  const templateSnap = snapshotTemplate(templateObj);
 
-  await ensureDefaultTemplates(owner._id || owner);
-  const invoiceTemplate = await getDefaultInvoiceTemplate(owner._id || owner);
-
-  if (!invoiceTemplate) {
-    throw new Error('No invoice template found. Set a default invoice template in Admin → Export Templates.');
+  const existing = await Contract.findOne({ owner: ownerId, booking: booking._id });
+  // Prefer existing number so completion/admin regenerations never create duplicates or renumber
+  let contractNumber = existing?.contractNumber || providedNumber;
+  if (!contractNumber) {
+    contractNumber = await generateContractNumber(ownerId);
   }
 
-  const invoiceResult = await generateDocumentFromTemplate({
-    template: invoiceTemplate,
-    booking: booking.toObject ? booking.toObject() : booking,
-    owner: owner._id || owner,
-    documentTitle: `Invoice ${invoiceNumber}`,
+  const { filePath, pdfUrl, renderedHtml, variables } = await generateContractPdf({
+    template: templateObj,
+    booking: bookingObj,
+    contractNumber,
+    owner,
     includeCompanyStamp,
   });
 
-  const invoicePath = invoiceResult.filePath;
-  const invoicePdfUrl = invoiceResult.pdfUrl;
+  const sourceData = buildContractSourceData(bookingObj, {
+    contractNumber,
+    owner,
+    template: templateObj,
+    includeCompanyStamp,
+  });
+  // Prefer variables returned from PDF gen (same stamp/signature embeds)
+  sourceData.variables = variables || sourceData.variables;
 
-  await Invoice.findOneAndUpdate(
-    { booking: booking._id, owner: owner._id || owner },
-    {
-      owner: owner._id || owner,
-      booking: booking._id,
-      invoiceNumber,
-      pdfUrl: invoicePdfUrl || publicUploadUrl(invoicePath),
-      pdfPath: invoicePath,
-      generatedBy: user?._id || user || null,
-      includeCompanyStamp,
-      status: 'final',
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  if (existing) {
+    pushVersion(existing, user, note);
+    existing.template = template._id || template;
+    existing.templateSnapshot = templateSnap;
+    existing.sourceData = sourceData;
+    existing.renderedHtml = renderedHtml;
+    existing.pdfUrl = pdfUrl;
+    existing.pdfPath = filePath;
+    existing.includeCompanyStamp = Boolean(includeCompanyStamp);
+    existing.customerName = bookingObj.customerName || '';
+    existing.customerPhone = bookingObj.customerPhone || '';
+    existing.customerEmail = bookingObj.customerEmail || '';
+    existing.updatedBy = user?._id || user || null;
+    existing.generatedBy = existing.generatedBy || user?._id || user || null;
+    existing.createdBy = existing.createdBy || existing.generatedBy;
+    existing.lastGeneratedAt = new Date();
+    existing.status = 'final';
+    await existing.save();
+    return existing;
+  }
 
-  return { invoiceNumber, invoicePath, invoicePdfUrl };
+  const contract = await Contract.create({
+    owner: ownerId,
+    booking: booking._id,
+    template: template._id || template,
+    contractNumber,
+    templateSnapshot: templateSnap,
+    sourceData,
+    renderedHtml,
+    pdfUrl,
+    pdfPath: filePath,
+    includeCompanyStamp: Boolean(includeCompanyStamp),
+    customerName: bookingObj.customerName || '',
+    customerPhone: bookingObj.customerPhone || '',
+    customerEmail: bookingObj.customerEmail || '',
+    generatedBy: user?._id || user || null,
+    createdBy: user?._id || user || null,
+    updatedBy: user?._id || user || null,
+    version: 1,
+    versions: [],
+    lastGeneratedAt: new Date(),
+    status: 'final',
+  });
+  return contract;
 };
 
 export const listContracts = async (req, res) => {
@@ -89,11 +142,14 @@ export const listContracts = async (req, res) => {
       const term = search.trim();
       query.$or = [
         { contractNumber: { $regex: term, $options: 'i' } },
+        { customerName: { $regex: term, $options: 'i' } },
+        { customerPhone: { $regex: term, $options: 'i' } },
+        { customerEmail: { $regex: term, $options: 'i' } },
       ];
     }
 
     if (customerName?.trim()) {
-      bookingQuery.push({ customerName: { $regex: customerName.trim(), $options: 'i' } });
+      query.customerName = { $regex: customerName.trim(), $options: 'i' };
     }
 
     if (cin?.trim()) {
@@ -108,7 +164,7 @@ export const listContracts = async (req, res) => {
     }
 
     if (phone?.trim()) {
-      bookingQuery.push({ customerPhone: { $regex: phone.trim(), $options: 'i' } });
+      query.customerPhone = { $regex: phone.trim(), $options: 'i' };
     }
 
     let bookingIds = [];
@@ -117,14 +173,12 @@ export const listContracts = async (req, res) => {
       if (!bookingIds.length) {
         return res.json({ success: true, contracts: [], pagination: { total: 0, page: pg, limit: lim, totalPages: 1 } });
       }
-    }
-
-    if (bookingIds.length) {
       query.booking = { $in: bookingIds };
     }
 
     const [contracts, total] = await Promise.all([
       Contract.find(query)
+        .select('-renderedHtml -versions.sourceData -versions.renderedHtml -versions.templateSnapshot')
         .populate({
           path: 'booking',
           select: 'reservationId customerName customerPhone pickupDate returnDate price status car',
@@ -164,14 +218,22 @@ export const getContract = async (req, res) => {
         path: 'booking',
         populate: { path: 'car' },
       })
-      .populate('template')
+      .populate('template', 'name type')
       .lean();
 
     if (!contract) {
       return res.status(404).json({ success: false, message: 'Contract not found' });
     }
 
-    res.json({ success: true, contract });
+    // Return version metadata only in detail payload (full snapshots via /versions)
+    const versions = versionSummary(contract.versions);
+    res.json({
+      success: true,
+      contract: {
+        ...contract,
+        versions,
+      },
+    });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to load contract' });
@@ -205,25 +267,13 @@ export const generateContract = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No contract template found. Create one in Export Templates.' });
     }
 
-    const contractNumber = await generateContractNumber(req.user._id);
-    const { filePath, pdfUrl, renderedHtml } = await generateContractPdf({
-      template: template.toObject ? template.toObject() : template,
-      booking: booking.toObject ? booking.toObject() : booking,
-      contractNumber,
+    const contract = await upsertContractFromBooking({
       owner: req.user,
+      booking,
+      user: req.user,
+      template,
       includeCompanyStamp,
-    });
-
-    const contract = await Contract.create({
-      owner: req.user._id,
-      booking: booking._id,
-      template: template._id,
-      contractNumber,
-      renderedHtml,
-      pdfUrl,
-      pdfPath: filePath,
-      generatedBy: req.user._id,
-      status: 'final',
+      note: 'Regenerated from booking',
     });
 
     await logAudit({
@@ -231,7 +281,7 @@ export const generateContract = async (req, res) => {
       action: 'contract.generate',
       entityType: 'Contract',
       entityId: contract._id,
-      details: `Contract ${contractNumber} generated for ${booking.reservationId}`,
+      details: `Contract ${contract.contractNumber} generated for ${booking.reservationId}`,
     });
 
     res.status(201).json({
@@ -251,17 +301,182 @@ export const generateContract = async (req, res) => {
   }
 };
 
+export const updateContract = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid contract ID' });
+    }
+
+    const contract = await Contract.findOne({
+      _id: req.params.id,
+      owner: req.user._id,
+    });
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+
+    await hydrateLegacyDocument(contract, { type: 'contract', owner: req.user });
+
+    const regeneratePdf = req.body.regeneratePdf !== false;
+    pushVersion(contract, req.user, req.body.note || 'Updated');
+
+    if (req.body.sections) {
+      applySectionEdits(contract, req.body.sections);
+    }
+    applyContractStructuredEdits(contract, req.body);
+
+    let booking = null;
+    if (contract.booking) {
+      booking = await Booking.findById(contract.booking).populate('car');
+    }
+    const variables = rebuildVariablesFromStructured(contract, {
+      type: 'contract',
+      owner: req.user,
+      booking,
+    });
+    contract.sourceData = {
+      ...(contract.sourceData || {}),
+      variables,
+    };
+
+    const snap = templateFromSnapshot(contract.templateSnapshot || {});
+    contract.renderedHtml = buildDocumentHtml(snap, variables);
+    contract.updatedBy = req.user._id;
+
+    if (regeneratePdf) {
+      await renderAndStorePdf({
+        type: 'contract',
+        doc: contract,
+        owner: req.user,
+      });
+    }
+
+    await contract.save();
+
+    await logAudit({
+      owner: req.user._id,
+      action: regeneratePdf ? 'contract.regenerate' : 'contract.update',
+      entityType: 'Contract',
+      entityId: contract._id,
+      details: `Contract ${contract.contractNumber} updated (v${contract.version})`,
+    });
+
+    res.json({
+      success: true,
+      message: 'Contract updated',
+      contract: {
+        ...contract.toObject(),
+        versions: versionSummary(contract.versions),
+      },
+    });
+  } catch (error) {
+    console.error('[contract update]', error?.message || error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to update contract' });
+  }
+};
+
+export const listContractVersions = async (req, res) => {
+  try {
+    const contract = await Contract.findOne({
+      _id: req.params.id,
+      owner: req.user._id,
+    }).select('versions contractNumber version').lean();
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+    res.json({
+      success: true,
+      currentVersion: contract.version,
+      versions: contract.versions || [],
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to load versions' });
+  }
+};
+
+export const restoreContractVersion = async (req, res) => {
+  try {
+    const versionNum = parseInt(req.params.version, 10);
+    if (!Number.isFinite(versionNum)) {
+      return res.status(400).json({ success: false, message: 'Invalid version' });
+    }
+
+    const contract = await Contract.findOne({
+      _id: req.params.id,
+      owner: req.user._id,
+    });
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+
+    const snap = (contract.versions || []).find((v) => v.version === versionNum);
+    if (!snap) {
+      return res.status(404).json({ success: false, message: 'Version not found' });
+    }
+
+    pushVersion(contract, req.user, `Restored version ${versionNum}`);
+    contract.sourceData = snap.sourceData || {};
+    contract.templateSnapshot = snap.templateSnapshot || {};
+    contract.renderedHtml = snap.renderedHtml || '';
+    contract.pdfUrl = snap.pdfUrl || '';
+    contract.pdfPath = snap.pdfPath || '';
+    contract.status = snap.status || 'final';
+    contract.customerName = contract.sourceData?.structured?.customerName || contract.customerName;
+    contract.customerPhone = contract.sourceData?.structured?.customerPhone || contract.customerPhone;
+    contract.customerEmail = contract.sourceData?.structured?.customerEmail || contract.customerEmail;
+    contract.updatedBy = req.user._id;
+
+    await renderAndStorePdf({ type: 'contract', doc: contract, owner: req.user });
+    await contract.save();
+
+    await logAudit({
+      owner: req.user._id,
+      action: 'contract.restore',
+      entityType: 'Contract',
+      entityId: contract._id,
+      details: `Contract ${contract.contractNumber} restored to v${versionNum}`,
+    });
+
+    res.json({
+      success: true,
+      message: `Restored version ${versionNum}`,
+      contract: {
+        ...contract.toObject(),
+        versions: versionSummary(contract.versions),
+      },
+    });
+  } catch (error) {
+    console.error('[contract restore]', error?.message || error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to restore version' });
+  }
+};
+
 export const previewContract = async (req, res) => {
   try {
     const contract = await Contract.findOne({
       _id: req.params.id,
       owner: req.user._id,
-    }).lean();
-
+    });
     if (!contract) {
       return res.status(404).json({ success: false, message: 'Contract not found' });
     }
-
+    if (!contract.renderedHtml) {
+      await hydrateLegacyDocument(contract, { type: 'contract', owner: req.user });
+      const booking = contract.booking
+        ? await Booking.findById(contract.booking).populate('car')
+        : null;
+      const variables = rebuildVariablesFromStructured(contract, {
+        type: 'contract',
+        owner: req.user,
+        booking,
+      });
+      contract.renderedHtml = buildDocumentHtml(
+        templateFromSnapshot(contract.templateSnapshot || {}),
+        variables,
+      );
+      await contract.save();
+    }
     res.json({ success: true, html: contract.renderedHtml });
   } catch (error) {
     console.error(error.message);
@@ -310,23 +525,39 @@ export const previewContractFromBooking = async (req, res) => {
 
 export const downloadContractPdf = async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid contract ID' });
+    }
+
     const contract = await Contract.findOne({
       _id: req.params.id,
       owner: req.user._id,
-    }).lean();
-
+    });
     if (!contract) {
       return res.status(404).json({ success: false, message: 'Contract not found' });
     }
 
-    if (contract.pdfUrl) {
-      return res.json({ success: true, pdfUrl: contract.pdfUrl });
+    let filePath = resolveExistingPdfPath(contract);
+    if (!filePath) {
+      await hydrateLegacyDocument(contract, { type: 'contract', owner: req.user });
+      await renderAndStorePdf({ type: 'contract', doc: contract, owner: req.user });
+      await contract.save();
+      filePath = contract.pdfPath;
     }
 
-    res.status(404).json({ success: false, message: 'PDF not available' });
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: 'PDF not available' });
+    }
+
+    const safeName = String(contract.contractNumber || 'contract').replace(/[^\w.-]+/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`);
+    return fs.createReadStream(filePath).pipe(res);
   } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ success: false, message: 'Failed to download contract PDF' });
+    console.error('[contract pdf]', error?.message || error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: error.message || 'Failed to download contract PDF' });
+    }
   }
 };
 
@@ -353,8 +584,12 @@ export default {
   listContracts,
   getContract,
   generateContract,
+  updateContract,
+  listContractVersions,
+  restoreContractVersion,
   previewContract,
   previewContractFromBooking,
   downloadContractPdf,
   listBookingsForContracts,
+  upsertContractFromBooking,
 };

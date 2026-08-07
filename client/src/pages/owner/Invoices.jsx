@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Title from '../../components/owner/Title'
+import DocumentEditor from '../../components/owner/DocumentEditor'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -37,6 +38,81 @@ const createEmptyForm = () => ({
   includeCompanyStamp: true,
 })
 
+const toDateInput = (value) => {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10)
+  return d.toISOString().slice(0, 10)
+}
+
+const initInvoiceForm = (doc) => {
+  const s = doc?.sourceData?.structured || {}
+  const items = (Array.isArray(doc.items) && doc.items.length
+    ? doc.items
+    : (Array.isArray(s.items) && s.items.length ? s.items : [createEmptyItem()])
+  ).map((item) => ({
+    description: item.description || '',
+    quantity: item.quantity ?? 1,
+    unitPrice: item.unitPrice ?? '',
+    taxRate: item.taxRate ?? 0,
+  }))
+  return {
+    invoiceDate: toDateInput(doc.invoiceDate || s.invoiceDate) || new Date().toISOString().slice(0, 10),
+    dueDate: toDateInput(doc.dueDate || s.dueDate),
+    customerName: doc.customerName || s.customerName || '',
+    customerEmail: doc.customerEmail || s.customerEmail || '',
+    customerPhone: doc.customerPhone || s.customerPhone || '',
+    customerAddress: doc.customerAddress || s.customerAddress || '',
+    customerTaxId: doc.customerTaxId || s.customerTaxId || '',
+    vehicleBrand: doc.vehicleBrand || s.vehicleBrand || '',
+    vehicleModel: doc.vehicleModel || s.vehicleModel || '',
+    vehicleYear: doc.vehicleYear || s.vehicleYear || '',
+    vehiclePlate: doc.vehiclePlate || s.vehiclePlate || '',
+    vehicleType: doc.vehicleType || s.vehicleType || '',
+    items,
+    discountAmount: String(doc.discountAmount ?? s.discountAmount ?? 0),
+    notes: doc.notes || s.notes || '',
+    paymentStatus: doc.paymentStatus || s.paymentStatus || 'pending',
+    paymentMethod: doc.paymentMethod || s.paymentMethod || 'cash',
+    paymentReference: doc.paymentReference || s.paymentReference || '',
+    currency: doc.currency || s.currency || 'MAD',
+    includeCompanyStamp: doc.includeCompanyStamp !== false,
+  }
+}
+
+const buildInvoicePatch = (form) => {
+  const items = (form.items || [])
+    .filter((item) => item.description || item.quantity || item.unitPrice)
+    .map((item) => ({
+      description: item.description,
+      quantity: Number(item.quantity || 1),
+      unitPrice: Number(item.unitPrice || 0),
+      taxRate: Number(item.taxRate || 0),
+    }))
+  return {
+    invoiceDate: form.invoiceDate || '',
+    dueDate: form.dueDate || '',
+    customerName: form.customerName,
+    customerEmail: form.customerEmail,
+    customerPhone: form.customerPhone,
+    customerAddress: form.customerAddress,
+    customerTaxId: form.customerTaxId,
+    vehicleBrand: form.vehicleBrand,
+    vehicleModel: form.vehicleModel,
+    vehicleYear: form.vehicleYear,
+    vehiclePlate: form.vehiclePlate,
+    vehicleType: form.vehicleType,
+    items,
+    discountAmount: Number(form.discountAmount || 0),
+    notes: form.notes,
+    paymentStatus: form.paymentStatus,
+    paymentMethod: form.paymentMethod,
+    paymentReference: form.paymentReference,
+    currency: form.currency,
+    includeCompanyStamp: form.includeCompanyStamp,
+  }
+}
+
 const Invoices = () => {
   const { axios, currency } = useAppContext()
   const { t } = useI18n()
@@ -47,6 +123,149 @@ const Invoices = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(createEmptyForm())
+  const [editingId, setEditingId] = useState(null)
+
+  const renderInvoiceFields = (editForm, setEditForm, fieldClass, labelClass) => {
+    const update = (changes) => setEditForm((prev) => ({ ...prev, ...changes }))
+    const updateItem = (index, field, value) => {
+      setEditForm((prev) => ({
+        ...prev,
+        items: prev.items.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+      }))
+    }
+    const addItem = () => setEditForm((prev) => ({ ...prev, items: [...prev.items, createEmptyItem()] }))
+    const removeItem = (index) => {
+      setEditForm((prev) => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== index),
+      }))
+    }
+    const subtotal = editForm.items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0)
+    const taxAmount = editForm.items.reduce((sum, item) => sum + ((Number(item.quantity || 0) * Number(item.unitPrice || 0)) * (Number(item.taxRate || 0) / 100)), 0)
+    const discountAmount = Number(editForm.discountAmount || 0)
+    const totalAmount = Math.max(0, subtotal + taxAmount - discountAmount)
+
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <label className={labelClass}>{t('admin.invoices.invoiceDate')}</label>
+            <input type="date" className={fieldClass} value={editForm.invoiceDate} onChange={(e) => update({ invoiceDate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.dueDate')}</label>
+            <input type="date" className={fieldClass} value={editForm.dueDate} onChange={(e) => update({ dueDate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.currency')}</label>
+            <input className={fieldClass} value={editForm.currency} onChange={(e) => update({ currency: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.customerName')}</label>
+            <input className={fieldClass} value={editForm.customerName} onChange={(e) => update({ customerName: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.customerEmail')}</label>
+            <input type="email" className={fieldClass} value={editForm.customerEmail} onChange={(e) => update({ customerEmail: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.customerPhone')}</label>
+            <input className={fieldClass} value={editForm.customerPhone} onChange={(e) => update({ customerPhone: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.customerAddress')}</label>
+            <input className={fieldClass} value={editForm.customerAddress} onChange={(e) => update({ customerAddress: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.customerTaxId')}</label>
+            <input className={fieldClass} value={editForm.customerTaxId} onChange={(e) => update({ customerTaxId: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.vehicleBrand')}</label>
+            <input className={fieldClass} value={editForm.vehicleBrand} onChange={(e) => update({ vehicleBrand: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.vehicleModel')}</label>
+            <input className={fieldClass} value={editForm.vehicleModel} onChange={(e) => update({ vehicleModel: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.vehiclePlate')}</label>
+            <input className={fieldClass} value={editForm.vehiclePlate} onChange={(e) => update({ vehiclePlate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.vehicleYear')}</label>
+            <input className={fieldClass} value={editForm.vehicleYear} onChange={(e) => update({ vehicleYear: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.vehicleType')}</label>
+            <input className={fieldClass} value={editForm.vehicleType} onChange={(e) => update({ vehicleType: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.paymentStatus')}</label>
+            <select className={fieldClass} value={editForm.paymentStatus} onChange={(e) => update({ paymentStatus: e.target.value })}>
+              <option value="pending">{t('admin.invoices.pending')}</option>
+              <option value="paid">{t('admin.invoices.paid')}</option>
+              <option value="partial">{t('admin.invoices.partial')}</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.paymentMethod')}</label>
+            <select className={fieldClass} value={editForm.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })}>
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank transfer</option>
+              <option value="card">Card</option>
+              <option value="cheque">Cheque</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.paymentReference')}</label>
+            <input className={fieldClass} value={editForm.paymentReference} onChange={(e) => update({ paymentReference: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-borderColor bg-gray-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-gray-700">{t('admin.invoices.items')}</h4>
+            <button type="button" onClick={addItem} className="rounded-lg border border-borderColor bg-white px-3 py-1.5 text-sm">{t('admin.invoices.addItem')}</button>
+          </div>
+          <div className="mt-3 space-y-3">
+            {editForm.items.map((item, index) => (
+              <div key={`edit-item-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.8fr_1fr_0.7fr_auto]">
+                <input className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.description} onChange={(e) => updateItem(index, 'description', e.target.value)} placeholder={t('admin.invoices.itemDescription')} />
+                <input type="number" min="1" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
+                <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.unitPrice} onChange={(e) => updateItem(index, 'unitPrice', e.target.value)} />
+                <input type="number" min="0" max="100" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.taxRate} onChange={(e) => updateItem(index, 'taxRate', e.target.value)} />
+                <button type="button" onClick={() => removeItem(index)} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600">×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className={labelClass}>{t('admin.invoices.discount')}</label>
+            <input type="number" min="0" step="0.01" className={fieldClass} value={editForm.discountAmount} onChange={(e) => update({ discountAmount: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.invoices.notes')}</label>
+            <textarea rows="3" className={fieldClass} value={editForm.notes} onChange={(e) => update({ notes: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borderColor p-4 text-sm text-gray-600">
+          <div>
+            <div>{t('admin.invoices.subtotal')}: {currency}{subtotal.toFixed(2)}</div>
+            <div>{t('admin.invoices.tax')}: {currency}{taxAmount.toFixed(2)}</div>
+            <div className="font-semibold">{t('admin.invoices.total')}: {currency}{totalAmount.toFixed(2)}</div>
+          </div>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={editForm.includeCompanyStamp !== false} onChange={(e) => update({ includeCompanyStamp: e.target.checked })} />
+            {t('admin.invoices.includeStamp')}
+          </label>
+        </div>
+      </div>
+    )
+  }
 
   const fetchInvoices = async (override = {}) => {
     setLoading(true)
@@ -292,9 +511,14 @@ const Invoices = () => {
                       <td className="px-4 py-3">{invoice.totalAmount != null ? `${invoice.currency || currency}${Number(invoice.totalAmount).toFixed(2)}` : (booking.price != null ? `${currency}${booking.price}` : '—')}</td>
                       <td className="px-4 py-3">{formatDateTime(invoice.createdAt)}</td>
                       <td className="px-4 py-3">
-                        <button type="button" onClick={() => handleDownload(invoice)} className="text-primary text-xs font-medium">
-                          {t('admin.invoices.download')}
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => setEditingId(invoice._id)} className="text-primary text-xs font-medium">
+                            {t('admin.invoices.edit')}
+                          </button>
+                          <button type="button" onClick={() => handleDownload(invoice)} className="text-gray-700 text-xs font-medium">
+                            {t('admin.invoices.download')}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -325,6 +549,19 @@ const Invoices = () => {
             →
           </button>
         </div>
+      )}
+
+      {editingId && (
+        <DocumentEditor
+          type="invoice"
+          documentId={editingId}
+          axios={axios}
+          onClose={() => setEditingId(null)}
+          onSaved={() => fetchInvoices()}
+          initForm={initInvoiceForm}
+          buildPatch={buildInvoicePatch}
+          renderFields={renderInvoiceFields}
+        />
       )}
 
       {showCreateModal && (

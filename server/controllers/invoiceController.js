@@ -4,9 +4,24 @@ import Invoice from '../models/Invoice.js';
 import Booking from '../models/Booking.js';
 import { publicUploadUrl } from '../services/pdfDocuments.js';
 import { generateDocumentFromTemplate } from '../services/templatePdfExport.js';
+import { buildDocumentHtml } from '../services/templateEngine.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
 import { getDefaultInvoiceTemplate } from '../utils/resolveExportTemplate.js';
-import { resolveLocalUploadPath } from '../utils/uploadPaths.js';
+import { logAudit } from '../utils/adminOps.js';
+import {
+  snapshotTemplate,
+  buildInvoiceSourceData,
+  buildBookingLikeFromInvoice,
+  pushVersion,
+  applySectionEdits,
+  applyInvoiceStructuredEdits,
+  rebuildVariablesFromStructured,
+  renderAndStorePdf,
+  hydrateLegacyDocument,
+  resolveExistingPdfPath,
+  versionSummary,
+  templateFromSnapshot,
+} from '../services/documentInstanceService.js';
 
 const buildInvoiceNumber = (booking, provided = '') => {
   const trimmed = String(provided || '').trim();
@@ -15,55 +30,60 @@ const buildInvoiceNumber = (booking, provided = '') => {
   return `INV-${Date.now().toString().slice(-8).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 };
 
-const generateInvoiceDocument = async ({ owner, invoiceNumber, invoiceData, includeCompanyStamp, booking = null }) => {
+const generateInvoiceDocument = async ({
+  owner,
+  invoiceNumber,
+  invoiceData,
+  includeCompanyStamp,
+  booking = null,
+  template = null,
+}) => {
   await ensureDefaultTemplates(owner._id || owner);
-  const invoiceTemplate = await getDefaultInvoiceTemplate(owner._id || owner);
+  const invoiceTemplate = template || await getDefaultInvoiceTemplate(owner._id || owner);
 
   if (!invoiceTemplate) {
     throw new Error('No invoice template found. Set a default invoice template in Admin → Export Templates.');
   }
 
-  const bookingLike = {
-    ...(booking || {}),
-    _id: booking?._id || null,
-    reservationId: invoiceNumber,
-    customerName: invoiceData.customerName || '—',
-    customerEmail: invoiceData.customerEmail || '',
-    customerPhone: invoiceData.customerPhone || '',
-    nationality: invoiceData.customerNationality || '',
-    dateOfBirth: invoiceData.customerDob || '',
-    pickupDate: invoiceData.invoiceDate || new Date(),
-    returnDate: invoiceData.dueDate || invoiceData.invoiceDate || new Date(),
-    price: invoiceData.totalAmount || 0,
-    paymentStatus: invoiceData.paymentStatus || 'pending',
-    notes: invoiceData.notes || '',
-    channel: 'manual',
-    car: invoiceData.vehicleBrand || invoiceData.vehicleModel || invoiceData.vehiclePlate
-      ? {
-          brand: invoiceData.vehicleBrand || '',
-          model: invoiceData.vehicleModel || '',
-          year: invoiceData.vehicleYear || '',
-          licensePlate: invoiceData.vehiclePlate || '',
-          category: invoiceData.vehicleType || '',
-        }
-      : undefined,
-    priceBreakdown: {
-      rentalPrice: invoiceData.subtotal || 0,
-      pickupDeliveryFee: 0,
-      dropoffDeliveryFee: 0,
-      discountTotal: invoiceData.discountAmount || 0,
+  const bookingLike = buildBookingLikeFromInvoice(
+    {
+      invoiceNumber,
+      customerName: invoiceData.customerName,
+      customerEmail: invoiceData.customerEmail,
+      customerPhone: invoiceData.customerPhone,
+      customerAddress: invoiceData.customerAddress,
+      vehicleBrand: invoiceData.vehicleBrand,
+      vehicleModel: invoiceData.vehicleModel,
+      vehicleYear: invoiceData.vehicleYear,
+      vehiclePlate: invoiceData.vehiclePlate,
+      vehicleType: invoiceData.vehicleType,
+      invoiceDate: invoiceData.invoiceDate,
+      dueDate: invoiceData.dueDate,
+      subtotal: invoiceData.subtotal,
+      discountAmount: invoiceData.discountAmount,
+      totalAmount: invoiceData.totalAmount,
+      paymentStatus: invoiceData.paymentStatus,
+      notes: invoiceData.notes,
+      source: booking ? 'booking' : 'manual',
     },
-    customerAddress: invoiceData.customerAddress || '',
-  };
+    booking?.toObject ? booking.toObject() : booking,
+  );
 
   const invoiceResult = await generateDocumentFromTemplate({
-    template: invoiceTemplate,
+    template: invoiceTemplate.toObject ? invoiceTemplate.toObject() : invoiceTemplate,
     booking: bookingLike,
     owner: owner._id || owner,
     documentTitle: `Invoice ${invoiceNumber}`,
     includeCompanyStamp,
   });
-  return { filePath: invoiceResult.filePath, pdfUrl: invoiceResult.pdfUrl };
+
+  return {
+    filePath: invoiceResult.filePath,
+    pdfUrl: invoiceResult.pdfUrl,
+    renderedHtml: invoiceResult.renderedHtml,
+    variables: invoiceResult.variables,
+    template: invoiceTemplate,
+  };
 };
 
 export const listInvoices = async (req, res) => {
@@ -105,6 +125,7 @@ export const listInvoices = async (req, res) => {
 
     const [invoices, total] = await Promise.all([
       Invoice.find(query)
+        .select('-renderedHtml -versions.sourceData -versions.renderedHtml -versions.templateSnapshot')
         .populate({
           path: 'booking',
           select: 'reservationId customerName customerPhone pickupDate returnDate price status car',
@@ -135,11 +156,20 @@ export const listInvoices = async (req, res) => {
 
 export const getInvoice = async (req, res) => {
   try {
-    const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user._id }).populate('booking').lean();
+    const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user._id })
+      .populate('booking')
+      .populate('template', 'name type')
+      .lean();
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
-    res.json({ success: true, invoice });
+    res.json({
+      success: true,
+      invoice: {
+        ...invoice,
+        versions: versionSummary(invoice.versions),
+      },
+    });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to load invoice' });
@@ -159,70 +189,148 @@ export const generateInvoice = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    const invoiceNumber = buildInvoiceNumber(booking);
-    const { filePath, pdfUrl } = await generateInvoiceDocument({
+    const invoiceData = {
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
+      customerPhone: booking.customerPhone,
+      customerAddress: booking.customerAddress || '',
+      customerNationality: booking.nationality || '',
+      customerDob: booking.dateOfBirth || '',
+      invoiceDate: booking.pickupDate || new Date(),
+      dueDate: booking.returnDate || booking.pickupDate || new Date(),
+      currency: req.body.currency || 'MAD',
+      subtotal: booking.price || 0,
+      discountAmount: 0,
+      taxAmount: 0,
+      totalAmount: booking.price || 0,
+      paymentStatus: booking.paymentStatus || 'pending',
+      notes: booking.notes || '',
+      vehicleBrand: booking.car?.brand || '',
+      vehicleModel: booking.car?.model || '',
+      vehicleYear: booking.car?.year || '',
+      vehiclePlate: booking.car?.licensePlate || '',
+      items: [{
+        description: `Rental ${booking.car?.brand || ''} ${booking.car?.model || ''}`.trim() || 'Rental',
+        quantity: 1,
+        unitPrice: booking.price || 0,
+        taxRate: 0,
+      }],
+    };
+
+    const existing = await Invoice.findOne({ booking: booking._id, owner: req.user._id });
+    const invoiceNumber = existing?.invoiceNumber || buildInvoiceNumber(booking);
+
+    const { filePath, pdfUrl, renderedHtml, variables, template } = await generateInvoiceDocument({
       owner: req.user,
       invoiceNumber,
-      invoiceData: {
-        customerName: booking.customerName,
-        customerEmail: booking.customerEmail,
-        customerPhone: booking.customerPhone,
-        customerAddress: booking.customerAddress || '',
-        customerNationality: booking.nationality || '',
-        customerDob: booking.dateOfBirth || '',
-        invoiceDate: booking.pickupDate || new Date(),
-        dueDate: booking.returnDate || booking.pickupDate || new Date(),
-        subtotal: booking.price || 0,
-        discountAmount: 0,
-        taxAmount: 0,
-        totalAmount: booking.price || 0,
-        paymentStatus: booking.paymentStatus || 'pending',
-        notes: booking.notes || '',
-        vehicleBrand: booking.car?.brand || '',
-        vehicleModel: booking.car?.model || '',
-        vehicleYear: booking.car?.year || '',
-        vehiclePlate: booking.car?.licensePlate || '',
-      },
+      invoiceData,
       includeCompanyStamp,
       booking,
     });
 
-    const invoice = await Invoice.findOneAndUpdate(
-      { booking: booking._id, owner: req.user._id },
-      {
+    const sourceData = buildInvoiceSourceData({
+      owner: req.user,
+      template,
+      invoiceNumber,
+      invoiceData,
+      booking,
+      includeCompanyStamp,
+    });
+    sourceData.variables = variables || sourceData.variables;
+    const templateSnap = snapshotTemplate(template);
+
+    let invoice;
+    if (existing) {
+      pushVersion(existing, req.user, 'Regenerated from booking');
+      Object.assign(existing, {
+        source: 'booking',
+        invoiceNumber,
+        invoiceDate: invoiceData.invoiceDate,
+        dueDate: invoiceData.dueDate,
+        currency: invoiceData.currency,
+        customerName: invoiceData.customerName || '',
+        customerEmail: invoiceData.customerEmail || '',
+        customerPhone: invoiceData.customerPhone || '',
+        customerAddress: invoiceData.customerAddress || '',
+        vehicleBrand: invoiceData.vehicleBrand || '',
+        vehicleModel: invoiceData.vehicleModel || '',
+        vehicleYear: invoiceData.vehicleYear || '',
+        vehiclePlate: invoiceData.vehiclePlate || '',
+        items: invoiceData.items,
+        subtotal: invoiceData.subtotal,
+        discountAmount: 0,
+        taxAmount: 0,
+        totalAmount: invoiceData.totalAmount,
+        paymentStatus: invoiceData.paymentStatus || 'pending',
+        notes: invoiceData.notes || '',
+        template: template._id,
+        templateSnapshot: templateSnap,
+        sourceData,
+        renderedHtml,
+        pdfUrl: pdfUrl || publicUploadUrl(filePath),
+        pdfPath: filePath,
+        includeCompanyStamp: Boolean(includeCompanyStamp),
+        updatedBy: req.user._id,
+        generatedBy: existing.generatedBy || req.user._id,
+        createdBy: existing.createdBy || existing.generatedBy || req.user._id,
+        lastGeneratedAt: new Date(),
+        status: 'final',
+      });
+      await existing.save();
+      invoice = existing;
+    } else {
+      invoice = await Invoice.create({
         owner: req.user._id,
         booking: booking._id,
         source: 'booking',
         invoiceNumber,
-        invoiceDate: new Date(),
-        currency: req.body.currency || 'MAD',
-        customerName: booking.customerName || '',
-        customerEmail: booking.customerEmail || '',
-        customerPhone: booking.customerPhone || '',
-        customerAddress: booking.customerAddress || '',
-        vehicleBrand: booking.car?.brand || '',
-        vehicleModel: booking.car?.model || '',
-        vehicleYear: booking.car?.year || '',
-        vehiclePlate: booking.car?.licensePlate || '',
-        subtotal: booking.price || 0,
+        invoiceDate: invoiceData.invoiceDate,
+        dueDate: invoiceData.dueDate,
+        currency: invoiceData.currency,
+        customerName: invoiceData.customerName || '',
+        customerEmail: invoiceData.customerEmail || '',
+        customerPhone: invoiceData.customerPhone || '',
+        customerAddress: invoiceData.customerAddress || '',
+        vehicleBrand: invoiceData.vehicleBrand || '',
+        vehicleModel: invoiceData.vehicleModel || '',
+        vehicleYear: invoiceData.vehicleYear || '',
+        vehiclePlate: invoiceData.vehiclePlate || '',
+        items: invoiceData.items,
+        subtotal: invoiceData.subtotal,
         discountAmount: 0,
         taxAmount: 0,
-        totalAmount: booking.price || 0,
-        paymentStatus: booking.paymentStatus || 'pending',
-        notes: booking.notes || '',
+        totalAmount: invoiceData.totalAmount,
+        paymentStatus: invoiceData.paymentStatus || 'pending',
+        notes: invoiceData.notes || '',
+        template: template._id,
+        templateSnapshot: templateSnap,
+        sourceData,
+        renderedHtml,
         pdfUrl: pdfUrl || publicUploadUrl(filePath),
         pdfPath: filePath,
         generatedBy: req.user._id,
-        includeCompanyStamp,
+        createdBy: req.user._id,
+        updatedBy: req.user._id,
+        includeCompanyStamp: Boolean(includeCompanyStamp),
+        version: 1,
+        versions: [],
+        lastGeneratedAt: new Date(),
         status: 'final',
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).lean();
+      });
+    }
+
+    await logAudit({
+      owner: req.user._id,
+      action: 'invoice.generate',
+      entityType: 'Invoice',
+      entityId: invoice._id,
+      details: `Invoice ${invoiceNumber} generated for ${booking.reservationId}`,
+    });
 
     res.status(201).json({ success: true, message: 'Invoice generated successfully', invoice });
   } catch (error) {
     console.error(error.message);
-    res.status(500).json({ success: false, message: 'Failed to generate invoice' });
+    res.status(500).json({ success: false, message: error.message || 'Failed to generate invoice' });
   }
 };
 
@@ -280,32 +388,48 @@ export const createManualInvoice = async (req, res) => {
     const itemsSummary = normalizedItems.map((item) => `${item.description || 'Item'} x${item.quantity || 1} @ ${currency} ${Number(item.unitPrice || 0).toFixed(2)}`).join('\n');
     const finalNotes = [notes, itemsSummary].filter(Boolean).join('\n\n');
 
-    const { filePath, pdfUrl } = await generateInvoiceDocument({
+    const invoiceData = {
+      customerName,
+      customerEmail,
+      customerPhone,
+      customerAddress,
+      customerTaxId,
+      customerNationality: '',
+      customerDob: '',
+      invoiceDate: invoiceDateValue,
+      dueDate: dueDateValue,
+      currency,
+      subtotal,
+      discountAmount: discount,
+      taxAmount: computedTaxAmount,
+      totalAmount,
+      paymentStatus,
+      paymentMethod,
+      paymentReference,
+      notes: finalNotes,
+      vehicleBrand,
+      vehicleModel,
+      vehicleYear,
+      vehiclePlate,
+      vehicleType,
+      items: normalizedItems,
+    };
+
+    const { filePath, pdfUrl, renderedHtml, variables, template } = await generateInvoiceDocument({
       owner: req.user,
       invoiceNumber: finalInvoiceNumber,
-      invoiceData: {
-        customerName,
-        customerEmail,
-        customerPhone,
-        customerAddress,
-        customerNationality: '',
-        customerDob: '',
-        invoiceDate: invoiceDateValue,
-        dueDate: dueDateValue,
-        subtotal,
-        discountAmount: discount,
-        taxAmount: computedTaxAmount,
-        totalAmount,
-        paymentStatus,
-        notes: finalNotes,
-        vehicleBrand,
-        vehicleModel,
-        vehicleYear,
-        vehiclePlate,
-        vehicleType,
-      },
+      invoiceData,
       includeCompanyStamp,
     });
+
+    const sourceData = buildInvoiceSourceData({
+      owner: req.user,
+      template,
+      invoiceNumber: finalInvoiceNumber,
+      invoiceData,
+      includeCompanyStamp,
+    });
+    sourceData.variables = variables || sourceData.variables;
 
     const invoice = await Invoice.create({
       owner: req.user._id,
@@ -334,11 +458,28 @@ export const createManualInvoice = async (req, res) => {
       paymentMethod,
       paymentReference,
       notes: finalNotes,
+      template: template._id,
+      templateSnapshot: snapshotTemplate(template),
+      sourceData,
+      renderedHtml,
       pdfUrl: pdfUrl || publicUploadUrl(filePath),
       pdfPath: filePath,
       generatedBy: req.user._id,
-      includeCompanyStamp,
+      createdBy: req.user._id,
+      updatedBy: req.user._id,
+      includeCompanyStamp: Boolean(includeCompanyStamp),
+      version: 1,
+      versions: [],
+      lastGeneratedAt: new Date(),
       status: 'final',
+    });
+
+    await logAudit({
+      owner: req.user._id,
+      action: 'invoice.generate',
+      entityType: 'Invoice',
+      entityId: invoice._id,
+      details: `Manual invoice ${finalInvoiceNumber} created`,
     });
 
     res.status(201).json({ success: true, message: 'Manual invoice created successfully', invoice });
@@ -347,56 +488,194 @@ export const createManualInvoice = async (req, res) => {
     if (error.code === 11000) {
       return res.status(409).json({ success: false, message: 'Invoice number already exists, please choose another one' });
     }
-    res.status(500).json({ success: false, message: 'Failed to create manual invoice' });
+    res.status(500).json({ success: false, message: error.message || 'Failed to create manual invoice' });
   }
 };
 
-const resolveExistingInvoicePdf = (invoice) => {
-  if (invoice?.pdfPath && fs.existsSync(invoice.pdfPath)) return invoice.pdfPath;
-  const fromUrl = resolveLocalUploadPath(invoice?.pdfUrl);
-  if (fromUrl && fs.existsSync(fromUrl)) return fromUrl;
-  return null;
+export const updateInvoice = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
+    }
+
+    const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    await hydrateLegacyDocument(invoice, { type: 'invoice', owner: req.user });
+    const regeneratePdf = req.body.regeneratePdf !== false;
+    pushVersion(invoice, req.user, req.body.note || 'Updated');
+
+    if (req.body.sections) {
+      applySectionEdits(invoice, req.body.sections);
+    }
+    applyInvoiceStructuredEdits(invoice, req.body);
+
+    let booking = null;
+    if (invoice.booking) {
+      booking = await Booking.findById(invoice.booking).populate('car');
+    }
+    const variables = rebuildVariablesFromStructured(invoice, {
+      type: 'invoice',
+      owner: req.user,
+      booking,
+    });
+    invoice.sourceData = {
+      ...(invoice.sourceData || {}),
+      variables,
+    };
+    invoice.renderedHtml = buildDocumentHtml(
+      templateFromSnapshot(invoice.templateSnapshot || {}),
+      variables,
+    );
+    invoice.updatedBy = req.user._id;
+
+    if (regeneratePdf) {
+      await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
+    }
+
+    await invoice.save();
+
+    await logAudit({
+      owner: req.user._id,
+      action: regeneratePdf ? 'invoice.regenerate' : 'invoice.update',
+      entityType: 'Invoice',
+      entityId: invoice._id,
+      details: `Invoice ${invoice.invoiceNumber} updated (v${invoice.version})`,
+    });
+
+    res.json({
+      success: true,
+      message: 'Invoice updated',
+      invoice: {
+        ...invoice.toObject(),
+        versions: versionSummary(invoice.versions),
+      },
+    });
+  } catch (error) {
+    console.error('[invoice update]', error?.message || error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to update invoice' });
+  }
 };
 
-const regenerateInvoicePdfFile = async (invoice, owner) => {
-  let booking = null;
-  if (invoice.booking) {
-    booking = await Booking.findOne({ _id: invoice.booking, owner: owner._id }).populate('car');
+export const listInvoiceVersions = async (req, res) => {
+  try {
+    const invoice = await Invoice.findOne({
+      _id: req.params.id,
+      owner: req.user._id,
+    }).select('versions invoiceNumber version').lean();
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    res.json({
+      success: true,
+      currentVersion: invoice.version,
+      versions: invoice.versions || [],
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to load versions' });
   }
+};
 
-  const { filePath, pdfUrl } = await generateInvoiceDocument({
-    owner,
-    invoiceNumber: invoice.invoiceNumber,
-    invoiceData: {
-      customerName: invoice.customerName,
-      customerEmail: invoice.customerEmail,
-      customerPhone: invoice.customerPhone,
-      customerAddress: invoice.customerAddress || '',
-      customerNationality: '',
-      customerDob: '',
-      invoiceDate: invoice.invoiceDate || new Date(),
-      dueDate: invoice.dueDate || invoice.invoiceDate || new Date(),
-      subtotal: invoice.subtotal || invoice.totalAmount || 0,
-      discountAmount: invoice.discountAmount || 0,
-      taxAmount: invoice.taxAmount || 0,
-      totalAmount: invoice.totalAmount || 0,
-      paymentStatus: invoice.paymentStatus || 'pending',
-      notes: invoice.notes || '',
-      vehicleBrand: invoice.vehicleBrand || booking?.car?.brand || '',
-      vehicleModel: invoice.vehicleModel || booking?.car?.model || '',
-      vehicleYear: invoice.vehicleYear || booking?.car?.year || '',
-      vehiclePlate: invoice.vehiclePlate || booking?.car?.licensePlate || '',
-      vehicleType: invoice.vehicleType || '',
-    },
-    includeCompanyStamp: invoice.includeCompanyStamp !== false,
-    booking,
-  });
+export const restoreInvoiceVersion = async (req, res) => {
+  try {
+    const versionNum = parseInt(req.params.version, 10);
+    if (!Number.isFinite(versionNum)) {
+      return res.status(400).json({ success: false, message: 'Invalid version' });
+    }
 
-  const finalUrl = pdfUrl || publicUploadUrl(filePath);
-  invoice.pdfPath = filePath;
-  invoice.pdfUrl = finalUrl;
-  await invoice.save();
-  return filePath;
+    const invoice = await Invoice.findOne({
+      _id: req.params.id,
+      owner: req.user._id,
+    });
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    const snap = (invoice.versions || []).find((v) => v.version === versionNum);
+    if (!snap) {
+      return res.status(404).json({ success: false, message: 'Version not found' });
+    }
+
+    pushVersion(invoice, req.user, `Restored version ${versionNum}`);
+    invoice.sourceData = snap.sourceData || {};
+    invoice.templateSnapshot = snap.templateSnapshot || {};
+    invoice.renderedHtml = snap.renderedHtml || '';
+    invoice.pdfUrl = snap.pdfUrl || '';
+    invoice.pdfPath = snap.pdfPath || '';
+    invoice.status = snap.status || 'final';
+
+    const structured = invoice.sourceData?.structured || {};
+    for (const key of [
+      'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'customerTaxId',
+      'vehicleBrand', 'vehicleModel', 'vehicleYear', 'vehiclePlate', 'vehicleType',
+      'subtotal', 'discountAmount', 'taxAmount', 'totalAmount',
+      'paymentStatus', 'paymentMethod', 'paymentReference', 'notes', 'currency',
+    ]) {
+      if (structured[key] !== undefined) invoice[key] = structured[key];
+    }
+    if (Array.isArray(structured.items)) invoice.items = structured.items;
+    if (structured.invoiceDate) invoice.invoiceDate = structured.invoiceDate;
+    if (structured.dueDate !== undefined) invoice.dueDate = structured.dueDate;
+
+    invoice.updatedBy = req.user._id;
+    await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
+    await invoice.save();
+
+    await logAudit({
+      owner: req.user._id,
+      action: 'invoice.restore',
+      entityType: 'Invoice',
+      entityId: invoice._id,
+      details: `Invoice ${invoice.invoiceNumber} restored to v${versionNum}`,
+    });
+
+    res.json({
+      success: true,
+      message: `Restored version ${versionNum}`,
+      invoice: {
+        ...invoice.toObject(),
+        versions: versionSummary(invoice.versions),
+      },
+    });
+  } catch (error) {
+    console.error('[invoice restore]', error?.message || error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to restore version' });
+  }
+};
+
+export const previewInvoice = async (req, res) => {
+  try {
+    const invoice = await Invoice.findOne({
+      _id: req.params.id,
+      owner: req.user._id,
+    });
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    if (!invoice.renderedHtml) {
+      await hydrateLegacyDocument(invoice, { type: 'invoice', owner: req.user });
+      const booking = invoice.booking
+        ? await Booking.findById(invoice.booking).populate('car')
+        : null;
+      const variables = rebuildVariablesFromStructured(invoice, {
+        type: 'invoice',
+        owner: req.user,
+        booking,
+      });
+      invoice.renderedHtml = buildDocumentHtml(
+        templateFromSnapshot(invoice.templateSnapshot || {}),
+        variables,
+      );
+      await invoice.save();
+    }
+    res.json({ success: true, html: invoice.renderedHtml });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to preview invoice' });
+  }
 };
 
 export const downloadInvoicePdf = async (req, res) => {
@@ -410,9 +689,12 @@ export const downloadInvoicePdf = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
-    let filePath = resolveExistingInvoicePdf(invoice);
+    let filePath = resolveExistingPdfPath(invoice);
     if (!filePath) {
-      filePath = await regenerateInvoicePdfFile(invoice, req.user);
+      await hydrateLegacyDocument(invoice, { type: 'invoice', owner: req.user });
+      await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
+      await invoice.save();
+      filePath = invoice.pdfPath;
     }
 
     if (!filePath || !fs.existsSync(filePath)) {
@@ -439,5 +721,9 @@ export default {
   getInvoice,
   generateInvoice,
   createManualInvoice,
+  updateInvoice,
+  listInvoiceVersions,
+  restoreInvoiceVersion,
+  previewInvoice,
   downloadInvoicePdf,
 };

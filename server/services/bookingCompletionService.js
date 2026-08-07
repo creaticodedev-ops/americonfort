@@ -8,11 +8,11 @@ import {
 } from "./completionToken.js";
 import { sendCompletionInviteEmail, sendFinalConfirmationEmail } from "./emailService.js";
 import { publicUploadUrl } from "./pdfDocuments.js";
-import { generateContractPdf } from "./templatePdfExport.js";
 import { ensureDefaultTemplates } from "../controllers/exportTemplateController.js";
 import { getDefaultContractTemplate } from "../utils/resolveExportTemplate.js";
 import { logAudit } from "../utils/adminOps.js";
 import { storeDataUrlImage } from "./documentStore.js";
+import { upsertContractFromBooking } from "../controllers/contractController.js";
 
 const formatDt = (v) => {
   if (!v) return "—";
@@ -230,13 +230,16 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
   }
 
   const contractNumber = booking.reservationId || `CTR-${booking._id.toString().slice(-8).toUpperCase()}`;
-  let contractResult;
+  let persistedContract;
   try {
-    contractResult = await generateContractPdf({
-      template,
-      booking: booking.toObject ? booking.toObject() : booking,
-      contractNumber,
+    persistedContract = await upsertContractFromBooking({
       owner: booking.owner,
+      booking,
+      user: booking.owner,
+      template,
+      includeCompanyStamp: true,
+      contractNumber,
+      note: 'Booking completion',
     });
   } catch (pdfError) {
     console.error('[FINALIZE] Contract PDF failed:', pdfError);
@@ -244,8 +247,8 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     err.cause = pdfError;
     throw err;
   }
-  contractPath = contractResult.filePath;
-  contractPdfUrl = contractResult.pdfUrl;
+  contractPath = persistedContract.pdfPath;
+  contractPdfUrl = persistedContract.pdfUrl;
 
   booking.completion.contractPdfUrl = contractPdfUrl || publicUploadUrl(contractPath);
   delete booking.completion.invoicePdfUrl;
