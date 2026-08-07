@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Title from '../../components/owner/Title'
 import ChannelBadge from '../../components/owner/ChannelBadge'
+import BookingRowActions from '../../components/owner/BookingRowActions'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -618,7 +619,7 @@ const ManageBookings = () => {
       <div className='mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.95fr]'>
         <div className='w-full rounded-xl overflow-hidden border border-borderColor bg-white'>
           <div className='table-scroll'>
-            <table className='w-full border-collapse text-left text-sm text-gray-600 max-lg:min-w-[720px]'>
+            <table className='w-full border-collapse text-left text-sm text-gray-600 max-lg:min-w-[640px]'>
               <thead className='text-gray-500 bg-gray-50'>
                 <tr>
                   <th className="p-3 font-medium">{t('admin.bookings.reservation')}</th>
@@ -626,7 +627,7 @@ const ManageBookings = () => {
                   <th className="p-3 font-medium max-md:hidden">{t('admin.bookings.dates')}</th>
                   <th className="p-3 font-medium">{t('admin.bookings.total')}</th>
                   <th className="p-3 font-medium">{t('admin.bookings.status')}</th>
-                  <th className="p-3 font-medium">{t('admin.bookings.actions')}</th>
+                  <th className="p-3 font-medium text-right w-[1%] whitespace-nowrap">{t('admin.bookings.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -672,44 +673,18 @@ const ManageBookings = () => {
                         Pay: {booking.paymentStatus}
                       </p>
                     </td>
-                    <td className='p-3'>
-                      <div className='flex flex-wrap gap-1'>
-                        <button onClick={() => setSelectedBooking(booking)} className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'>{t('admin.bookings.view')}</button>
-                        <button onClick={() => startEdit(booking)} className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'>{t('admin.bookings.edit')}</button>
-                        <button
-                          type="button"
-                          title={t('admin.bookings.downloadLicense')}
-                          onClick={() => downloadDocument(booking._id, 'driving_license')}
-                          className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'
-                        >
-                          {t('admin.bookings.downloadLicense')}
-                        </button>
-                        <button
-                          type="button"
-                          title={t('admin.bookings.downloadId')}
-                          onClick={() => downloadDocument(booking._id, 'identity')}
-                          className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'
-                        >
-                          {t('admin.bookings.downloadId')}
-                        </button>
-                        <button
-                          type="button"
-                          title={t('admin.bookings.downloadPassport')}
-                          onClick={() => downloadDocument(booking._id, 'passport')}
-                          className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'
-                        >
-                          {t('admin.bookings.downloadPassport')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openWhatsApp(booking)}
-                          className='px-2 py-1 text-xs border border-green-200 text-green-700 rounded hover:bg-green-50 cursor-pointer'
-                        >
-                          {t('admin.bookings.whatsapp')}
-                        </button>
-                        <button onClick={() => printBooking(booking)} className='px-2 py-1 text-xs border rounded hover:bg-gray-50 cursor-pointer'>{t('admin.bookings.print')}</button>
-                        <button onClick={() => deleteBooking(booking._id)} className='px-2 py-1 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 cursor-pointer'>{t('admin.bookings.delete')}</button>
-                      </div>
+                    <td className='p-3 align-middle'>
+                      <BookingRowActions
+                        t={t}
+                        onView={() => setSelectedBooking(booking)}
+                        onEdit={() => startEdit(booking)}
+                        onDownloadLicense={() => downloadDocument(booking._id, 'driving_license')}
+                        onDownloadId={() => downloadDocument(booking._id, 'identity')}
+                        onDownloadPassport={() => downloadDocument(booking._id, 'passport')}
+                        onWhatsApp={() => openWhatsApp(booking)}
+                        onPrint={() => printBooking(booking)}
+                        onDelete={() => deleteBooking(booking._id)}
+                      />
                     </td>
                   </tr>
                 ))}
