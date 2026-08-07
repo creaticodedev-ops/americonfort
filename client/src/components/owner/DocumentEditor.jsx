@@ -37,6 +37,8 @@ const DocumentEditor = ({
     termsHtml: '',
     customCss: '',
     pageSize: 'A4',
+    logoUrl: '',
+    companySignatureUrl: '',
   })
   const [versions, setVersions] = useState([])
   const [previewHtml, setPreviewHtml] = useState('')
@@ -67,6 +69,8 @@ const DocumentEditor = ({
         termsHtml: snap.termsHtml || '',
         customCss: snap.customCss || '',
         pageSize: snap.pageSize || 'A4',
+        logoUrl: snap.logoUrl || '',
+        companySignatureUrl: snap.companySignatureUrl || '',
       }
       setSections(nextSections)
       setBaseline({ form: nextForm, sections: nextSections })
@@ -91,7 +95,12 @@ const DocumentEditor = ({
     try {
       const patch = {
         ...buildPatch(form),
-        sections,
+        sections: {
+          ...sections,
+          // Keep Fields-tab logo/signature edits in sync with Sections snapshot
+          logoUrl: form.logoUrl ?? sections.logoUrl,
+          companySignatureUrl: form.companySignatureUrl ?? sections.companySignatureUrl,
+        },
         regeneratePdf,
       }
       const { data } = await axios.patch(`${basePath}/${documentId}`, patch)
@@ -110,6 +119,8 @@ const DocumentEditor = ({
         termsHtml: snap.termsHtml || '',
         customCss: snap.customCss || '',
         pageSize: snap.pageSize || 'A4',
+        logoUrl: snap.logoUrl || '',
+        companySignatureUrl: snap.companySignatureUrl || '',
       }
       setSections(nextSections)
       setBaseline({ form: nextForm, sections: nextSections })
@@ -229,16 +240,34 @@ const DocumentEditor = ({
                   />
                 </div>
               ))}
-              <div>
-                <label className={labelClass}>pageSize</label>
-                <select
-                  className={inputClass}
-                  value={sections.pageSize}
-                  onChange={(e) => setSections((s) => ({ ...s, pageSize: e.target.value }))}
-                >
-                  <option value="A4">A4</option>
-                  <option value="Letter">Letter</option>
-                </select>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className={labelClass}>logoUrl</label>
+                  <input
+                    className={inputClass}
+                    value={sections.logoUrl || ''}
+                    onChange={(e) => setSections((s) => ({ ...s, logoUrl: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>companySignatureUrl</label>
+                  <input
+                    className={inputClass}
+                    value={sections.companySignatureUrl || ''}
+                    onChange={(e) => setSections((s) => ({ ...s, companySignatureUrl: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>pageSize</label>
+                  <select
+                    className={inputClass}
+                    value={sections.pageSize}
+                    onChange={(e) => setSections((s) => ({ ...s, pageSize: e.target.value }))}
+                  >
+                    <option value="A4">A4</option>
+                    <option value="Letter">Letter</option>
+                  </select>
+                </div>
               </div>
             </div>
           ) : tab === 'history' ? (

@@ -671,6 +671,8 @@ export const adminEn = {
     noPreview: 'No HTML preview available.',
     saveOnly: 'Save',
     saveRegenerate: 'Save & regenerate PDF',
+    replaceEditsConfirm: 'This document has manual edits. Regenerate from the original booking data and replace them?',
+    edited: 'edited',
   },
   common: {
     previous: 'Previous',
@@ -1351,6 +1353,8 @@ export const adminFr = {
     noPreview: 'Aucun aperçu HTML disponible.',
     saveOnly: 'Enregistrer',
     saveRegenerate: 'Enregistrer et régénérer le PDF',
+    replaceEditsConfirm: 'Ce document a des modifications manuelles. Régénérer depuis la réservation et les remplacer ?',
+    edited: 'modifié',
   },
   common: {
     previous: 'Précédent',
@@ -2031,6 +2035,8 @@ export const adminEs = {
     noPreview: 'No hay vista previa HTML disponible.',
     saveOnly: 'Guardar',
     saveRegenerate: 'Guardar y regenerar PDF',
+    replaceEditsConfirm: 'Este documento tiene ediciones manuales. ¿Regenerar desde la reserva y reemplazarlas?',
+    edited: 'editado',
   },
   common: {
     previous: 'Anterior',

@@ -47,6 +47,12 @@ const invoiceSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   includeCompanyStamp: { type: Boolean, default: true },
+  /**
+   * When true, instance data is the source of truth.
+   * Booking/template sync must not overwrite unless forceFromBooking is explicit.
+   */
+  sourceLocked: { type: Boolean, default: false, index: true },
+  manuallyEditedAt: { type: Date, default: null },
   version: { type: Number, default: 1 },
   versions: { type: [documentVersionSchema], default: [] },
   lastGeneratedAt: { type: Date, default: null },

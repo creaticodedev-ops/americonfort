@@ -98,37 +98,138 @@ export const pushVersion = (doc, user, note = '') => {
 
 export const buildBookingLikeFromInvoice = (invoice, booking = null) => {
   const structured = invoice.sourceData?.structured || {};
+  const vehicleBrand = invoice.vehicleBrand || structured.vehicleBrand || booking?.car?.brand || '';
+  const vehicleModel = invoice.vehicleModel || structured.vehicleModel || booking?.car?.model || '';
+  const vehicleYear = invoice.vehicleYear || structured.vehicleYear || booking?.car?.year || '';
+  const vehiclePlate = invoice.vehiclePlate || structured.vehiclePlate || booking?.car?.licensePlate || '';
+  const vehicleType = invoice.vehicleType || structured.vehicleType || booking?.car?.category || '';
   return {
     ...(booking || {}),
     _id: booking?._id || invoice.booking || null,
-    reservationId: invoice.invoiceNumber,
-    customerName: invoice.customerName || structured.customerName || '',
-    customerEmail: invoice.customerEmail || structured.customerEmail || '',
-    customerPhone: invoice.customerPhone || structured.customerPhone || '',
-    customerAddress: invoice.customerAddress || structured.customerAddress || '',
-    nationality: structured.customerNationality || '',
-    dateOfBirth: structured.customerDob || '',
-    pickupDate: invoice.invoiceDate || new Date(),
-    returnDate: invoice.dueDate || invoice.invoiceDate || new Date(),
-    price: invoice.totalAmount || 0,
-    paymentStatus: invoice.paymentStatus || 'pending',
-    notes: invoice.notes || '',
+    reservationId: booking?.reservationId || invoice.invoiceNumber,
+    customerName: invoice.customerName || structured.customerName || booking?.customerName || '',
+    customerEmail: invoice.customerEmail || structured.customerEmail || booking?.customerEmail || '',
+    customerPhone: invoice.customerPhone || structured.customerPhone || booking?.customerPhone || '',
+    customerAddress: invoice.customerAddress || structured.customerAddress || booking?.customerAddress || '',
+    nationality: structured.customerNationality || booking?.nationality || '',
+    dateOfBirth: structured.customerDob || booking?.dateOfBirth || '',
+    pickupDate: invoice.invoiceDate || booking?.pickupDate || new Date(),
+    returnDate: invoice.dueDate || invoice.invoiceDate || booking?.returnDate || new Date(),
+    price: invoice.totalAmount ?? structured.totalAmount ?? booking?.price ?? 0,
+    paymentStatus: invoice.paymentStatus || structured.paymentStatus || booking?.paymentStatus || 'pending',
+    notes: invoice.notes || structured.notes || booking?.notes || '',
     channel: invoice.source === 'manual' ? 'walk_in' : (booking?.channel || 'online'),
     car: {
-      brand: invoice.vehicleBrand || '',
-      model: invoice.vehicleModel || '',
-      year: invoice.vehicleYear || '',
-      licensePlate: invoice.vehiclePlate || '',
-      category: invoice.vehicleType || '',
       ...(booking?.car || {}),
+      brand: vehicleBrand,
+      model: vehicleModel,
+      year: vehicleYear,
+      licensePlate: vehiclePlate,
+      category: vehicleType,
     },
     priceBreakdown: {
-      rentalPrice: invoice.subtotal || 0,
-      pickupDeliveryFee: 0,
-      dropoffDeliveryFee: 0,
-      discountTotal: invoice.discountAmount || 0,
       ...(booking?.priceBreakdown || {}),
+      rentalPrice: invoice.subtotal ?? structured.subtotal ?? booking?.priceBreakdown?.rentalPrice ?? 0,
+      pickupDeliveryFee: structured.pickupFee ?? booking?.priceBreakdown?.pickupDeliveryFee ?? 0,
+      dropoffDeliveryFee: structured.dropoffFee ?? booking?.priceBreakdown?.dropoffDeliveryFee ?? 0,
+      discountTotal: invoice.discountAmount ?? structured.discountAmount ?? 0,
+      days: structured.rentalDays ?? booking?.priceBreakdown?.days,
+      pricePerDay: structured.pricePerDay ?? booking?.priceBreakdown?.pricePerDay,
     },
+    completion: {
+      ...(booking?.completion || {}),
+      signatureUrl: structured.customerSignatureUrl || booking?.completion?.signatureUrl || '',
+      secondDriverSignatureUrl:
+        structured.secondDriverSignatureUrl || booking?.completion?.secondDriverSignatureUrl || '',
+    },
+  };
+};
+
+/** Build the full editable structured payload from a booking (+ optional variable fallbacks). */
+export const buildContractStructuredFromBooking = (booking, {
+  contractNumber,
+  includeCompanyStamp = true,
+  variables = {},
+  agency = {},
+  owner = null,
+} = {}) => {
+  const bookingObj = booking?.toObject ? booking.toObject() : (booking || {});
+  const car = bookingObj.car || {};
+  const b = bookingObj.priceBreakdown || {};
+  const sd = bookingObj.secondDriver || {};
+  const pick = (...vals) => {
+    for (const v of vals) {
+      if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '—') {
+        return v;
+      }
+    }
+    return '';
+  };
+  return {
+    contractNumber: contractNumber || '',
+    reservationId: pick(bookingObj.reservationId, variables.reservation_id),
+    customerName: pick(bookingObj.customerName, variables.customer_name),
+    customerEmail: pick(bookingObj.customerEmail, variables.customer_email),
+    customerPhone: pick(bookingObj.customerPhone, variables.customer_phone),
+    customerAddress: pick(bookingObj.customerAddress, variables.customer_address),
+    nationality: pick(bookingObj.nationality, variables.customer_nationality),
+    dateOfBirth: pick(bookingObj.dateOfBirth, variables.customer_dob),
+    placeOfBirth: pick(bookingObj.placeOfBirth, variables.customer_birth_place),
+    driverLicenseNumber: pick(bookingObj.driverLicenseNumber, variables.driver_license),
+    driverLicenseExpiry: pick(bookingObj.driverLicenseExpiry, variables.driver_license_expiry),
+    driverLicenseIssuedOn: pick(bookingObj.driverLicenseIssuedOn, variables.driver_license_issued_on),
+    passportNumber: pick(bookingObj.passportNumber, variables.passport_number),
+    identityDocumentNumber: pick(bookingObj.identityDocumentNumber, bookingObj.passportNumber, variables.identity_document),
+    identityIssuedOn: pick(bookingObj.identityIssuedOn, variables.identity_issued_on),
+    pickupDate: bookingObj.pickupDate || null,
+    returnDate: bookingObj.returnDate || null,
+    pickupLocation: pick(bookingObj.pickupLocation, variables.pickup_location),
+    returnLocation: pick(bookingObj.returnLocation, variables.return_location),
+    deliveredBy: pick(bookingObj.deliveredBy, variables.delivered_by),
+    receivedBy: pick(bookingObj.receivedBy, variables.received_by),
+    fuelLevelStart: pick(bookingObj.fuelLevelStart, variables.fuel_level_start),
+    kmDepart: bookingObj.kmDepart != null && bookingObj.kmDepart !== ''
+      ? bookingObj.kmDepart
+      : (car.mileage != null ? car.mileage : pick(variables.km_depart)),
+    kmRetour: bookingObj.kmRetour != null && bookingObj.kmRetour !== ''
+      ? bookingObj.kmRetour
+      : pick(variables.km_retour),
+    rentalDays: b.days ?? bookingObj.rentalDays ?? '',
+    pricePerDay: b.pricePerDay ?? car.pricePerDay ?? '',
+    rentalPrice: b.rentalPrice ?? bookingObj.price ?? 0,
+    pickupFee: b.pickupDeliveryFee ?? 0,
+    dropoffFee: b.dropoffDeliveryFee ?? 0,
+    discountTotal: b.discountTotal ?? 0,
+    price: bookingObj.price ?? b.total ?? b.rentalPrice ?? 0,
+    franchiseAmount: bookingObj.franchiseAmount ?? car.securityDeposit ?? 0,
+    currency: pick(variables.currency, process.env.CURRENCY, 'MAD') || 'MAD',
+    paymentStatus: pick(bookingObj.paymentStatus, variables.payment_status),
+    bookingStatus: pick(bookingObj.status, variables.booking_status),
+    bookingMethod: bookingObj.channel === 'walk_in' ? 'Walk-in' : (pick(variables.booking_method) || 'Online'),
+    notes: pick(bookingObj.notes, variables.notes === '—' ? '' : variables.notes),
+    vehicleBrand: pick(car.brand, variables.car_brand),
+    vehicleModel: pick(car.model, variables.car_model),
+    vehicleYear: pick(car.year, variables.car_year),
+    vehiclePlate: pick(car.licensePlate, car.registrationNumber, variables.car_registration),
+    vehicleCategory: pick(car.category, variables.car_category),
+    secondDriver: {
+      enabled: Boolean(sd.enabled),
+      fullName: sd.fullName || '',
+      dateOfBirth: sd.dateOfBirth || '',
+      nationality: sd.nationality || '',
+      driverLicenseNumber: sd.driverLicenseNumber || '',
+      driverLicenseExpiry: sd.driverLicenseExpiry || '',
+      passportNumber: sd.passportNumber || '',
+      phone: sd.phone || '',
+    },
+    agencyName: pick(agency.name, owner?.agencyName, variables.agency_name),
+    agencyPhone: pick(agency.phone, variables.agency_phone),
+    agencyEmail: pick(agency.email, owner?.email, variables.agency_email),
+    agencyAddress: pick(agency.address, variables.agency_address),
+    agencyTaxId: pick(agency.taxId, variables.agency_tax_id),
+    customerSignatureUrl: bookingObj.completion?.signatureUrl || '',
+    secondDriverSignatureUrl: bookingObj.completion?.secondDriverSignatureUrl || '',
+    includeCompanyStamp: Boolean(includeCompanyStamp),
   };
 };
 
@@ -137,6 +238,7 @@ export const buildContractSourceData = (booking, {
   owner,
   template,
   includeCompanyStamp = true,
+  agency = {},
 } = {}) => {
   const bookingObj = booking?.toObject ? booking.toObject() : booking;
   const templateObj = template?.toObject ? template.toObject() : template;
@@ -145,38 +247,18 @@ export const buildContractSourceData = (booking, {
     owner,
     template: templateObj,
     includeCompanyStamp,
+    agency,
   });
-  const car = bookingObj?.car || {};
+  const structured = buildContractStructuredFromBooking(bookingObj, {
+    contractNumber,
+    includeCompanyStamp,
+    variables,
+    agency,
+    owner,
+  });
   return {
     variables,
-    structured: {
-      contractNumber,
-      customerName: bookingObj?.customerName || '',
-      customerEmail: bookingObj?.customerEmail || '',
-      customerPhone: bookingObj?.customerPhone || '',
-      customerAddress: bookingObj?.customerAddress || '',
-      nationality: bookingObj?.nationality || '',
-      dateOfBirth: bookingObj?.dateOfBirth || '',
-      placeOfBirth: bookingObj?.placeOfBirth || '',
-      driverLicenseNumber: bookingObj?.driverLicenseNumber || '',
-      driverLicenseExpiry: bookingObj?.driverLicenseExpiry || '',
-      passportNumber: bookingObj?.passportNumber || '',
-      identityDocumentNumber: bookingObj?.identityDocumentNumber || '',
-      pickupDate: bookingObj?.pickupDate || null,
-      returnDate: bookingObj?.returnDate || null,
-      pickupLocation: bookingObj?.pickupLocation || '',
-      returnLocation: bookingObj?.returnLocation || '',
-      price: bookingObj?.price ?? 0,
-      paymentStatus: bookingObj?.paymentStatus || '',
-      notes: bookingObj?.notes || '',
-      vehicleBrand: car.brand || '',
-      vehicleModel: car.model || '',
-      vehicleYear: car.year || '',
-      vehiclePlate: car.licensePlate || '',
-      vehicleCategory: car.category || '',
-      secondDriver: bookingObj?.secondDriver || { enabled: false },
-      franchiseAmount: bookingObj?.franchiseAmount ?? car.securityDeposit ?? 0,
-    },
+    structured,
     meta: {
       includeCompanyStamp: Boolean(includeCompanyStamp),
       reservationId: bookingObj?.reservationId || '',
@@ -259,6 +341,56 @@ export const buildInvoiceSourceData = ({
   };
 };
 
+const hasStructured = (structured, key) =>
+  Object.prototype.hasOwnProperty.call(structured || {}, key);
+
+const fromStructured = (structured, key, fallback) =>
+  (hasStructured(structured, key) ? structured[key] : fallback);
+
+/** Mark document instance as manually edited source of truth */
+export const markSourceLocked = (doc) => {
+  if (!doc) return;
+  doc.sourceLocked = true;
+  doc.manuallyEditedAt = new Date();
+  doc.sourceData = {
+    ...(doc.sourceData || {}),
+    meta: {
+      ...((doc.sourceData && doc.sourceData.meta) || {}),
+      sourceLocked: true,
+      manuallyEditedAt: doc.manuallyEditedAt,
+    },
+  };
+};
+
+/** Sync denormalized list fields from structured/instance data (document SSOT). */
+export const syncDocumentListFields = (doc, type = 'contract') => {
+  const s = doc.sourceData?.structured || {};
+  if (type === 'invoice') {
+    doc.customerName = fromStructured(s, 'customerName', doc.customerName) || doc.customerName || '';
+    doc.customerEmail = fromStructured(s, 'customerEmail', doc.customerEmail) || doc.customerEmail || '';
+    doc.customerPhone = fromStructured(s, 'customerPhone', doc.customerPhone) || doc.customerPhone || '';
+    doc.customerAddress = fromStructured(s, 'customerAddress', doc.customerAddress) || doc.customerAddress || '';
+    if (hasStructured(s, 'totalAmount')) doc.totalAmount = Number(s.totalAmount) || 0;
+    if (hasStructured(s, 'vehicleBrand')) doc.vehicleBrand = s.vehicleBrand || '';
+    if (hasStructured(s, 'vehicleModel')) doc.vehicleModel = s.vehicleModel || '';
+    if (hasStructured(s, 'vehiclePlate')) doc.vehiclePlate = s.vehiclePlate || '';
+    return doc;
+  }
+
+  doc.customerName = fromStructured(s, 'customerName', doc.customerName) || doc.customerName || '';
+  doc.customerEmail = fromStructured(s, 'customerEmail', doc.customerEmail) || doc.customerEmail || '';
+  doc.customerPhone = fromStructured(s, 'customerPhone', doc.customerPhone) || doc.customerPhone || '';
+  doc.reservationId = fromStructured(s, 'reservationId', doc.reservationId) || doc.reservationId || '';
+  const brand = fromStructured(s, 'vehicleBrand', '');
+  const model = fromStructured(s, 'vehicleModel', '');
+  const summary = [brand, model].filter(Boolean).join(' ').trim();
+  if (summary) doc.vehicleSummary = summary;
+  if (hasStructured(s, 'price') && s.price !== '' && s.price != null) {
+    doc.totalAmount = Number(s.price) || 0;
+  }
+  return doc;
+};
+
 /** Rebuild template variables from structured edits + optional booking */
 export const rebuildVariablesFromStructured = (doc, {
   type,
@@ -268,6 +400,17 @@ export const rebuildVariablesFromStructured = (doc, {
   const snap = templateFromSnapshot(doc.templateSnapshot || {});
   const includeCompanyStamp = doc.includeCompanyStamp !== false;
   const structured = doc.sourceData?.structured || {};
+  // Locked docs must never pull live booking values into the render
+  const locked = Boolean(doc.sourceLocked);
+  const bookingSource = locked ? null : booking;
+  const agency = {
+    name: structured.agencyName || undefined,
+    phone: structured.agencyPhone || undefined,
+    email: structured.agencyEmail || undefined,
+    address: structured.agencyAddress || undefined,
+    taxId: structured.agencyTaxId || undefined,
+    currency: structured.currency || undefined,
+  };
 
   if (type === 'invoice') {
     const bookingLike = buildBookingLikeFromInvoice(
@@ -275,48 +418,105 @@ export const rebuildVariablesFromStructured = (doc, {
         ...doc.toObject?.() || doc,
         ...structured,
         invoiceNumber: doc.invoiceNumber || structured.invoiceNumber,
+        sourceData: { structured },
       },
-      booking,
+      bookingSource,
     );
     return buildTemplateVariables(bookingLike, {
       contractNumber: doc.invoiceNumber,
       owner,
       template: snap,
       includeCompanyStamp,
+      agency,
     });
   }
 
-  // Contract: merge structured onto booking-like
-  const base = booking?.toObject ? booking.toObject() : (booking || {});
+  // Contract: structured wins; booking is only a gap-fill when not locked
+  const base = bookingSource?.toObject ? bookingSource.toObject() : (bookingSource || {});
+  const sd = fromStructured(structured, 'secondDriver', base.secondDriver) || { enabled: false };
   const bookingLike = {
     ...base,
-    customerName: structured.customerName ?? base.customerName,
-    customerEmail: structured.customerEmail ?? base.customerEmail,
-    customerPhone: structured.customerPhone ?? base.customerPhone,
-    customerAddress: structured.customerAddress ?? base.customerAddress,
-    nationality: structured.nationality ?? base.nationality,
-    dateOfBirth: structured.dateOfBirth ?? base.dateOfBirth,
-    placeOfBirth: structured.placeOfBirth ?? base.placeOfBirth,
-    driverLicenseNumber: structured.driverLicenseNumber ?? base.driverLicenseNumber,
-    driverLicenseExpiry: structured.driverLicenseExpiry ?? base.driverLicenseExpiry,
-    passportNumber: structured.passportNumber ?? base.passportNumber,
-    identityDocumentNumber: structured.identityDocumentNumber ?? base.identityDocumentNumber,
-    pickupDate: structured.pickupDate ?? base.pickupDate,
-    returnDate: structured.returnDate ?? base.returnDate,
-    pickupLocation: structured.pickupLocation ?? base.pickupLocation,
-    returnLocation: structured.returnLocation ?? base.returnLocation,
-    price: structured.price ?? base.price,
-    paymentStatus: structured.paymentStatus ?? base.paymentStatus,
-    notes: structured.notes ?? base.notes,
-    franchiseAmount: structured.franchiseAmount ?? base.franchiseAmount,
-    secondDriver: structured.secondDriver ?? base.secondDriver,
+    reservationId: fromStructured(structured, 'reservationId', base.reservationId),
+    customerName: fromStructured(structured, 'customerName', base.customerName),
+    customerEmail: fromStructured(structured, 'customerEmail', base.customerEmail),
+    customerPhone: fromStructured(structured, 'customerPhone', base.customerPhone),
+    customerAddress: fromStructured(structured, 'customerAddress', base.customerAddress),
+    nationality: fromStructured(structured, 'nationality', base.nationality),
+    dateOfBirth: fromStructured(structured, 'dateOfBirth', base.dateOfBirth),
+    placeOfBirth: fromStructured(structured, 'placeOfBirth', base.placeOfBirth),
+    driverLicenseNumber: fromStructured(structured, 'driverLicenseNumber', base.driverLicenseNumber),
+    driverLicenseExpiry: fromStructured(structured, 'driverLicenseExpiry', base.driverLicenseExpiry),
+    driverLicenseIssuedOn: fromStructured(structured, 'driverLicenseIssuedOn', base.driverLicenseIssuedOn),
+    passportNumber: fromStructured(structured, 'passportNumber', base.passportNumber),
+    identityDocumentNumber: fromStructured(structured, 'identityDocumentNumber', base.identityDocumentNumber),
+    identityIssuedOn: fromStructured(structured, 'identityIssuedOn', base.identityIssuedOn),
+    pickupDate: fromStructured(structured, 'pickupDate', base.pickupDate),
+    returnDate: fromStructured(structured, 'returnDate', base.returnDate),
+    pickupLocation: fromStructured(structured, 'pickupLocation', base.pickupLocation),
+    returnLocation: fromStructured(structured, 'returnLocation', base.returnLocation),
+    deliveredBy: fromStructured(structured, 'deliveredBy', base.deliveredBy),
+    receivedBy: fromStructured(structured, 'receivedBy', base.receivedBy),
+    fuelLevelStart: fromStructured(structured, 'fuelLevelStart', base.fuelLevelStart),
+    kmDepart: fromStructured(structured, 'kmDepart', base.kmDepart),
+    kmRetour: fromStructured(structured, 'kmRetour', base.kmRetour),
+    price: fromStructured(structured, 'price', base.price),
+    paymentStatus: fromStructured(structured, 'paymentStatus', base.paymentStatus),
+    status: fromStructured(structured, 'bookingStatus', base.status),
+    notes: fromStructured(structured, 'notes', base.notes),
+    franchiseAmount: fromStructured(structured, 'franchiseAmount', base.franchiseAmount),
+    channel: structured.bookingMethod === 'Walk-in'
+      ? 'walk_in'
+      : (structured.bookingMethod === 'Online' ? 'online' : (base.channel || 'online')),
+    secondDriver: {
+      enabled: Boolean(sd.enabled),
+      fullName: sd.fullName || '',
+      dateOfBirth: sd.dateOfBirth || '',
+      nationality: sd.nationality || '',
+      driverLicenseNumber: sd.driverLicenseNumber || '',
+      driverLicenseExpiry: sd.driverLicenseExpiry || '',
+      passportNumber: sd.passportNumber || '',
+      phone: sd.phone || '',
+    },
     car: {
-      ...(base.car || {}),
-      brand: structured.vehicleBrand || base.car?.brand,
-      model: structured.vehicleModel || base.car?.model,
-      year: structured.vehicleYear || base.car?.year,
-      licensePlate: structured.vehiclePlate || base.car?.licensePlate,
-      category: structured.vehicleCategory || base.car?.category,
+      ...(locked ? {} : (base.car || {})),
+      brand: fromStructured(structured, 'vehicleBrand', base.car?.brand),
+      model: fromStructured(structured, 'vehicleModel', base.car?.model),
+      year: fromStructured(structured, 'vehicleYear', base.car?.year),
+      licensePlate: fromStructured(structured, 'vehiclePlate', base.car?.licensePlate),
+      category: fromStructured(structured, 'vehicleCategory', base.car?.category),
+      pricePerDay: fromStructured(structured, 'pricePerDay', base.car?.pricePerDay),
+      securityDeposit: fromStructured(structured, 'franchiseAmount', base.car?.securityDeposit),
+      mileage: fromStructured(structured, 'kmDepart', base.car?.mileage),
+    },
+    priceBreakdown: {
+      ...(locked ? {} : (base.priceBreakdown || {})),
+      days: hasStructured(structured, 'rentalDays') && structured.rentalDays !== ''
+        ? Number(structured.rentalDays)
+        : base.priceBreakdown?.days,
+      pricePerDay: hasStructured(structured, 'pricePerDay') && structured.pricePerDay !== ''
+        ? Number(structured.pricePerDay)
+        : base.priceBreakdown?.pricePerDay,
+      rentalPrice: hasStructured(structured, 'rentalPrice')
+        ? Number(structured.rentalPrice)
+        : base.priceBreakdown?.rentalPrice,
+      pickupDeliveryFee: hasStructured(structured, 'pickupFee')
+        ? Number(structured.pickupFee)
+        : base.priceBreakdown?.pickupDeliveryFee,
+      dropoffDeliveryFee: hasStructured(structured, 'dropoffFee')
+        ? Number(structured.dropoffFee)
+        : base.priceBreakdown?.dropoffDeliveryFee,
+      discountTotal: hasStructured(structured, 'discountTotal')
+        ? Number(structured.discountTotal)
+        : base.priceBreakdown?.discountTotal,
+      total: hasStructured(structured, 'price')
+        ? Number(structured.price)
+        : base.priceBreakdown?.total,
+    },
+    completion: {
+      ...(locked ? {} : (base.completion || {})),
+      signatureUrl: fromStructured(structured, 'customerSignatureUrl', base.completion?.signatureUrl) || '',
+      secondDriverSignatureUrl:
+        fromStructured(structured, 'secondDriverSignatureUrl', base.completion?.secondDriverSignatureUrl) || '',
     },
   };
   return buildTemplateVariables(bookingLike, {
@@ -324,6 +524,7 @@ export const rebuildVariablesFromStructured = (doc, {
     owner,
     template: snap,
     includeCompanyStamp,
+    agency,
   });
 };
 
@@ -334,10 +535,14 @@ export const renderAndStorePdf = async ({
   title,
 }) => {
   const snap = templateFromSnapshot(doc.templateSnapshot || {});
+  // Always rebuild from structured when locked (or variables missing) so PDF matches edits
   let variables = doc.sourceData?.variables;
-  if (!variables || !Object.keys(variables).length) {
+  const mustRebuild = doc.sourceLocked
+    || !variables
+    || !Object.keys(variables).length;
+  if (mustRebuild) {
     let booking = null;
-    if (doc.booking) {
+    if (!doc.sourceLocked && doc.booking) {
       booking = await Booking.findById(doc.booking).populate('car').lean();
     }
     variables = rebuildVariablesFromStructured(doc, { type, owner, booking });
@@ -403,23 +608,92 @@ export const applyContractStructuredEdits = (doc, patch = {}) => {
   if (!doc.sourceData) doc.sourceData = {};
   const structured = { ...(doc.sourceData.structured || {}) };
   const keys = [
+    'reservationId',
     'customerName', 'customerEmail', 'customerPhone', 'customerAddress',
     'nationality', 'dateOfBirth', 'placeOfBirth',
-    'driverLicenseNumber', 'driverLicenseExpiry', 'passportNumber', 'identityDocumentNumber',
+    'driverLicenseNumber', 'driverLicenseExpiry', 'driverLicenseIssuedOn',
+    'passportNumber', 'identityDocumentNumber', 'identityIssuedOn',
     'pickupDate', 'returnDate', 'pickupLocation', 'returnLocation',
-    'price', 'paymentStatus', 'notes', 'franchiseAmount',
+    'deliveredBy', 'receivedBy', 'fuelLevelStart', 'kmDepart', 'kmRetour',
+    'rentalDays', 'pricePerDay', 'rentalPrice', 'pickupFee', 'dropoffFee', 'discountTotal',
+    'price', 'paymentStatus', 'bookingStatus', 'bookingMethod', 'notes', 'franchiseAmount', 'currency',
     'vehicleBrand', 'vehicleModel', 'vehicleYear', 'vehiclePlate', 'vehicleCategory',
+    'agencyName', 'agencyPhone', 'agencyEmail', 'agencyAddress', 'agencyTaxId',
+    'customerSignatureUrl', 'secondDriverSignatureUrl',
     'secondDriver',
   ];
   for (const key of keys) {
     if (patch[key] !== undefined) structured[key] = patch[key];
   }
+
+  // Flat second-driver fields from the admin form
+  if (
+    patch.secondDriverEnabled !== undefined
+    || patch.secondDriverFullName !== undefined
+    || patch.secondDriverDob !== undefined
+    || patch.secondDriverNationality !== undefined
+    || patch.secondDriverLicense !== undefined
+    || patch.secondDriverLicenseExpiry !== undefined
+    || patch.secondDriverPassport !== undefined
+    || patch.secondDriverPhone !== undefined
+  ) {
+    const prev = structured.secondDriver || { enabled: false };
+    structured.secondDriver = {
+      enabled: patch.secondDriverEnabled !== undefined
+        ? Boolean(patch.secondDriverEnabled)
+        : Boolean(prev.enabled),
+      fullName: patch.secondDriverFullName !== undefined ? patch.secondDriverFullName : (prev.fullName || ''),
+      dateOfBirth: patch.secondDriverDob !== undefined ? patch.secondDriverDob : (prev.dateOfBirth || ''),
+      nationality: patch.secondDriverNationality !== undefined
+        ? patch.secondDriverNationality
+        : (prev.nationality || ''),
+      driverLicenseNumber: patch.secondDriverLicense !== undefined
+        ? patch.secondDriverLicense
+        : (prev.driverLicenseNumber || ''),
+      driverLicenseExpiry: patch.secondDriverLicenseExpiry !== undefined
+        ? patch.secondDriverLicenseExpiry
+        : (prev.driverLicenseExpiry || ''),
+      passportNumber: patch.secondDriverPassport !== undefined
+        ? patch.secondDriverPassport
+        : (prev.passportNumber || ''),
+      phone: patch.secondDriverPhone !== undefined ? patch.secondDriverPhone : (prev.phone || ''),
+    };
+  }
+
+  for (const amountKey of [
+    'price', 'franchiseAmount', 'pricePerDay', 'rentalPrice',
+    'pickupFee', 'dropoffFee', 'discountTotal', 'rentalDays', 'kmDepart', 'kmRetour',
+  ]) {
+    if (structured[amountKey] !== undefined && structured[amountKey] !== null && structured[amountKey] !== '') {
+      const n = Number(structured[amountKey]);
+      if (Number.isFinite(n) && n < 0) {
+        throw new Error('Amounts must be non-negative');
+      }
+    }
+  }
+
   if (patch.includeCompanyStamp !== undefined) {
     doc.includeCompanyStamp = Boolean(patch.includeCompanyStamp);
+    structured.includeCompanyStamp = doc.includeCompanyStamp;
   }
   if (patch.status === 'draft' || patch.status === 'final') {
     doc.status = patch.status;
   }
+  if (patch.companySignatureUrl !== undefined && doc.templateSnapshot) {
+    const snap = typeof doc.templateSnapshot.toObject === 'function'
+      ? doc.templateSnapshot.toObject()
+      : { ...(doc.templateSnapshot || {}) };
+    snap.companySignatureUrl = String(patch.companySignatureUrl || '');
+    doc.templateSnapshot = snap;
+  }
+  if (patch.logoUrl !== undefined && doc.templateSnapshot) {
+    const snap = typeof doc.templateSnapshot.toObject === 'function'
+      ? doc.templateSnapshot.toObject()
+      : { ...(doc.templateSnapshot || {}) };
+    snap.logoUrl = String(patch.logoUrl || '');
+    doc.templateSnapshot = snap;
+  }
+
   doc.sourceData = { ...(doc.sourceData || {}), structured };
   doc.customerName = structured.customerName || doc.customerName || '';
   doc.customerPhone = structured.customerPhone || doc.customerPhone || '';
@@ -440,7 +714,11 @@ export const applyInvoiceStructuredEdits = (doc, patch = {}) => {
 
   const scalarMap = [
     ...INVOICE_FLAT_FIELDS,
-    'customerNationality', 'customerDob',
+    'customerNationality', 'customerDob', 'customerAddress',
+    'rentalDays', 'pricePerDay', 'pickupFee', 'dropoffFee',
+    'pickupLocation', 'returnLocation', 'pickupDate', 'returnDate',
+    'agencyName', 'agencyPhone', 'agencyEmail', 'agencyAddress', 'agencyTaxId',
+    'customerSignatureUrl', 'franchiseAmount',
   ];
   for (const key of scalarMap) {
     if (patch[key] !== undefined) {
@@ -449,6 +727,21 @@ export const applyInvoiceStructuredEdits = (doc, patch = {}) => {
         doc[key] = patch[key];
       }
     }
+  }
+
+  if (patch.companySignatureUrl !== undefined && doc.templateSnapshot) {
+    const snap = typeof doc.templateSnapshot.toObject === 'function'
+      ? doc.templateSnapshot.toObject()
+      : { ...(doc.templateSnapshot || {}) };
+    snap.companySignatureUrl = String(patch.companySignatureUrl || '');
+    doc.templateSnapshot = snap;
+  }
+  if (patch.logoUrl !== undefined && doc.templateSnapshot) {
+    const snap = typeof doc.templateSnapshot.toObject === 'function'
+      ? doc.templateSnapshot.toObject()
+      : { ...(doc.templateSnapshot || {}) };
+    snap.logoUrl = String(patch.logoUrl || '');
+    doc.templateSnapshot = snap;
   }
 
   if (Array.isArray(patch.items)) {
@@ -504,10 +797,40 @@ export const applyInvoiceStructuredEdits = (doc, patch = {}) => {
   doc.sourceData = { ...(doc.sourceData || {}), structured };
 };
 
+const structuredLooksSparse = (structured = {}) => {
+  const keys = Object.keys(structured || {});
+  if (keys.length < 8) return true;
+  const identity = structured.customerName || structured.customerPhone || structured.customerEmail;
+  return !identity;
+};
+
 export const hydrateLegacyDocument = async (doc, { type, owner }) => {
   const needsSource = !doc.sourceData?.variables || !Object.keys(doc.sourceData.variables || {}).length;
   const needsSnap = !doc.templateSnapshot?.bodyHtml && !doc.templateSnapshot?.headerHtml;
-  if (!needsSource && !needsSnap) return doc;
+  const needsStructuredEnrich = structuredLooksSparse(doc.sourceData?.structured);
+  const locked = Boolean(doc.sourceLocked);
+
+  // Locked documents: only fill a missing template snapshot — never re-pull booking/template content
+  if (locked) {
+    if (needsSnap) {
+      const { ensureDefaultTemplates } = await import('../controllers/exportTemplateController.js');
+      await ensureDefaultTemplates(owner._id || owner);
+      let template = null;
+      if (doc.template) template = await ExportTemplate.findById(doc.template).lean();
+      if (!template) {
+        template = type === 'invoice'
+          ? await getDefaultInvoiceTemplate(owner._id || owner)
+          : await getDefaultContractTemplate(owner._id || owner);
+      }
+      if (template) {
+        doc.templateSnapshot = snapshotTemplate(template);
+        if (!doc.template && template._id) doc.template = template._id;
+      }
+    }
+    return doc;
+  }
+
+  if (!needsSource && !needsSnap && !needsStructuredEnrich) return doc;
 
   const { ensureDefaultTemplates } = await import('../controllers/exportTemplateController.js');
   await ensureDefaultTemplates(owner._id || owner);
@@ -530,19 +853,42 @@ export const hydrateLegacyDocument = async (doc, { type, owner }) => {
     booking = await Booking.findById(doc.booking).populate('car');
   }
 
-  if (needsSource) {
+  const mergeStructured = (base = {}, prev = {}) => {
+    const merged = { ...base };
+    for (const [key, value] of Object.entries(prev || {})) {
+      if (value === undefined || value === null) continue;
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        merged[key] = { ...(base[key] || {}), ...value };
+        continue;
+      }
+      if (Array.isArray(value)) {
+        if (value.length) merged[key] = value;
+        continue;
+      }
+      const asText = String(value).trim();
+      if (asText && asText !== '—') merged[key] = value;
+    }
+    return merged;
+  };
+
+  if (needsSource || needsStructuredEnrich) {
     if (type === 'contract' && booking) {
-      doc.sourceData = buildContractSourceData(booking, {
+      const built = buildContractSourceData(booking, {
         contractNumber: doc.contractNumber,
         owner,
         template: doc.templateSnapshot || template,
         includeCompanyStamp: doc.includeCompanyStamp !== false,
       });
-      doc.customerName = doc.customerName || booking.customerName || '';
-      doc.customerPhone = doc.customerPhone || booking.customerPhone || '';
-      doc.customerEmail = doc.customerEmail || booking.customerEmail || '';
+      doc.sourceData = {
+        variables: needsSource ? built.variables : (doc.sourceData?.variables || built.variables),
+        structured: mergeStructured(built.structured, doc.sourceData?.structured),
+        meta: built.meta,
+      };
+      doc.customerName = doc.customerName || doc.sourceData.structured.customerName || booking.customerName || '';
+      doc.customerPhone = doc.customerPhone || doc.sourceData.structured.customerPhone || booking.customerPhone || '';
+      doc.customerEmail = doc.customerEmail || doc.sourceData.structured.customerEmail || booking.customerEmail || '';
     } else if (type === 'invoice') {
-      doc.sourceData = buildInvoiceSourceData({
+      const built = buildInvoiceSourceData({
         owner,
         template: doc.templateSnapshot || template,
         invoiceNumber: doc.invoiceNumber,
@@ -569,10 +915,36 @@ export const hydrateLegacyDocument = async (doc, { type, owner }) => {
           paymentMethod: doc.paymentMethod,
           paymentReference: doc.paymentReference,
           notes: doc.notes,
+          customerNationality: doc.sourceData?.structured?.customerNationality || booking?.nationality || '',
+          customerDob: doc.sourceData?.structured?.customerDob || booking?.dateOfBirth || '',
         },
         booking,
         includeCompanyStamp: doc.includeCompanyStamp !== false,
       });
+      // Enrich invoice structured with booking/agency fields used by templates
+      const enriched = {
+        ...built.structured,
+        pickupDate: built.structured.pickupDate || booking?.pickupDate || built.structured.invoiceDate,
+        returnDate: built.structured.returnDate || booking?.returnDate || built.structured.dueDate,
+        pickupLocation: booking?.pickupLocation || '',
+        returnLocation: booking?.returnLocation || '',
+        rentalDays: booking?.priceBreakdown?.days ?? '',
+        pricePerDay: booking?.priceBreakdown?.pricePerDay ?? '',
+        pickupFee: booking?.priceBreakdown?.pickupDeliveryFee ?? 0,
+        dropoffFee: booking?.priceBreakdown?.dropoffDeliveryFee ?? 0,
+        franchiseAmount: booking?.franchiseAmount ?? 0,
+        agencyName: built.variables?.agency_name || '',
+        agencyPhone: built.variables?.agency_phone || '',
+        agencyEmail: built.variables?.agency_email || '',
+        agencyAddress: built.variables?.agency_address || '',
+        agencyTaxId: built.variables?.agency_tax_id || '',
+        customerSignatureUrl: booking?.completion?.signatureUrl || '',
+      };
+      doc.sourceData = {
+        variables: needsSource ? built.variables : (doc.sourceData?.variables || built.variables),
+        structured: mergeStructured(enriched, doc.sourceData?.structured),
+        meta: built.meta,
+      };
     }
   }
   return doc;
@@ -600,6 +972,7 @@ export default {
   templateFromSnapshot,
   pushVersion,
   buildContractSourceData,
+  buildContractStructuredFromBooking,
   buildInvoiceSourceData,
   rebuildVariablesFromStructured,
   renderAndStorePdf,
@@ -607,6 +980,8 @@ export default {
   applyContractStructuredEdits,
   applyInvoiceStructuredEdits,
   hydrateLegacyDocument,
+  markSourceLocked,
+  syncDocumentListFields,
   resolveExistingPdfPath,
   versionSummary,
   buildBookingLikeFromInvoice,

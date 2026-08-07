@@ -232,6 +232,7 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
   const contractNumber = booking.reservationId || `CTR-${booking._id.toString().slice(-8).toUpperCase()}`;
   let persistedContract;
   try {
+    // Never overwrite manually edited contracts during completion
     persistedContract = await upsertContractFromBooking({
       owner: booking.owner,
       booking,
@@ -240,6 +241,7 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
       includeCompanyStamp: true,
       contractNumber,
       note: 'Booking completion',
+      forceFromBooking: false,
     });
   } catch (pdfError) {
     console.error('[FINALIZE] Contract PDF failed:', pdfError);

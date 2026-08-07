@@ -16,10 +16,19 @@ import {
   rebuildVariablesFromStructured,
   renderAndStorePdf,
   hydrateLegacyDocument,
+  markSourceLocked,
+  syncDocumentListFields,
   resolveExistingPdfPath,
   versionSummary,
   templateFromSnapshot,
 } from '../services/documentInstanceService.js';
+
+const syncBookingCompletionPdfUrl = async (contract) => {
+  if (!contract?.booking || !contract.pdfUrl) return;
+  await Booking.findByIdAndUpdate(contract.booking, {
+    $set: { 'completion.contractPdfUrl': contract.pdfUrl },
+  });
+};
 
 const generateContractNumber = async (ownerId) => {
   const year = new Date().getFullYear().toString().slice(-2);
@@ -52,6 +61,8 @@ export const upsertContractFromBooking = async ({
   includeCompanyStamp = true,
   contractNumber: providedNumber,
   note = 'Generated',
+  /** Explicit regenerate from booking/template — required to overwrite locked edits */
+  forceFromBooking = false,
 }) => {
   const ownerId = owner._id || owner;
   const bookingObj = booking.toObject ? booking.toObject() : booking;
@@ -59,6 +70,12 @@ export const upsertContractFromBooking = async ({
   const templateSnap = snapshotTemplate(templateObj);
 
   const existing = await Contract.findOne({ owner: ownerId, booking: booking._id });
+
+  // Preserve manual edits unless caller explicitly forces regenerate from booking
+  if (existing?.sourceLocked && !forceFromBooking) {
+    return existing;
+  }
+
   // Prefer existing number so completion/admin regenerations never create duplicates or renumber
   let contractNumber = existing?.contractNumber || providedNumber;
   if (!contractNumber) {
@@ -91,14 +108,20 @@ export const upsertContractFromBooking = async ({
     existing.pdfUrl = pdfUrl;
     existing.pdfPath = filePath;
     existing.includeCompanyStamp = Boolean(includeCompanyStamp);
+    existing.sourceLocked = false;
+    existing.manuallyEditedAt = null;
     existing.customerName = bookingObj.customerName || '';
     existing.customerPhone = bookingObj.customerPhone || '';
     existing.customerEmail = bookingObj.customerEmail || '';
+    existing.reservationId = bookingObj.reservationId || '';
+    existing.vehicleSummary = [bookingObj.car?.brand, bookingObj.car?.model].filter(Boolean).join(' ');
+    existing.totalAmount = bookingObj.price ?? null;
     existing.updatedBy = user?._id || user || null;
     existing.generatedBy = existing.generatedBy || user?._id || user || null;
     existing.createdBy = existing.createdBy || existing.generatedBy;
     existing.lastGeneratedAt = new Date();
     existing.status = 'final';
+    syncDocumentListFields(existing, 'contract');
     await existing.save();
     return existing;
   }
@@ -114,9 +137,13 @@ export const upsertContractFromBooking = async ({
     pdfUrl,
     pdfPath: filePath,
     includeCompanyStamp: Boolean(includeCompanyStamp),
+    sourceLocked: false,
     customerName: bookingObj.customerName || '',
     customerPhone: bookingObj.customerPhone || '',
     customerEmail: bookingObj.customerEmail || '',
+    reservationId: bookingObj.reservationId || '',
+    vehicleSummary: [bookingObj.car?.brand, bookingObj.car?.model].filter(Boolean).join(' '),
+    totalAmount: bookingObj.price ?? null,
     generatedBy: user?._id || user || null,
     createdBy: user?._id || user || null,
     updatedBy: user?._id || user || null,
@@ -213,25 +240,29 @@ export const getContract = async (req, res) => {
     const contract = await Contract.findOne({
       _id: req.params.id,
       owner: req.user._id,
-    })
-      .populate({
-        path: 'booking',
-        populate: { path: 'car' },
-      })
-      .populate('template', 'name type')
-      .lean();
+    }).populate('template', 'name type');
 
     if (!contract) {
       return res.status(404).json({ success: false, message: 'Contract not found' });
     }
 
+    await hydrateLegacyDocument(contract, { type: 'contract', owner: req.user });
+    if (contract.isModified()) {
+      await contract.save();
+    }
+
+    await contract.populate({
+      path: 'booking',
+      populate: { path: 'car' },
+    });
+
     // Return version metadata only in detail payload (full snapshots via /versions)
-    const versions = versionSummary(contract.versions);
+    const payload = contract.toObject();
     res.json({
       success: true,
       contract: {
-        ...contract,
-        versions,
+        ...payload,
+        versions: versionSummary(payload.versions),
       },
     });
   } catch (error) {
@@ -242,7 +273,7 @@ export const getContract = async (req, res) => {
 
 export const generateContract = async (req, res) => {
   try {
-    const { bookingId, templateId, includeCompanyStamp = true } = req.body;
+    const { bookingId, templateId, includeCompanyStamp = true, forceFromBooking = false } = req.body;
 
     if (!mongoose.isValidObjectId(bookingId)) {
       return res.status(400).json({ success: false, message: 'Invalid booking ID' });
@@ -255,6 +286,17 @@ export const generateContract = async (req, res) => {
 
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const existing = await Contract.findOne({ owner: req.user._id, booking: bookingId }).select('_id contractNumber sourceLocked');
+    if (existing?.sourceLocked && !forceFromBooking) {
+      return res.status(409).json({
+        success: false,
+        code: 'SOURCE_LOCKED',
+        message: 'This contract has manual edits. Confirm regenerate from booking to replace them.',
+        contractId: existing._id,
+        contractNumber: existing.contractNumber,
+      });
     }
 
     await ensureDefaultTemplates(req.user._id);
@@ -273,8 +315,11 @@ export const generateContract = async (req, res) => {
       user: req.user,
       template,
       includeCompanyStamp,
-      note: 'Regenerated from booking',
+      note: forceFromBooking ? 'Regenerated from booking (replaced manual edits)' : 'Generated from booking',
+      forceFromBooking: Boolean(forceFromBooking) || !existing,
     });
+
+    await syncBookingCompletionPdfUrl(contract);
 
     await logAudit({
       owner: req.user._id,
@@ -320,19 +365,19 @@ export const updateContract = async (req, res) => {
     const regeneratePdf = req.body.regeneratePdf !== false;
     pushVersion(contract, req.user, req.body.note || 'Updated');
 
+    applyContractStructuredEdits(contract, req.body);
     if (req.body.sections) {
       applySectionEdits(contract, req.body.sections);
     }
-    applyContractStructuredEdits(contract, req.body);
 
-    let booking = null;
-    if (contract.booking) {
-      booking = await Booking.findById(contract.booking).populate('car');
-    }
+    // Edits become the permanent source of truth for this instance
+    markSourceLocked(contract);
+
+    // Rebuild from structured only (booking ignored while locked)
     const variables = rebuildVariablesFromStructured(contract, {
       type: 'contract',
       owner: req.user,
-      booking,
+      booking: null,
     });
     contract.sourceData = {
       ...(contract.sourceData || {}),
@@ -342,6 +387,7 @@ export const updateContract = async (req, res) => {
     const snap = templateFromSnapshot(contract.templateSnapshot || {});
     contract.renderedHtml = buildDocumentHtml(snap, variables);
     contract.updatedBy = req.user._id;
+    syncDocumentListFields(contract, 'contract');
 
     if (regeneratePdf) {
       await renderAndStorePdf({
@@ -352,6 +398,9 @@ export const updateContract = async (req, res) => {
     }
 
     await contract.save();
+    if (regeneratePdf) {
+      await syncBookingCompletionPdfUrl(contract);
+    }
 
     await logAudit({
       owner: req.user._id,
@@ -422,12 +471,12 @@ export const restoreContractVersion = async (req, res) => {
     contract.pdfUrl = snap.pdfUrl || '';
     contract.pdfPath = snap.pdfPath || '';
     contract.status = snap.status || 'final';
-    contract.customerName = contract.sourceData?.structured?.customerName || contract.customerName;
-    contract.customerPhone = contract.sourceData?.structured?.customerPhone || contract.customerPhone;
-    contract.customerEmail = contract.sourceData?.structured?.customerEmail || contract.customerEmail;
+    markSourceLocked(contract);
+    syncDocumentListFields(contract, 'contract');
     contract.updatedBy = req.user._id;
 
     await renderAndStorePdf({ type: 'contract', doc: contract, owner: req.user });
+    await syncBookingCompletionPdfUrl(contract);
     await contract.save();
 
     await logAudit({
@@ -461,9 +510,10 @@ export const previewContract = async (req, res) => {
     if (!contract) {
       return res.status(404).json({ success: false, message: 'Contract not found' });
     }
+    // Prefer persisted HTML (reflects last save). Rebuild only if missing.
     if (!contract.renderedHtml) {
       await hydrateLegacyDocument(contract, { type: 'contract', owner: req.user });
-      const booking = contract.booking
+      const booking = (!contract.sourceLocked && contract.booking)
         ? await Booking.findById(contract.booking).populate('car')
         : null;
       const variables = rebuildVariablesFromStructured(contract, {
@@ -471,6 +521,7 @@ export const previewContract = async (req, res) => {
         owner: req.user,
         booking,
       });
+      contract.sourceData = { ...(contract.sourceData || {}), variables };
       contract.renderedHtml = buildDocumentHtml(
         templateFromSnapshot(contract.templateSnapshot || {}),
         variables,

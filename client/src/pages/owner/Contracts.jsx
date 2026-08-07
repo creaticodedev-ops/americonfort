@@ -7,72 +7,7 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
-
-const toDateInput = (value) => {
-  if (!value) return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10)
-  return d.toISOString().slice(0, 10)
-}
-
-const initContractForm = (doc) => {
-  const s = doc?.sourceData?.structured || {}
-  return {
-    customerName: s.customerName || doc.customerName || '',
-    customerEmail: s.customerEmail || doc.customerEmail || '',
-    customerPhone: s.customerPhone || doc.customerPhone || '',
-    customerAddress: s.customerAddress || '',
-    nationality: s.nationality || '',
-    dateOfBirth: toDateInput(s.dateOfBirth),
-    placeOfBirth: s.placeOfBirth || '',
-    driverLicenseNumber: s.driverLicenseNumber || '',
-    driverLicenseExpiry: toDateInput(s.driverLicenseExpiry),
-    passportNumber: s.passportNumber || '',
-    identityDocumentNumber: s.identityDocumentNumber || '',
-    pickupDate: toDateInput(s.pickupDate),
-    returnDate: toDateInput(s.returnDate),
-    pickupLocation: s.pickupLocation || '',
-    returnLocation: s.returnLocation || '',
-    price: s.price ?? '',
-    paymentStatus: s.paymentStatus || '',
-    notes: s.notes || '',
-    franchiseAmount: s.franchiseAmount ?? '',
-    vehicleBrand: s.vehicleBrand || '',
-    vehicleModel: s.vehicleModel || '',
-    vehicleYear: s.vehicleYear || '',
-    vehiclePlate: s.vehiclePlate || '',
-    vehicleCategory: s.vehicleCategory || '',
-    includeCompanyStamp: doc.includeCompanyStamp !== false,
-  }
-}
-
-const buildContractPatch = (form) => ({
-  customerName: form.customerName,
-  customerEmail: form.customerEmail,
-  customerPhone: form.customerPhone,
-  customerAddress: form.customerAddress,
-  nationality: form.nationality,
-  dateOfBirth: form.dateOfBirth || '',
-  placeOfBirth: form.placeOfBirth,
-  driverLicenseNumber: form.driverLicenseNumber,
-  driverLicenseExpiry: form.driverLicenseExpiry || '',
-  passportNumber: form.passportNumber,
-  identityDocumentNumber: form.identityDocumentNumber,
-  pickupDate: form.pickupDate || null,
-  returnDate: form.returnDate || null,
-  pickupLocation: form.pickupLocation,
-  returnLocation: form.returnLocation,
-  price: form.price === '' ? 0 : Number(form.price),
-  paymentStatus: form.paymentStatus,
-  notes: form.notes,
-  franchiseAmount: form.franchiseAmount === '' ? undefined : Number(form.franchiseAmount),
-  vehicleBrand: form.vehicleBrand,
-  vehicleModel: form.vehicleModel,
-  vehicleYear: form.vehicleYear,
-  vehiclePlate: form.vehiclePlate,
-  vehicleCategory: form.vehicleCategory,
-  includeCompanyStamp: form.includeCompanyStamp,
-})
+import { buildContractPatch, initContractForm } from '../../utils/documentFormUtils'
 
 const formatDateTime = (value) => {
   if (!value) return '—'
@@ -129,36 +64,101 @@ const Contracts = () => {
           type={type}
           className={fieldClass}
           value={form[key] ?? ''}
-          onChange={(e) => set(key, type === 'number' ? e.target.value : e.target.value)}
+          onChange={(e) => set(key, e.target.value)}
         />
       </div>
     )
+    const section = (title, children) => (
+      <div key={title} className="space-y-3">
+        <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">{title}</h4>
+        <div className="grid gap-3 md:grid-cols-2">{children}</div>
+      </div>
+    )
     return (
-      <div className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          {field('customerName', t('admin.invoices.customerName'))}
-          {field('customerEmail', t('admin.invoices.customerEmail'), 'email')}
-          {field('customerPhone', t('admin.invoices.customerPhone'))}
-          {field('customerAddress', t('admin.invoices.customerAddress'))}
-          {field('nationality', t('admin.contracts.nationality'))}
-          {field('dateOfBirth', t('admin.contracts.dateOfBirth'), 'date')}
-          {field('placeOfBirth', 'Place of birth')}
-          {field('driverLicenseNumber', t('admin.contracts.driverLicense'))}
-          {field('driverLicenseExpiry', t('admin.contracts.licenseExpiry'), 'date')}
-          {field('passportNumber', t('admin.contracts.passport'))}
-          {field('identityDocumentNumber', t('admin.invoices.cinPlaceholder'))}
-          {field('vehicleBrand', t('admin.invoices.vehicleBrand'))}
-          {field('vehicleModel', t('admin.invoices.vehicleModel'))}
-          {field('vehicleYear', t('admin.invoices.vehicleYear'))}
-          {field('vehiclePlate', t('admin.invoices.vehiclePlate'))}
-          {field('pickupDate', 'Pickup date', 'date')}
-          {field('returnDate', 'Return date', 'date')}
-          {field('pickupLocation', 'Pickup location')}
-          {field('returnLocation', 'Return location')}
-          {field('price', t('admin.contracts.total'), 'number')}
-          {field('paymentStatus', t('admin.invoices.paymentStatus'))}
-          {field('franchiseAmount', 'Franchise', 'number')}
+      <div className="space-y-6">
+        {section('Customer', [
+          field('customerName', t('admin.invoices.customerName')),
+          field('customerEmail', t('admin.invoices.customerEmail'), 'email'),
+          field('customerPhone', t('admin.invoices.customerPhone')),
+          field('customerAddress', t('admin.invoices.customerAddress')),
+          field('nationality', t('admin.contracts.nationality')),
+          field('dateOfBirth', t('admin.contracts.dateOfBirth'), 'date'),
+          field('placeOfBirth', 'Place of birth'),
+          field('identityDocumentNumber', t('admin.invoices.cinPlaceholder')),
+          field('identityIssuedOn', 'ID issued on', 'date'),
+          field('passportNumber', t('admin.contracts.passport')),
+          field('driverLicenseNumber', t('admin.contracts.driverLicense')),
+          field('driverLicenseIssuedOn', 'License issued on', 'date'),
+          field('driverLicenseExpiry', t('admin.contracts.licenseExpiry'), 'date'),
+        ])}
+        {section('Vehicle', [
+          field('vehicleBrand', t('admin.invoices.vehicleBrand')),
+          field('vehicleModel', t('admin.invoices.vehicleModel')),
+          field('vehicleYear', t('admin.invoices.vehicleYear')),
+          field('vehiclePlate', t('admin.invoices.vehiclePlate')),
+          field('vehicleCategory', t('admin.invoices.vehicleType')),
+          field('fuelLevelStart', 'Fuel level (start)'),
+          field('kmDepart', 'Km departure'),
+          field('kmRetour', 'Km return'),
+          field('deliveredBy', 'Delivered by'),
+          field('receivedBy', 'Received by'),
+        ])}
+        {section('Rental', [
+          field('reservationId', 'Reservation ID'),
+          field('pickupDate', 'Pickup date & time', 'datetime-local'),
+          field('returnDate', 'Return date & time', 'datetime-local'),
+          field('pickupLocation', 'Pickup location'),
+          field('returnLocation', 'Return location'),
+          field('rentalDays', 'Rental days', 'number'),
+          field('bookingStatus', 'Booking status'),
+          field('bookingMethod', 'Booking method'),
+        ])}
+        {section('Pricing & payment', [
+          field('pricePerDay', 'Price per day', 'number'),
+          field('rentalPrice', 'Rental price', 'number'),
+          field('pickupFee', 'Pickup fee', 'number'),
+          field('dropoffFee', 'Drop-off fee', 'number'),
+          field('discountTotal', 'Discount', 'number'),
+          field('price', t('admin.contracts.total'), 'number'),
+          field('franchiseAmount', 'Franchise / deposit', 'number'),
+          field('currency', t('admin.invoices.currency')),
+          field('paymentStatus', t('admin.invoices.paymentStatus')),
+        ])}
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">
+            {t('admin.contracts.secondDriverYes')}
+          </h4>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={Boolean(form.secondDriverEnabled)}
+              onChange={(e) => set('secondDriverEnabled', e.target.checked)}
+            />
+            Second driver enabled
+          </label>
+          {form.secondDriverEnabled && (
+            <div className="grid gap-3 md:grid-cols-2">
+              {field('secondDriverFullName', t('admin.contracts.secondDriverName'))}
+              {field('secondDriverDob', t('admin.contracts.secondDriverDob'), 'date')}
+              {field('secondDriverNationality', t('admin.contracts.secondDriverNationality'))}
+              {field('secondDriverPhone', t('admin.contracts.secondDriverPhone'))}
+              {field('secondDriverLicense', t('admin.contracts.driverLicense'))}
+              {field('secondDriverLicenseExpiry', t('admin.contracts.licenseExpiry'), 'date')}
+              {field('secondDriverPassport', t('admin.contracts.passport'))}
+            </div>
+          )}
         </div>
+        {section('Company', [
+          field('agencyName', 'Agency name'),
+          field('agencyPhone', 'Agency phone'),
+          field('agencyEmail', 'Agency email', 'email'),
+          field('agencyAddress', 'Agency address'),
+          field('agencyTaxId', 'Agency tax ID'),
+          field('logoUrl', 'Logo URL'),
+          field('companySignatureUrl', 'Company signature URL'),
+          field('customerSignatureUrl', 'Customer signature URL'),
+          field('secondDriverSignatureUrl', 'Second driver signature URL'),
+        ])}
         <div>
           <label className={labelClass}>{t('admin.invoices.notes')}</label>
           <textarea
@@ -335,7 +335,7 @@ const Contracts = () => {
     }
   }
 
-  const generateContract = async () => {
+  const generateContract = async ({ forceFromBooking = false } = {}) => {
     if (!generateForm.bookingId) {
       toast.error(t('admin.contracts.bookingRequired'))
       return
@@ -348,17 +348,33 @@ const Contracts = () => {
         bookingId: generateForm.bookingId,
         templateId: generateForm.templateId || undefined,
         includeCompanyStamp: generateForm.includeCompanyStamp,
+        forceFromBooking,
       })
       if (data.success) {
         toast.success(data.message)
         setShowGenerate(false)
         setPreviewHtml('')
         fetchContracts()
+      } else if (data.code === 'SOURCE_LOCKED') {
+        const ok = window.confirm(
+          t('admin.documents.replaceEditsConfirm')
+          || 'This document has manual edits. Regenerate from booking and replace them?',
+        )
+        if (ok) await generateContract({ forceFromBooking: true })
       } else {
         toast.error(data.message)
       }
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      const code = error?.response?.data?.code
+      if (code === 'SOURCE_LOCKED') {
+        const ok = window.confirm(
+          t('admin.documents.replaceEditsConfirm')
+          || 'This document has manual edits. Regenerate from booking and replace them?',
+        )
+        if (ok) await generateContract({ forceFromBooking: true })
+      } else {
+        toast.error(getErrorMessage(error))
+      }
     } finally {
       setGenerating(false)
     }
@@ -619,16 +635,26 @@ const Contracts = () => {
                 {contracts.map((contract) => {
                   const booking = contract.booking || {}
                   const car = booking.car || {}
+                  const vehicleLabel = contract.vehicleSummary
+                    || (car.brand ? `${car.brand} ${car.model || ''}`.trim() : '—')
+                  const totalLabel = contract.totalAmount != null
+                    ? `${currency}${Number(contract.totalAmount).toFixed(2)}`
+                    : (booking.price != null ? `${currency}${booking.price}` : '—')
                   return (
                     <tr key={contract._id} className="border-t border-borderColor">
-                      <td className="px-4 py-3 font-medium">{contract.contractNumber}</td>
-                      <td className="px-4 py-3">{booking.reservationId || '—'}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {contract.contractNumber}
+                        {contract.sourceLocked ? (
+                          <span className="ml-2 text-[10px] font-normal text-gray-500">{t('admin.documents.edited')}</span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">{contract.reservationId || booking.reservationId || '—'}</td>
                       <td className="px-4 py-3">
                         <p>{contract.customerName || booking.customerName || '—'}</p>
                         <p className="text-xs text-gray-500">{contract.customerPhone || booking.customerPhone || ''}</p>
                       </td>
-                      <td className="px-4 py-3">{car.brand ? `${car.brand} ${car.model}` : '—'}</td>
-                      <td className="px-4 py-3">{booking.price != null ? `${currency}${booking.price}` : '—'}</td>
+                      <td className="px-4 py-3">{vehicleLabel}</td>
+                      <td className="px-4 py-3">{totalLabel}</td>
                       <td className="px-4 py-3">{formatDateTime(contract.createdAt)}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
@@ -682,7 +708,22 @@ const Contracts = () => {
           documentId={editingId}
           axios={axios}
           onClose={() => setEditingId(null)}
-          onSaved={() => fetchContracts()}
+          onSaved={(saved) => {
+            if (saved?._id) {
+              setContracts((prev) => prev.map((c) => (c._id === saved._id
+                ? {
+                    ...c,
+                    ...saved,
+                    booking: c.booking,
+                    versions: undefined,
+                    renderedHtml: undefined,
+                    sourceData: undefined,
+                    templateSnapshot: undefined,
+                  }
+                : c)))
+            }
+            fetchContracts()
+          }}
           initForm={initContractForm}
           buildPatch={buildContractPatch}
           renderFields={renderContractFields}

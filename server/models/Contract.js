@@ -14,10 +14,19 @@ const contractSchema = new mongoose.Schema({
   pdfUrl: { type: String, default: '' },
   pdfPath: { type: String, default: '' },
   includeCompanyStamp: { type: Boolean, default: true },
-  /** Denormalized for list search */
+  /** Denormalized for list search / display (document is SSOT, not booking) */
   customerName: { type: String, default: '', index: true },
   customerPhone: { type: String, default: '' },
   customerEmail: { type: String, default: '' },
+  reservationId: { type: String, default: '', index: true },
+  vehicleSummary: { type: String, default: '' },
+  totalAmount: { type: Number, default: null },
+  /**
+   * When true, instance data is the source of truth.
+   * Booking/template sync must not overwrite unless forceFromBooking is explicit.
+   */
+  sourceLocked: { type: Boolean, default: false, index: true },
+  manuallyEditedAt: { type: Date, default: null },
   generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },

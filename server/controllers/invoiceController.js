@@ -18,6 +18,8 @@ import {
   rebuildVariablesFromStructured,
   renderAndStorePdf,
   hydrateLegacyDocument,
+  markSourceLocked,
+  syncDocumentListFields,
   resolveExistingPdfPath,
   versionSummary,
   templateFromSnapshot,
@@ -157,17 +159,24 @@ export const listInvoices = async (req, res) => {
 export const getInvoice = async (req, res) => {
   try {
     const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user._id })
-      .populate('booking')
-      .populate('template', 'name type')
-      .lean();
+      .populate('template', 'name type');
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
+
+    await hydrateLegacyDocument(invoice, { type: 'invoice', owner: req.user });
+    if (invoice.isModified()) {
+      await invoice.save();
+    }
+
+    await invoice.populate({ path: 'booking', populate: { path: 'car' } });
+
+    const payload = invoice.toObject();
     res.json({
       success: true,
       invoice: {
-        ...invoice,
-        versions: versionSummary(invoice.versions),
+        ...payload,
+        versions: versionSummary(payload.versions),
       },
     });
   } catch (error) {
@@ -178,7 +187,7 @@ export const getInvoice = async (req, res) => {
 
 export const generateInvoice = async (req, res) => {
   try {
-    const { bookingId, includeCompanyStamp = true } = req.body;
+    const { bookingId, includeCompanyStamp = true, forceFromBooking = false } = req.body;
 
     if (!mongoose.isValidObjectId(bookingId)) {
       return res.status(400).json({ success: false, message: 'Invalid booking ID' });
@@ -187,6 +196,18 @@ export const generateInvoice = async (req, res) => {
     const booking = await Booking.findOne({ _id: bookingId, owner: req.user._id }).populate('car');
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const existingLocked = await Invoice.findOne({ booking: booking._id, owner: req.user._id })
+      .select('_id invoiceNumber sourceLocked');
+    if (existingLocked?.sourceLocked && !forceFromBooking) {
+      return res.status(409).json({
+        success: false,
+        code: 'SOURCE_LOCKED',
+        message: 'This invoice has manual edits. Confirm regenerate from booking to replace them.',
+        invoiceId: existingLocked._id,
+        invoiceNumber: existingLocked.invoiceNumber,
+      });
     }
 
     const invoiceData = {
@@ -241,7 +262,9 @@ export const generateInvoice = async (req, res) => {
 
     let invoice;
     if (existing) {
-      pushVersion(existing, req.user, 'Regenerated from booking');
+      pushVersion(existing, req.user, forceFromBooking
+        ? 'Regenerated from booking (replaced manual edits)'
+        : 'Regenerated from booking');
       Object.assign(existing, {
         source: 'booking',
         invoiceNumber,
@@ -270,6 +293,8 @@ export const generateInvoice = async (req, res) => {
         pdfUrl: pdfUrl || publicUploadUrl(filePath),
         pdfPath: filePath,
         includeCompanyStamp: Boolean(includeCompanyStamp),
+        sourceLocked: false,
+        manuallyEditedAt: null,
         updatedBy: req.user._id,
         generatedBy: existing.generatedBy || req.user._id,
         createdBy: existing.createdBy || existing.generatedBy || req.user._id,
@@ -507,19 +532,17 @@ export const updateInvoice = async (req, res) => {
     const regeneratePdf = req.body.regeneratePdf !== false;
     pushVersion(invoice, req.user, req.body.note || 'Updated');
 
+    applyInvoiceStructuredEdits(invoice, req.body);
     if (req.body.sections) {
       applySectionEdits(invoice, req.body.sections);
     }
-    applyInvoiceStructuredEdits(invoice, req.body);
 
-    let booking = null;
-    if (invoice.booking) {
-      booking = await Booking.findById(invoice.booking).populate('car');
-    }
+    markSourceLocked(invoice);
+
     const variables = rebuildVariablesFromStructured(invoice, {
       type: 'invoice',
       owner: req.user,
-      booking,
+      booking: null,
     });
     invoice.sourceData = {
       ...(invoice.sourceData || {}),
@@ -530,6 +553,7 @@ export const updateInvoice = async (req, res) => {
       variables,
     );
     invoice.updatedBy = req.user._id;
+    syncDocumentListFields(invoice, 'invoice');
 
     if (regeneratePdf) {
       await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
@@ -620,6 +644,8 @@ export const restoreInvoiceVersion = async (req, res) => {
     if (structured.invoiceDate) invoice.invoiceDate = structured.invoiceDate;
     if (structured.dueDate !== undefined) invoice.dueDate = structured.dueDate;
 
+    markSourceLocked(invoice);
+    syncDocumentListFields(invoice, 'invoice');
     invoice.updatedBy = req.user._id;
     await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
     await invoice.save();
@@ -657,7 +683,7 @@ export const previewInvoice = async (req, res) => {
     }
     if (!invoice.renderedHtml) {
       await hydrateLegacyDocument(invoice, { type: 'invoice', owner: req.user });
-      const booking = invoice.booking
+      const booking = (!invoice.sourceLocked && invoice.booking)
         ? await Booking.findById(invoice.booking).populate('car')
         : null;
       const variables = rebuildVariablesFromStructured(invoice, {
@@ -665,6 +691,7 @@ export const previewInvoice = async (req, res) => {
         owner: req.user,
         booking,
       });
+      invoice.sourceData = { ...(invoice.sourceData || {}), variables };
       invoice.renderedHtml = buildDocumentHtml(
         templateFromSnapshot(invoice.templateSnapshot || {}),
         variables,
