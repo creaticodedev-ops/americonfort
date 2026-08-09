@@ -4,6 +4,7 @@ import brandLogo from '../assets/logo.webp'
 import { useI18n } from '../i18n/I18nContext'
 import { Link } from "react-router-dom";
 import { BRAND_NAME } from '../constants/brand'
+import { INSTAGRAM_URL } from '../constants/social'
 
 const Footer = () => {
   const { t } = useI18n();
@@ -28,12 +29,19 @@ const Footer = () => {
 
           <div className="flex items-center gap-4 mt-6">
             {[
-              { src: assets.facebook_logo, label: 'Facebook' },
-              { src: assets.instagram_logo, label: 'Instagram' },
-              { src: assets.twitter_logo, label: 'X (Twitter)' },
-              { src: assets.gmail_logo, label: 'Email' },
-            ].map(({ src, label }) => (
-              <a key={label} href="#" aria-label={label}>
+              { src: assets.facebook_logo, label: 'Facebook', href: '#' },
+              { src: assets.instagram_logo, label: 'Instagram', href: INSTAGRAM_URL },
+              { src: assets.twitter_logo, label: 'X (Twitter)', href: '#' },
+              { src: assets.gmail_logo, label: 'Email', href: 'mailto:americonfort@gmail.com' },
+            ].map(({ src, label, href }) => (
+              <a
+                key={label}
+                href={href}
+                aria-label={label}
+                {...(href.startsWith('http')
+                  ? { target: '_blank', rel: 'noopener noreferrer' }
+                  : {})}
+              >
                 <img src={src} width={20} height={20} loading="lazy" className="w-5 h-5 hover:opacity-70 transition" alt="" />
               </a>
             ))}
