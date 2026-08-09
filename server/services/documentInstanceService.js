@@ -597,9 +597,17 @@ export const applySectionEdits = (doc, sections = {}) => {
   if (sections.pageSize !== undefined) {
     snap.pageSize = sections.pageSize === 'Letter' ? 'Letter' : 'A4';
   }
-  if (sections.logoUrl !== undefined) snap.logoUrl = String(sections.logoUrl || '');
+  // Never wipe template assets with accidental empty strings from the editor.
+  // Replace only when a non-empty URL is provided, or clear* is explicitly true.
+  if (sections.logoUrl !== undefined) {
+    const next = String(sections.logoUrl || '').trim();
+    if (next) snap.logoUrl = next;
+    else if (sections.clearLogo === true) snap.logoUrl = '';
+  }
   if (sections.companySignatureUrl !== undefined) {
-    snap.companySignatureUrl = String(sections.companySignatureUrl || '');
+    const next = String(sections.companySignatureUrl || '').trim();
+    if (next) snap.companySignatureUrl = next;
+    else if (sections.clearCompanySignature === true) snap.companySignatureUrl = '';
   }
   doc.templateSnapshot = snap;
 };
@@ -680,18 +688,24 @@ export const applyContractStructuredEdits = (doc, patch = {}) => {
     doc.status = patch.status;
   }
   if (patch.companySignatureUrl !== undefined && doc.templateSnapshot) {
-    const snap = typeof doc.templateSnapshot.toObject === 'function'
-      ? doc.templateSnapshot.toObject()
-      : { ...(doc.templateSnapshot || {}) };
-    snap.companySignatureUrl = String(patch.companySignatureUrl || '');
-    doc.templateSnapshot = snap;
+    const next = String(patch.companySignatureUrl || '').trim();
+    if (next || patch.clearCompanySignature === true) {
+      const snap = typeof doc.templateSnapshot.toObject === 'function'
+        ? doc.templateSnapshot.toObject()
+        : { ...(doc.templateSnapshot || {}) };
+      snap.companySignatureUrl = next;
+      doc.templateSnapshot = snap;
+    }
   }
   if (patch.logoUrl !== undefined && doc.templateSnapshot) {
-    const snap = typeof doc.templateSnapshot.toObject === 'function'
-      ? doc.templateSnapshot.toObject()
-      : { ...(doc.templateSnapshot || {}) };
-    snap.logoUrl = String(patch.logoUrl || '');
-    doc.templateSnapshot = snap;
+    const next = String(patch.logoUrl || '').trim();
+    if (next || patch.clearLogo === true) {
+      const snap = typeof doc.templateSnapshot.toObject === 'function'
+        ? doc.templateSnapshot.toObject()
+        : { ...(doc.templateSnapshot || {}) };
+      snap.logoUrl = next;
+      doc.templateSnapshot = snap;
+    }
   }
 
   doc.sourceData = { ...(doc.sourceData || {}), structured };
@@ -730,18 +744,24 @@ export const applyInvoiceStructuredEdits = (doc, patch = {}) => {
   }
 
   if (patch.companySignatureUrl !== undefined && doc.templateSnapshot) {
-    const snap = typeof doc.templateSnapshot.toObject === 'function'
-      ? doc.templateSnapshot.toObject()
-      : { ...(doc.templateSnapshot || {}) };
-    snap.companySignatureUrl = String(patch.companySignatureUrl || '');
-    doc.templateSnapshot = snap;
+    const next = String(patch.companySignatureUrl || '').trim();
+    if (next || patch.clearCompanySignature === true) {
+      const snap = typeof doc.templateSnapshot.toObject === 'function'
+        ? doc.templateSnapshot.toObject()
+        : { ...(doc.templateSnapshot || {}) };
+      snap.companySignatureUrl = next;
+      doc.templateSnapshot = snap;
+    }
   }
   if (patch.logoUrl !== undefined && doc.templateSnapshot) {
-    const snap = typeof doc.templateSnapshot.toObject === 'function'
-      ? doc.templateSnapshot.toObject()
-      : { ...(doc.templateSnapshot || {}) };
-    snap.logoUrl = String(patch.logoUrl || '');
-    doc.templateSnapshot = snap;
+    const next = String(patch.logoUrl || '').trim();
+    if (next || patch.clearLogo === true) {
+      const snap = typeof doc.templateSnapshot.toObject === 'function'
+        ? doc.templateSnapshot.toObject()
+        : { ...(doc.templateSnapshot || {}) };
+      snap.logoUrl = next;
+      doc.templateSnapshot = snap;
+    }
   }
 
   if (Array.isArray(patch.items)) {
@@ -804,6 +824,38 @@ const structuredLooksSparse = (structured = {}) => {
   return !identity;
 };
 
+/**
+ * If a document snapshot is missing logo/signature but the linked ExportTemplate
+ * still has them, copy those URLs into the snapshot (does not overwrite HTML).
+ */
+export const backfillSnapshotAssetsFromTemplate = async (doc) => {
+  if (!doc) return doc;
+  const snap = typeof doc.templateSnapshot?.toObject === 'function'
+    ? doc.templateSnapshot.toObject()
+    : { ...(doc.templateSnapshot || {}) };
+  const needsLogo = !String(snap.logoUrl || '').trim();
+  const needsSig = !String(snap.companySignatureUrl || '').trim();
+  if (!needsLogo && !needsSig) return doc;
+
+  let template = null;
+  if (doc.template) {
+    template = await ExportTemplate.findById(doc.template).select('logoUrl companySignatureUrl').lean();
+  }
+  if (!template) return doc;
+
+  let changed = false;
+  if (needsLogo && template.logoUrl) {
+    snap.logoUrl = template.logoUrl;
+    changed = true;
+  }
+  if (needsSig && template.companySignatureUrl) {
+    snap.companySignatureUrl = template.companySignatureUrl;
+    changed = true;
+  }
+  if (changed) doc.templateSnapshot = snap;
+  return doc;
+};
+
 export const hydrateLegacyDocument = async (doc, { type, owner }) => {
   const needsSource = !doc.sourceData?.variables || !Object.keys(doc.sourceData.variables || {}).length;
   const needsSnap = !doc.templateSnapshot?.bodyHtml && !doc.templateSnapshot?.headerHtml;
@@ -827,10 +879,14 @@ export const hydrateLegacyDocument = async (doc, { type, owner }) => {
         if (!doc.template && template._id) doc.template = template._id;
       }
     }
+    await backfillSnapshotAssetsFromTemplate(doc);
     return doc;
   }
 
-  if (!needsSource && !needsSnap && !needsStructuredEnrich) return doc;
+  if (!needsSource && !needsSnap && !needsStructuredEnrich) {
+    await backfillSnapshotAssetsFromTemplate(doc);
+    return doc;
+  }
 
   const { ensureDefaultTemplates } = await import('../controllers/exportTemplateController.js');
   await ensureDefaultTemplates(owner._id || owner);
@@ -947,6 +1003,7 @@ export const hydrateLegacyDocument = async (doc, { type, owner }) => {
       };
     }
   }
+  await backfillSnapshotAssetsFromTemplate(doc);
   return doc;
 };
 
@@ -976,6 +1033,7 @@ export default {
   buildInvoiceSourceData,
   rebuildVariablesFromStructured,
   renderAndStorePdf,
+  backfillSnapshotAssetsFromTemplate,
   applySectionEdits,
   applyContractStructuredEdits,
   applyInvoiceStructuredEdits,

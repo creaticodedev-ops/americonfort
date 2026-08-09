@@ -5,6 +5,8 @@ import toast from 'react-hot-toast'
 import axios from 'axios'
 import { resolveApiBaseUrl } from '../utils/apiBase'
 import SignaturePad from '../components/SignaturePad'
+import DocumentPdfProgress, { buildPdfJobStages } from '../components/DocumentPdfProgress'
+import { useDocumentPdfJob } from '../hooks/useDocumentPdfJob'
 import { useI18n } from '../i18n/I18nContext'
 import { useAppContext } from '../context/AppContext'
 import { getErrorMessage } from '../utils/apiError'
@@ -68,7 +70,7 @@ const CompleteBooking = () => {
   const [signature, setSignature] = useState('')
   const [secondDriverSignature, setSecondDriverSignature] = useState('')
   const [agreed, setAgreed] = useState(false)
-  const [signing, setSigning] = useState(false)
+  const contractJob = useDocumentPdfJob()
   const [details, setDetails] = useState({
     customerFullName: '',
     customerEmail: '',
@@ -271,7 +273,39 @@ const CompleteBooking = () => {
     return true
   }
 
+  const runSignAndGenerate = async () => {
+    const secondDriverOn =
+      details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
+
+    const outcome = await contractJob.run(async () => {
+      await saveCompletionDetails({ force: true })
+      const { data } = await api.post(`/api/booking-completion/${token}/signature`, {
+        signatureDataUrl: signature,
+        secondDriverSignatureDataUrl: secondDriverOn ? secondDriverSignature : undefined,
+        agreed: true,
+        ...buildDetailsPayload(),
+      })
+      if (!data.success) throw new Error(data.message || 'Signature failed')
+      return data
+    })
+
+    if (outcome.duplicate) return
+    if (!outcome.ok) {
+      toast.error(getErrorMessage(outcome.error) || t('completion.generateFailed'))
+      return
+    }
+
+    setBooking(outcome.data.booking)
+    if (outcome.data.message) toast.success(outcome.data.message)
+    // Transition only after the real generation request succeeds
+    window.setTimeout(() => {
+      setStep('done')
+      contractJob.reset()
+    }, 450)
+  }
+
   const handleSign = async () => {
+    if (contractJob.isRunning) return
     if (!signature) {
       toast.error(t('completion.needSignature'))
       return
@@ -287,25 +321,15 @@ const CompleteBooking = () => {
       return
     }
     if (!validateClientDetails()) return
-    setSigning(true)
-    try {
-      await saveCompletionDetails({ force: true })
-      const { data } = await api.post(`/api/booking-completion/${token}/signature`, {
-        signatureDataUrl: signature,
-        secondDriverSignatureDataUrl: secondDriverOn ? secondDriverSignature : undefined,
-        agreed: true,
-        ...buildDetailsPayload(),
-      })
-      if (!data.success) throw new Error(data.message)
-      setBooking(data.booking)
-      toast.success(data.message)
-      setStep('done')
-    } catch (err) {
-      toast.error(getErrorMessage(err))
-    } finally {
-      setSigning(false)
-    }
+    await runSignAndGenerate()
   }
+
+  const signing = contractJob.isRunning
+  const contractJobStages = buildPdfJobStages(contractJob.status, {
+    signed: t('completion.stageSignatureDone'),
+    generating: t('completion.stageGenerating'),
+    ready: t('completion.stageReady'),
+  })
 
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader /></div>
 
@@ -548,49 +572,80 @@ const CompleteBooking = () => {
 
 
           {step === 'signature' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="font-display text-2xl text-ink">{t('completion.signTitle')}</h2>
-                <p className="text-sm text-muted mt-1">{t('completion.signHint')}</p>
-              </div>
+            <div className="relative space-y-6">
+              {contractJob.isActive ? (
+                <DocumentPdfProgress
+                  status={contractJob.status}
+                  title={
+                    contractJob.status === 'success'
+                      ? t('completion.stageReady')
+                      : t('completion.generatingTitle')
+                  }
+                  subtitle={
+                    contractJob.status === 'error'
+                      ? undefined
+                      : t('completion.generatingHint')
+                  }
+                  stages={contractJobStages}
+                  errorMessage={
+                    getErrorMessage(contractJob.error) || t('completion.generateFailed')
+                  }
+                  onRetry={contractJob.status === 'error' ? runSignAndGenerate : undefined}
+                  retryLabel={t('completion.retryGenerate')}
+                  variant="card"
+                />
+              ) : null}
 
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-ink">{t('completion.signatureCustomerLabel')}</p>
-                <SignaturePad onChange={setSignature} disabled={signing || signDone} />
-              </div>
-
-              {showSecondDriverSign && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-ink">{t('completion.signatureSecondDriverLabel')}</p>
-                  <p className="text-xs text-muted">
-                    {details.secondDriverFullName || booking?.secondDriver?.fullName || '—'}
-                  </p>
-                  <SignaturePad onChange={setSecondDriverSignature} disabled={signing || signDone} />
+              <div className={contractJob.isActive ? 'pointer-events-none opacity-40' : ''}>
+                <div>
+                  <h2 className="font-display text-2xl text-ink">{t('completion.signTitle')}</h2>
+                  <p className="text-sm text-muted mt-1">{t('completion.signHint')}</p>
                 </div>
-              )}
 
-              <p className="text-xs text-muted">{t('completion.signatureAgencyNote')}</p>
+                <div className="mt-6 space-y-2">
+                  <p className="text-sm font-semibold text-ink">{t('completion.signatureCustomerLabel')}</p>
+                  <SignaturePad onChange={setSignature} disabled={signing || signDone || contractJob.isActive} />
+                </div>
 
-              <label className="flex items-start gap-3 text-sm text-muted cursor-pointer">
-                <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1" />
-                <span>{t('completion.agreeTerms')}</span>
-              </label>
+                {showSecondDriverSign && (
+                  <div className="mt-6 space-y-2">
+                    <p className="text-sm font-semibold text-ink">{t('completion.signatureSecondDriverLabel')}</p>
+                    <p className="text-xs text-muted">
+                      {details.secondDriverFullName || booking?.secondDriver?.fullName || '—'}
+                    </p>
+                    <SignaturePad onChange={setSecondDriverSignature} disabled={signing || signDone || contractJob.isActive} />
+                  </div>
+                )}
 
-              <button
-                type="button"
-                disabled={signing || signDone}
-                onClick={handleSign}
-                className="w-full py-3 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium cursor-pointer disabled:opacity-60"
-              >
-                {signDone ? t('completion.signed') : signing ? t('completion.processing') : t('completion.signSubmit')}
-              </button>
+                <p className="mt-4 text-xs text-muted">{t('completion.signatureAgencyNote')}</p>
+
+                <label className="mt-4 flex items-start gap-3 text-sm text-muted cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-1"
+                    disabled={contractJob.isActive}
+                  />
+                  <span>{t('completion.agreeTerms')}</span>
+                </label>
+
+                <button
+                  type="button"
+                  disabled={signing || signDone || contractJob.isActive}
+                  onClick={handleSign}
+                  className="mt-4 w-full py-3 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium cursor-pointer disabled:opacity-60"
+                >
+                  {signDone ? t('completion.signed') : signing ? t('completion.generatingTitle') : t('completion.signSubmit')}
+                </button>
+              </div>
             </div>
           )}
 
           {step === 'done' && (
             <div className="text-center py-4">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700 text-2xl">✓</div>
-              <h2 className="font-display text-3xl text-ink">{t('completion.readyTitle')}</h2>
+              <h2 className="font-display text-3xl text-ink">{t('completion.contractReadyTitle')}</h2>
               <p className="mt-2 text-muted text-sm max-w-md mx-auto">{t('completion.readyHint')}</p>
 
               <div className="mt-8 text-left rounded-xl border border-borderColor p-4 space-y-2 text-sm text-gray-600">
@@ -600,6 +655,27 @@ const CompleteBooking = () => {
                 <p><span className="font-medium text-ink">{t('confirmation.from')}:</span> {new Date(booking.pickupDate).toLocaleString()}</p>
                 <p><span className="font-medium text-ink">{t('confirmation.total')}:</span> {currency}{booking.price}</p>
               </div>
+
+              {c?.contractPdfUrl ? (
+                <div className="mt-8 overflow-hidden rounded-2xl border border-borderColor bg-white text-left">
+                  <div className="flex items-center justify-between gap-3 border-b border-borderColor px-4 py-3">
+                    <p className="text-sm font-medium text-ink">{t('completion.contractPreview')}</p>
+                    <a
+                      href={c.contractPdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      {t('completion.downloadContract')}
+                    </a>
+                  </div>
+                  <iframe
+                    title={t('completion.contractPreview')}
+                    src={c.contractPdfUrl}
+                    className="h-[min(70vh,640px)] w-full bg-sand"
+                  />
+                </div>
+              ) : null}
 
               <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
                 {c?.contractPdfUrl && (
@@ -614,7 +690,7 @@ const CompleteBooking = () => {
           )}
         </Motion.div>
 
-        {step === 'signature' && (
+        {step === 'signature' && !contractJob.isActive && (
           <button
             type="button"
             onClick={() => setStep('documents')}

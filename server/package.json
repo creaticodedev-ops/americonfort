@@ -21,7 +21,9 @@
     "test:email": "node scripts/testEmail.js",
     "test:contract-e2e": "node scripts/e2e-contract-field-audit.mjs",
     "test:booking-routes": "node scripts/audit-booking-workflow-routes.mjs && node scripts/test-ensure-link-route.mjs",
-    "test:puppeteer": "node scripts/verify-puppeteer-launch.mjs"
+    "test:puppeteer": "node scripts/verify-puppeteer-launch.mjs",
+    "test:template-assets": "node scripts/verify-template-assets-pdf.mjs",
+    "test:contract-pdf": "node scripts/verify-contract-pdf-fix.mjs"
   },
   "keywords": [],
   "author": "",

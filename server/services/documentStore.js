@@ -3,8 +3,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import imagekit from "../configs/imageKit.js";
 import { cleanupUploadedFile } from "../middleware/multer.js";
+import { toRelativeUploadUrl } from "../utils/uploadPaths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TEMPLATE_ASSET_DIR = path.join(__dirname, "..", "uploads", "templates");
 
 const imageKitConfigured = () =>
   Boolean(
@@ -14,13 +16,33 @@ const imageKitConfigured = () =>
   );
 
 /**
- * Canonical (unsigned) ImageKit URL for a private file path.
- * Access URLs are minted later via signDocumentAccessUrl.
+ * Canonical (unsigned) ImageKit URL for a file path.
+ * Access URLs for private files are minted later via signDocumentAccessUrl.
  */
 const canonicalImageKitUrl = (filePath) => {
   const endpoint = String(process.env.IMAGEKIT_URL_ENDPOINT || "").replace(/\/$/, "");
   const normalized = filePath.startsWith("/") ? filePath : `/${filePath}`;
   return `${endpoint}${normalized}`;
+};
+
+const ensureDir = (dir) => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+};
+
+const moveUploadedFile = (uploadedFile, destPath) => {
+  if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+  try {
+    fs.renameSync(uploadedFile.path, destPath);
+  } catch (error) {
+    // Windows/cross-device temp dirs often fail rename with EXDEV
+    if (error?.code === "EXDEV") {
+      fs.copyFileSync(uploadedFile.path, destPath);
+      fs.unlinkSync(uploadedFile.path);
+    } else {
+      throw error;
+    }
+  }
+  return destPath;
 };
 
 /**
@@ -71,4 +93,42 @@ export const storeDataUrlImage = async (dataUrl, fileName = "signature.png") => 
   return storeDocumentImage(fakeFile, "/booking-signatures");
 };
 
-export default { storeDocumentImage, storeDataUrlImage };
+/**
+ * Persist template logo/signature for durable reuse across deploys.
+ * Prefer ImageKit (public branding assets). Always keep a local cache copy.
+ * Returns a stable URL suitable for Mongo ExportTemplate.logoUrl / companySignatureUrl.
+ */
+export const storeTemplateAsset = async (file, { kind = "logo", templateId = "template" } = {}) => {
+  if (!file?.path) throw new Error("No file provided");
+
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  const safeExt = [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext) ? ext : ".png";
+  const safeKind = kind === "signature" ? "signature" : "logo";
+  const fileName = `${safeKind}-${templateId}${safeExt}`;
+
+  ensureDir(TEMPLATE_ASSET_DIR);
+  const destPath = path.join(TEMPLATE_ASSET_DIR, fileName);
+  moveUploadedFile(file, destPath);
+  const localUrl = toRelativeUploadUrl(destPath);
+
+  if (imageKitConfigured() && imagekit) {
+    try {
+      const fileBuffer = fs.readFileSync(destPath);
+      const response = await imagekit.upload({
+        file: fileBuffer,
+        fileName,
+        folder: "/template-assets",
+        // Public branding assets — must survive deploys and render in PDF/admin without HMAC.
+        isPrivateFile: false,
+        useUniqueFileName: true,
+      });
+      return canonicalImageKitUrl(response.filePath);
+    } catch (error) {
+      console.error("ImageKit template asset upload failed, using local URL:", error.message);
+    }
+  }
+
+  return localUrl;
+};
+
+export default { storeDocumentImage, storeDataUrlImage, storeTemplateAsset };

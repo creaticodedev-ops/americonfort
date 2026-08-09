@@ -7,6 +7,7 @@ import { buildDocumentHtml, buildTemplateVariables } from '../services/templateE
 import { logAudit } from '../utils/adminOps.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
 import { resolveContractTemplate } from '../utils/resolveExportTemplate.js';
+import { streamPdfFile } from '../utils/streamPdfFile.js';
 import {
   snapshotTemplate,
   buildContractSourceData,
@@ -591,8 +592,22 @@ export const downloadContractPdf = async (req, res) => {
     let filePath = resolveExistingPdfPath(contract);
     if (!filePath) {
       await hydrateLegacyDocument(contract, { type: 'contract', owner: req.user });
-      await renderAndStorePdf({ type: 'contract', doc: contract, owner: req.user });
-      await contract.save();
+      try {
+        await renderAndStorePdf({ type: 'contract', doc: contract, owner: req.user });
+      } catch (renderError) {
+        console.error('[contract pdf] render failed:', renderError?.message || renderError);
+        return res.status(500).json({
+          success: false,
+          message: renderError?.message || 'Failed to generate contract PDF',
+        });
+      }
+
+      // Persist metadata, but still stream the file if Mongo save fails (e.g. BSON size).
+      try {
+        await contract.save();
+      } catch (saveError) {
+        console.error('[contract pdf] save after render failed:', saveError?.message || saveError);
+      }
       filePath = contract.pdfPath;
     }
 
@@ -600,10 +615,7 @@ export const downloadContractPdf = async (req, res) => {
       return res.status(404).json({ success: false, message: 'PDF not available' });
     }
 
-    const safeName = String(contract.contractNumber || 'contract').replace(/[^\w.-]+/g, '_');
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`);
-    return fs.createReadStream(filePath).pipe(res);
+    return streamPdfFile(res, filePath, `${contract.contractNumber || 'contract'}.pdf`);
   } catch (error) {
     console.error('[contract pdf]', error?.message || error);
     if (!res.headersSent) {

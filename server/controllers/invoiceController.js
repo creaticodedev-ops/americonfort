@@ -8,6 +8,7 @@ import { buildDocumentHtml } from '../services/templateEngine.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
 import { getDefaultInvoiceTemplate } from '../utils/resolveExportTemplate.js';
 import { logAudit } from '../utils/adminOps.js';
+import { streamPdfFile } from '../utils/streamPdfFile.js';
 import {
   snapshotTemplate,
   buildInvoiceSourceData,
@@ -719,8 +720,20 @@ export const downloadInvoicePdf = async (req, res) => {
     let filePath = resolveExistingPdfPath(invoice);
     if (!filePath) {
       await hydrateLegacyDocument(invoice, { type: 'invoice', owner: req.user });
-      await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
-      await invoice.save();
+      try {
+        await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
+      } catch (renderError) {
+        console.error('[invoice pdf] render failed:', renderError?.message || renderError);
+        return res.status(500).json({
+          success: false,
+          message: renderError?.message || 'Failed to generate invoice PDF',
+        });
+      }
+      try {
+        await invoice.save();
+      } catch (saveError) {
+        console.error('[invoice pdf] save after render failed:', saveError?.message || saveError);
+      }
       filePath = invoice.pdfPath;
     }
 
@@ -728,10 +741,7 @@ export const downloadInvoicePdf = async (req, res) => {
       return res.status(404).json({ success: false, message: 'PDF not available' });
     }
 
-    const safeName = String(invoice.invoiceNumber || 'invoice').replace(/[^\w.-]+/g, '_');
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`);
-    return fs.createReadStream(filePath).pipe(res);
+    return streamPdfFile(res, filePath, `${invoice.invoiceNumber || 'invoice'}.pdf`);
   } catch (error) {
     console.error('[invoice pdf]', error?.message || error);
     if (!res.headersSent) {

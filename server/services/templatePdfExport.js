@@ -8,6 +8,7 @@ import {
 } from './templateEngine.js';
 import { publicUploadUrl } from './pdfDocuments.js';
 import { launchPdfBrowser } from '../utils/launchPdfBrowser.js';
+import { resolveImageAsDataUri } from '../utils/uploadPaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONTRACTS_ROOT = path.join(__dirname, '..', 'uploads', 'contracts');
@@ -33,14 +34,6 @@ const htmlToPlainText = (html) => {
     .trim();
 };
 
-const mimeFromUrlOrPath = (value = '') => {
-  const lower = String(value).toLowerCase();
-  if (lower.includes('.png') || lower.includes('image/png')) return 'image/png';
-  if (lower.includes('.webp') || lower.includes('image/webp')) return 'image/webp';
-  if (lower.includes('.gif') || lower.includes('image/gif')) return 'image/gif';
-  return 'image/jpeg';
-};
-
 /**
  * Embed remote <img src="http(s):..."> as data URIs so PDF rendering does not
  * depend on networkidle / external CDN availability.
@@ -54,26 +47,32 @@ const embedRemoteImagesAsDataUris = async (html) => {
 
   await Promise.all(
     uniqueUrls.map(async (url) => {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 12_000);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timer);
-        if (!res.ok) return;
-        const contentType = (res.headers.get('content-type') || mimeFromUrlOrPath(url)).split(';')[0].trim();
-        if (!contentType.startsWith('image/')) return;
-        const buf = Buffer.from(await res.arrayBuffer());
-        if (!buf.length || buf.length > 8 * 1024 * 1024) return;
-        replacements.set(url, `data:${contentType};base64,${buf.toString('base64')}`);
-      } catch (error) {
-        console.warn('[PDF_GEN] Could not embed remote image:', url.slice(0, 120), error.message);
-      }
+      const dataUri = await resolveImageAsDataUri(url);
+      if (dataUri) replacements.set(url, dataUri);
     }),
   );
 
   let next = html;
   for (const [url, dataUri] of replacements.entries()) {
     next = next.split(url).join(dataUri);
+  }
+  return next;
+};
+
+/** Pre-resolve template logo/signature so PDF never depends on ephemeral local disk alone. */
+const embedTemplateAssetUrls = async (template = {}) => {
+  const next = { ...(template?.toObject ? template.toObject() : template) };
+  if (next.logoUrl) {
+    const logoData = await resolveImageAsDataUri(next.logoUrl);
+    if (logoData) next.logoUrl = logoData;
+  }
+  const signatureUrl = next.companySignatureUrl || next.signatureUrl;
+  if (signatureUrl) {
+    const sigData = await resolveImageAsDataUri(signatureUrl);
+    if (sigData) {
+      next.companySignatureUrl = sigData;
+      next.signatureUrl = sigData;
+    }
   }
   return next;
 };
@@ -101,9 +100,10 @@ const renderHtmlToPdf = async (html, filePath, pageSize = 'A4') => {
 
 export const generatePdfFromTemplate = async ({ template, variables, filePath, title = 'Document' }) => {
   ensureDir(path.dirname(filePath));
-  const fullHtml = buildDocumentHtml(template, variables);
+  const readyTemplate = await embedTemplateAssetUrls(template);
+  const fullHtml = buildDocumentHtml(readyTemplate, variables);
   const html = fullHtml.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
-  await renderHtmlToPdf(html, filePath, template?.pageSize || 'A4');
+  await renderHtmlToPdf(html, filePath, readyTemplate?.pageSize || 'A4');
   return filePath;
 };
 
@@ -127,8 +127,14 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
     throw new Error('Contract owner is required');
   }
 
-  const variables = buildTemplateVariables(booking, { contractNumber, owner, template, includeCompanyStamp });
-  const fullHtml = buildDocumentHtml(template, variables);
+  const readyTemplate = await embedTemplateAssetUrls(template);
+  const variables = buildTemplateVariables(booking, {
+    contractNumber,
+    owner,
+    template: readyTemplate,
+    includeCompanyStamp,
+  });
+  const fullHtml = buildDocumentHtml(readyTemplate, variables);
 
   const dir = path.join(CONTRACTS_ROOT, String(owner._id || owner));
   ensureDir(dir);
@@ -138,7 +144,7 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
   const filePath = path.join(dir, fileName);
 
   await generatePdfFromTemplate({
-    template,
+    template: readyTemplate,
     variables,
     filePath,
     title: `Contract ${contractNumber}`,
@@ -157,20 +163,25 @@ export const generateDocumentFromTemplate = async ({ template, booking, owner, d
     throw new Error('Export template is required');
   }
 
-  const variables = buildTemplateVariables(booking, { owner, template, includeCompanyStamp });
-  const fullHtml = buildDocumentHtml(template, variables);
+  const readyTemplate = await embedTemplateAssetUrls(template);
+  const variables = buildTemplateVariables(booking, {
+    owner,
+    template: readyTemplate,
+    includeCompanyStamp,
+  });
+  const fullHtml = buildDocumentHtml(readyTemplate, variables);
 
   const dir = path.join(CONTRACTS_ROOT, String(owner._id || owner), 'exports');
   ensureDir(dir);
   const token = Math.random().toString(36).slice(2, 10);
-  const fileName = `${template.type || 'doc'}-${token}.pdf`;
+  const fileName = `${readyTemplate.type || template.type || 'doc'}-${token}.pdf`;
   const filePath = path.join(dir, fileName);
 
   await generatePdfFromTemplate({
-    template,
+    template: readyTemplate,
     variables,
     filePath,
-    title: documentTitle || template.name,
+    title: documentTitle || readyTemplate.name || template.name,
   });
 
   return {

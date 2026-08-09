@@ -201,6 +201,33 @@ const ExportTemplates = () => {
     }
   }
 
+  const clearAsset = async (templateId, kind) => {
+    if (!templateId || templateId === 'new') return
+    setUploadingAsset(kind)
+    try {
+      const payload = kind === 'logo'
+        ? { clearLogo: true }
+        : { clearCompanySignature: true }
+      const { data } = await axios.put(`/api/export-templates/${templateId}`, payload)
+      if (data.success) {
+        toast.success(data.message)
+        setAssetUrls((prev) => ({
+          ...prev,
+          ...(kind === 'logo'
+            ? { logoUrl: '' }
+            : { companySignatureUrl: '' }),
+        }))
+        fetchTemplates()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setUploadingAsset('')
+    }
+  }
+
   const runPreview = async () => {
     if (editing === 'new') {
       toast.error(t('admin.templates.saveBeforePreview'))
@@ -299,14 +326,28 @@ const ExportTemplates = () => {
                     alt=""
                     className="h-14 w-auto max-w-full object-contain rounded border border-borderColor bg-light p-1"
                   />
-                ) : null}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="text-sm"
-                  disabled={uploadingAsset === 'logo'}
-                  onChange={(e) => uploadLogo(editing, e.target.files?.[0], e.target)}
-                />
+                ) : (
+                  <p className="text-xs text-muted">{t('admin.templates.noAsset')}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="text-sm"
+                    disabled={uploadingAsset === 'logo'}
+                    onChange={(e) => uploadLogo(editing, e.target.files?.[0], e.target)}
+                  />
+                  {assetUrls.logoUrl ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(uploadingAsset)}
+                      onClick={() => clearAsset(editing, 'logo')}
+                      className="text-xs text-red-700 hover:underline disabled:opacity-50"
+                    >
+                      {t('admin.templates.removeAsset')}
+                    </button>
+                  ) : null}
+                </div>
                 {uploadingAsset === 'logo' ? (
                   <p className="text-xs text-muted">{t('admin.common.loading')}</p>
                 ) : null}
@@ -319,14 +360,28 @@ const ExportTemplates = () => {
                     alt=""
                     className="h-14 w-auto max-w-full object-contain rounded border border-borderColor bg-light p-1"
                   />
-                ) : null}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="text-sm"
-                  disabled={uploadingAsset === 'signature'}
-                  onChange={(e) => uploadSignature(editing, e.target.files?.[0], e.target)}
-                />
+                ) : (
+                  <p className="text-xs text-muted">{t('admin.templates.noAsset')}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="text-sm"
+                    disabled={uploadingAsset === 'signature'}
+                    onChange={(e) => uploadSignature(editing, e.target.files?.[0], e.target)}
+                  />
+                  {assetUrls.companySignatureUrl ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(uploadingAsset)}
+                      onClick={() => clearAsset(editing, 'signature')}
+                      className="text-xs text-red-700 hover:underline disabled:opacity-50"
+                    >
+                      {t('admin.templates.removeAsset')}
+                    </button>
+                  ) : null}
+                </div>
                 {uploadingAsset === 'signature' ? (
                   <p className="text-xs text-muted">{t('admin.common.loading')}</p>
                 ) : null}

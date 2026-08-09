@@ -235,3 +235,26 @@ body.nav-open {
   flex: 1;
   min-width: 0;
 }
+
+/* Indeterminate progress for real PDF generation requests (no fake %) */
+@keyframes docPdfProgressSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.doc-pdf-progress-indeterminate {
+  width: 42%;
+  animation: docPdfProgressSlide 1.15s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-pdf-progress-indeterminate {
+    width: 55%;
+    animation: none;
+    opacity: 0.85;
+  }
+}

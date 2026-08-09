@@ -92,7 +92,10 @@ app.use((_req, res, next) => {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self' https://checkout.stripe.com",
-    "img-src 'self' data: blob: https://ik.imagekit.io https://images.unsplash.com",
+    [
+      "img-src 'self' data: blob: https://ik.imagekit.io https://images.unsplash.com",
+      (process.env.API_PUBLIC_URL || "").replace(/\/$/, ""),
+    ].filter(Boolean).join(" "),
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self'",
@@ -104,8 +107,10 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Signature payloads can be larger than default
-app.use(express.json({ limit: "4mb" }));
+// Signature payloads + multi-section document HTML can exceed the default body size.
+// Keep above 5 × MAX_SECTION_HTML_BYTES (1mb each) so Save & regenerate is not rejected
+// by the parser before the controller runs.
+app.use(express.json({ limit: "8mb" }));
 
 // Sensitive docs require signed URL or admin JWT
 app.use(
@@ -181,10 +186,25 @@ app.use((_req, res) => {
 
 app.use((err, _req, res, _next) => {
   console.error(err?.message || err);
+  if (res.headersSent) return;
   if (err.message === "Not allowed by CORS") {
     return res.status(403).json({ success: false, message: "CORS policy violation" });
   }
-  res.status(500).json({ success: false, message: "Internal server error" });
+  if (err.type === "entity.too.large" || err.status === 413 || err.statusCode === 413) {
+    return res.status(413).json({
+      success: false,
+      message: "Request body too large. Reduce embedded images in document HTML sections.",
+    });
+  }
+  const status = Number(err.status || err.statusCode) || 500;
+  const safeStatus = status >= 400 && status < 600 ? status : 500;
+  res.status(safeStatus).json({
+    success: false,
+    message:
+      safeStatus === 500
+        ? "Internal server error"
+        : (err.message || "Request failed"),
+  });
 });
 
 const PORT = process.env.PORT || 3000;

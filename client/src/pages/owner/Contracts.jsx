@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Title from '../../components/owner/Title'
 import DocumentEditor from '../../components/owner/DocumentEditor'
+import DocumentPdfProgress, { buildPdfJobStages } from '../../components/DocumentPdfProgress'
+import { useDocumentPdfJob } from '../../hooks/useDocumentPdfJob'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -29,7 +31,8 @@ const Contracts = () => {
   const [cin, setCin] = useState('')
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
+  const generateJob = useDocumentPdfJob()
+  const generating = generateJob.isRunning
   const [showGenerate, setShowGenerate] = useState(false)
   const [generateForm, setGenerateForm] = useState({
     bookingId: '',
@@ -340,44 +343,85 @@ const Contracts = () => {
       toast.error(t('admin.contracts.bookingRequired'))
       return
     }
-    setGenerating(true)
-    try {
+    if (generateJob.isRunning) return
+
+    const outcome = await generateJob.run(async () => {
       const saved = await saveContractDetails()
-      if (!saved) return
-      const { data } = await axios.post('/api/contracts/generate', {
-        bookingId: generateForm.bookingId,
-        templateId: generateForm.templateId || undefined,
-        includeCompanyStamp: generateForm.includeCompanyStamp,
-        forceFromBooking,
-      })
-      if (data.success) {
-        toast.success(data.message)
-        setShowGenerate(false)
-        setPreviewHtml('')
-        fetchContracts()
-      } else if (data.code === 'SOURCE_LOCKED') {
-        const ok = window.confirm(
-          t('admin.documents.replaceEditsConfirm')
-          || 'This document has manual edits. Regenerate from booking and replace them?',
-        )
-        if (ok) await generateContract({ forceFromBooking: true })
-      } else {
-        toast.error(data.message)
+      if (!saved) {
+        const err = new Error('SAVE_DETAILS_FAILED')
+        err.silent = true
+        throw err
       }
-    } catch (error) {
-      const code = error?.response?.data?.code
-      if (code === 'SOURCE_LOCKED') {
-        const ok = window.confirm(
-          t('admin.documents.replaceEditsConfirm')
-          || 'This document has manual edits. Regenerate from booking and replace them?',
-        )
-        if (ok) await generateContract({ forceFromBooking: true })
-      } else {
-        toast.error(getErrorMessage(error))
+      try {
+        const { data } = await axios.post('/api/contracts/generate', {
+          bookingId: generateForm.bookingId,
+          templateId: generateForm.templateId || undefined,
+          includeCompanyStamp: generateForm.includeCompanyStamp,
+          forceFromBooking,
+        })
+        if (data.success) return data
+        if (data.code === 'SOURCE_LOCKED') {
+          const err = new Error(data.message || 'SOURCE_LOCKED')
+          err.code = 'SOURCE_LOCKED'
+          throw err
+        }
+        throw new Error(data.message || 'Failed to generate contract')
+      } catch (error) {
+        const code = error?.code || error?.response?.data?.code
+        if (code === 'SOURCE_LOCKED') {
+          const ok = window.confirm(
+            t('admin.documents.replaceEditsConfirm')
+            || 'This document has manual edits. Regenerate from booking and replace them?',
+          )
+          if (!ok) {
+            const cancelErr = new Error('cancelled')
+            cancelErr.cancelled = true
+            throw cancelErr
+          }
+          const { data: forced } = await axios.post('/api/contracts/generate', {
+            bookingId: generateForm.bookingId,
+            templateId: generateForm.templateId || undefined,
+            includeCompanyStamp: generateForm.includeCompanyStamp,
+            forceFromBooking: true,
+          })
+          if (!forced.success) throw new Error(forced.message || 'Failed to generate contract')
+          return forced
+        }
+        throw error
       }
-    } finally {
-      setGenerating(false)
+    })
+
+    if (outcome.duplicate) return
+    if (!outcome.ok) {
+      if (outcome.error?.cancelled || outcome.error?.silent) {
+        generateJob.reset()
+        return
+      }
+      toast.error(getErrorMessage(outcome.error) || t('admin.contracts.generateFailed'))
+      return
     }
+
+    toast.success(outcome.data.message)
+    const contract = outcome.data.contract
+    if (contract?.renderedHtml) {
+      setPreviewHtml(contract.renderedHtml)
+      setPreviewTitle(contract.contractNumber || t('admin.contracts.preview'))
+    } else if (contract?._id) {
+      try {
+        const { data: prev } = await axios.get(`/api/contracts/${contract._id}/preview`)
+        if (prev.success) {
+          setPreviewHtml(prev.html || '')
+          setPreviewTitle(contract.contractNumber || t('admin.contracts.preview'))
+        }
+      } catch {
+        /* list refresh is enough */
+      }
+    }
+    fetchContracts()
+    window.setTimeout(() => {
+      setShowGenerate(false)
+      generateJob.reset()
+    }, 650)
   }
 
   const previewContract = async (contract) => {
@@ -468,10 +512,40 @@ const Contracts = () => {
       </form>
 
       {showGenerate && (
-        <div className="rounded-2xl border border-borderColor bg-white p-5 space-y-4">
+        <div className="relative rounded-2xl border border-borderColor bg-white p-5 space-y-4">
+          {generateJob.isActive ? (
+            <DocumentPdfProgress
+              status={generateJob.status}
+              title={
+                generateJob.status === 'success'
+                  ? t('admin.contracts.stageReady')
+                  : t('admin.contracts.generatingTitle')
+              }
+              subtitle={
+                generateJob.status === 'error' ? undefined : t('admin.contracts.generatingHint')
+              }
+              stages={buildPdfJobStages(generateJob.status, {
+                generating: t('admin.contracts.stageGenerating'),
+                ready: t('admin.contracts.stageReady'),
+              })}
+              errorMessage={
+                getErrorMessage(generateJob.error) || t('admin.contracts.generateFailed')
+              }
+              onRetry={generateJob.status === 'error' ? () => generateContract() : undefined}
+              retryLabel={t('admin.contracts.retryGenerate')}
+              variant="overlay"
+            />
+          ) : null}
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-lg">{t('admin.contracts.generate')}</h2>
-            <button type="button" onClick={() => setShowGenerate(false)} className="text-sm text-gray-500">×</button>
+            <button
+              type="button"
+              disabled={generating}
+              onClick={() => setShowGenerate(false)}
+              className="text-sm text-gray-500 disabled:opacity-50"
+            >
+              ×
+            </button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -587,16 +661,21 @@ const Contracts = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={previewFromBooking} className="px-4 py-2 rounded-xl border border-borderColor text-sm">
+            <button
+              type="button"
+              disabled={generating}
+              onClick={previewFromBooking}
+              className="px-4 py-2 rounded-xl border border-borderColor text-sm disabled:opacity-60"
+            >
               {t('admin.contracts.previewDraft')}
             </button>
             <button
               type="button"
               disabled={generating}
-              onClick={generateContract}
+              onClick={() => generateContract()}
               className="px-4 py-2 rounded-xl bg-primary text-white text-sm disabled:opacity-60"
             >
-              {generating ? t('admin.contracts.generating') : t('admin.contracts.generateFinal')}
+              {generating ? t('admin.contracts.generatingTitle') : t('admin.contracts.generateFinal')}
             </button>
           </div>
         </div>

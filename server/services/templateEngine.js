@@ -385,12 +385,17 @@ export const buildDocumentHtml = (template, variables) => {
   const footerPage2 = twoPages
     ? `${footer}<p class="page-indicator muted">Page 2 / 2</p>`
     : '';
-  const logoDataUri = logoToDataUri(safeTemplate.logoUrl);
-  const logoSrc = logoDataUri
-    || (safeTemplate.logoUrl ? signDocumentAccessUrl(safeTemplate.logoUrl, 60 * 60) : '');
-  const logo = logoSrc
-    ? `<img src="${logoSrc}" alt="Logo" style="max-height:48px;margin-bottom:8px;" />`
-    : '';
+  let logo = '';
+  try {
+    const logoDataUri = logoToDataUri(safeTemplate.logoUrl);
+    const logoSrc = logoDataUri
+      || (safeTemplate.logoUrl ? signDocumentAccessUrl(safeTemplate.logoUrl, 60 * 60) : '');
+    logo = logoSrc
+      ? `<img src="${logoSrc}" alt="Logo" style="max-height:48px;margin-bottom:8px;" />`
+      : '';
+  } catch (error) {
+    console.error('[IMAGE_HTML] Failed for Logo', error.message);
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">

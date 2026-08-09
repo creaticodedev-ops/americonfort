@@ -9,39 +9,29 @@ import {
   DEFAULT_CONTRACT_TERMS_HTML,
   DEFAULT_INVOICE_BODY,
 } from '../services/defaultTemplates.js';
-import { publicUploadUrl } from '../services/pdfDocuments.js';
+import { storeTemplateAsset } from '../services/documentStore.js';
 import { resolveOwnerId } from '../utils/resolveExportTemplate.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { cleanupUploadedFile } from '../middleware/multer.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATE_ASSET_DIR = path.join(__dirname, '..', 'uploads', 'templates');
-
-const ensureTemplateAssetDir = () => {
-  if (!fs.existsSync(TEMPLATE_ASSET_DIR)) fs.mkdirSync(TEMPLATE_ASSET_DIR, { recursive: true });
+/** Make relative `/uploads/...` asset URLs absolute for admin previews. */
+const absolutizeAssetUrl = (url) => {
+  if (!url) return '';
+  const raw = String(url).trim();
+  if (!raw || raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) {
+    return raw;
+  }
+  const base = (process.env.API_PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
+  return `${base}${raw.startsWith('/') ? raw : `/${raw}`}`;
 };
 
-const persistTemplateAsset = (templateId, uploadedFile, kind) => {
-  ensureTemplateAssetDir();
-  const ext = path.extname(uploadedFile.originalname || '').toLowerCase();
-  const safeExt = ['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext) ? ext : '.png';
-  const fileName = `${kind}-${templateId}${safeExt}`;
-  const destPath = path.join(TEMPLATE_ASSET_DIR, fileName);
-  if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
-  try {
-    fs.renameSync(uploadedFile.path, destPath);
-  } catch (error) {
-    // Windows/cross-device temp dirs often fail rename with EXDEV
-    if (error?.code === 'EXDEV') {
-      fs.copyFileSync(uploadedFile.path, destPath);
-      fs.unlinkSync(uploadedFile.path);
-    } else {
-      throw error;
-    }
-  }
-  return destPath;
+const withAbsoluteAssets = (template) => {
+  if (!template) return template;
+  const obj = typeof template.toObject === 'function' ? template.toObject() : { ...template };
+  return {
+    ...obj,
+    logoUrl: absolutizeAssetUrl(obj.logoUrl),
+    companySignatureUrl: absolutizeAssetUrl(obj.companySignatureUrl),
+  };
 };
 
 const BUILTIN_CONTRACT_VERSION = 5;
@@ -143,7 +133,7 @@ export const listExportTemplates = async (req, res) => {
     }
 
     const templates = await ExportTemplate.find(query).sort({ isDefault: -1, name: 1 }).lean();
-    res.json({ success: true, templates });
+    res.json({ success: true, templates: templates.map(withAbsoluteAssets) });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to load templates' });
@@ -161,7 +151,7 @@ export const getExportTemplate = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
-    res.json({ success: true, template });
+    res.json({ success: true, template: withAbsoluteAssets(template) });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to load template' });
@@ -198,7 +188,7 @@ export const createExportTemplate = async (req, res) => {
       isDefault: Boolean(isDefault),
     });
 
-    res.status(201).json({ success: true, message: 'Template created', template });
+    res.status(201).json({ success: true, message: 'Template created', template: withAbsoluteAssets(template) });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to create template' });
@@ -216,7 +206,22 @@ export const updateExportTemplate = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
-    const { name, type, headerHtml, bodyHtml, termsHtml, footerHtml, customCss, pageSize, isDefault, isActive } = req.body;
+    const {
+      name,
+      type,
+      headerHtml,
+      bodyHtml,
+      termsHtml,
+      footerHtml,
+      customCss,
+      pageSize,
+      isDefault,
+      isActive,
+      logoUrl,
+      companySignatureUrl,
+      clearLogo,
+      clearCompanySignature,
+    } = req.body;
 
     if (name !== undefined) template.name = String(name).trim();
     if (type !== undefined && ['contract', 'invoice', 'custom'].includes(type)) template.type = type;
@@ -227,6 +232,19 @@ export const updateExportTemplate = async (req, res) => {
     if (customCss !== undefined) template.customCss = customCss;
     if (pageSize !== undefined) template.pageSize = pageSize === 'Letter' ? 'Letter' : 'A4';
     if (isActive !== undefined) template.isActive = Boolean(isActive);
+
+    // Asset fields: never wipe on ordinary HTML saves. Only replace when a new
+    // non-empty URL is provided, or when an explicit clear flag is sent.
+    if (typeof logoUrl === 'string' && logoUrl.trim()) {
+      template.logoUrl = logoUrl.trim();
+    } else if (clearLogo === true) {
+      template.logoUrl = '';
+    }
+    if (typeof companySignatureUrl === 'string' && companySignatureUrl.trim()) {
+      template.companySignatureUrl = companySignatureUrl.trim();
+    } else if (clearCompanySignature === true) {
+      template.companySignatureUrl = '';
+    }
 
     if (isDefault) {
       await ExportTemplate.updateMany(
@@ -239,7 +257,7 @@ export const updateExportTemplate = async (req, res) => {
     }
 
     await template.save();
-    res.json({ success: true, message: 'Template updated', template });
+    res.json({ success: true, message: 'Template updated', template: withAbsoluteAssets(template) });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to update template' });
@@ -283,11 +301,19 @@ export const uploadTemplateLogo = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
-    const destPath = persistTemplateAsset(template._id, req.file, 'logo');
-    template.logoUrl = publicUploadUrl(destPath);
+    template.logoUrl = await storeTemplateAsset(req.file, {
+      kind: 'logo',
+      templateId: String(template._id),
+    });
     await template.save();
 
-    res.json({ success: true, message: 'Logo uploaded', logoUrl: template.logoUrl, template });
+    const responseTemplate = withAbsoluteAssets(template);
+    res.json({
+      success: true,
+      message: 'Logo uploaded',
+      logoUrl: responseTemplate.logoUrl,
+      template: responseTemplate,
+    });
   } catch (error) {
     cleanupUploadedFile(req.file);
     console.error('[template logo]', error?.message || error);
@@ -311,11 +337,19 @@ export const uploadTemplateSignature = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
-    const destPath = persistTemplateAsset(template._id, req.file, 'signature');
-    template.companySignatureUrl = publicUploadUrl(destPath);
+    template.companySignatureUrl = await storeTemplateAsset(req.file, {
+      kind: 'signature',
+      templateId: String(template._id),
+    });
     await template.save();
 
-    res.json({ success: true, message: 'Signature uploaded', companySignatureUrl: template.companySignatureUrl, template });
+    const responseTemplate = withAbsoluteAssets(template);
+    res.json({
+      success: true,
+      message: 'Signature uploaded',
+      companySignatureUrl: responseTemplate.companySignatureUrl,
+      template: responseTemplate,
+    });
   } catch (error) {
     cleanupUploadedFile(req.file);
     console.error('[template signature]', error?.message || error);
