@@ -53,6 +53,7 @@ const formatShort = (iso, language) => {
 const MonthGrid = ({
   monthDate,
   minDate,
+  maxDate,
   start,
   end,
   hover,
@@ -94,7 +95,7 @@ const MonthGrid = ({
         {cells.map((date, idx) => {
           if (!date) return <div key={`empty-${idx}`} className="h-9 sm:h-10" />
 
-          const disabled = isBeforeDay(date, minDate)
+          const disabled = isBeforeDay(date, minDate) || (maxDate && isAfterDay(date, maxDate))
           const isStart = sameDay(date, start)
           const isEnd = sameDay(date, end) || (!end && hover && sameDay(date, hover) && start && !sameDay(start, hover))
           const inRange =
@@ -156,6 +157,7 @@ const DateRangePicker = ({
   endDate,
   onChange,
   minDate,
+  maxDate,
   pickupLabel,
   returnLabel,
   className = '',
@@ -172,6 +174,7 @@ const DateRangePicker = ({
   const panelRef = useRef(null)
 
   const min = useMemo(() => startOfDay(minDate || new Date()), [minDate])
+  const max = useMemo(() => (maxDate ? startOfDay(maxDate) : null), [maxDate])
   const start = useMemo(() => parseISODate(startDate), [startDate])
   const end = useMemo(() => parseISODate(endDate), [endDate])
   const weekdays = WEEKDAYS[language] || WEEKDAYS.en
@@ -259,6 +262,7 @@ const DateRangePicker = ({
 
   const handleSelect = (date) => {
     if (isBeforeDay(date, min)) return
+    if (max && isAfterDay(date, max)) return
 
     if (activeField === 'start' || !start || (start && end)) {
       onChange({ startDate: toISODate(date), endDate: '' })
@@ -351,6 +355,7 @@ const DateRangePicker = ({
           <MonthGrid
             monthDate={viewMonth}
             minDate={min}
+            maxDate={max}
             start={start}
             end={end}
             hover={activeField === 'end' ? hover : null}
@@ -363,6 +368,7 @@ const DateRangePicker = ({
             <MonthGrid
               monthDate={addMonths(viewMonth, 1)}
               minDate={min}
+              maxDate={max}
               start={start}
               end={end}
               hover={activeField === 'end' ? hover : null}

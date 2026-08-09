@@ -146,6 +146,9 @@ export default function ReservationPanel({
   t,
   formatFeeLabel,
   minDate,
+  maxDate,
+  openingTime = '06:00',
+  closingTime = '22:00',
 }) {
   const ready = priceBreakdown?.ready
   const disabled = submitting || !ready
@@ -208,6 +211,9 @@ export default function ReservationPanel({
                 setPickupDate={setPickupDate}
                 setReturnDate={setReturnDate}
                 minDate={minDate}
+                maxDate={maxDate}
+                openingTime={openingTime}
+                closingTime={closingTime}
               />
               <div>
                 <Label>{t('carDetails.pickupLocation')}</Label>

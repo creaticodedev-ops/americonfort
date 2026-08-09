@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import DateRangePicker, { toISODate, parseISODate } from '../DateRangePicker'
+import DateRangePicker from '../DateRangePicker'
 import { useI18n } from '../../i18n/I18nContext'
 
 const splitDateTime = (value) => {
@@ -15,18 +15,30 @@ const splitDateTime = (value) => {
 
 const mergeDateTime = (date, time) => (date ? `${date}T${time || '10:00'}` : '')
 
-const TIME_OPTIONS = (() => {
-  const out = []
-  for (let h = 6; h <= 22; h++) {
-    for (const m of [0, 30]) {
-      out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
-    }
+const buildTimeOptions = (openingTime = '06:00', closingTime = '22:00') => {
+  const parse = (hhmm) => {
+    const [h, m] = String(hhmm || '00:00').split(':').map(Number)
+    return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
   }
-  return out
-})()
+  let open = parse(openingTime)
+  let close = parse(closingTime)
+  if (close <= open) {
+    open = 6 * 60
+    close = 22 * 60
+  }
+  const out = []
+  for (let mins = open; mins <= close; mins += 30) {
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+  }
+  return out.length ? out : ['10:00']
+}
 
-const TimeSelect = ({ label, value, onChange, id }) => {
+const TimeSelect = ({ label, value, onChange, id, options }) => {
   const { t } = useI18n()
+  const slots = options?.length ? options : buildTimeOptions()
+  const safeValue = slots.includes(value) ? value : slots[0]
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-gray-600">
@@ -40,11 +52,11 @@ const TimeSelect = ({ label, value, onChange, id }) => {
         </span>
         <select
           id={id}
-          value={value}
+          value={safeValue}
           onChange={(e) => onChange(e.target.value)}
           className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent py-2 text-sm text-ink focus:outline-none focus:ring-0"
         >
-          {TIME_OPTIONS.map((slot) => (
+          {slots.map((slot) => (
             <option key={slot} value={slot}>
               {slot}
             </option>
@@ -63,10 +75,17 @@ export default function ReservationDateTimes({
   setPickupDate,
   setReturnDate,
   minDate,
+  maxDate,
+  openingTime = '06:00',
+  closingTime = '22:00',
 }) {
   const { t } = useI18n()
   const pickup = useMemo(() => splitDateTime(pickupDate), [pickupDate])
   const ret = useMemo(() => splitDateTime(returnDate), [returnDate])
+  const timeOptions = useMemo(
+    () => buildTimeOptions(openingTime, closingTime),
+    [openingTime, closingTime],
+  )
 
   const startISO = pickup.date
   const endISO = ret.date
@@ -92,6 +111,7 @@ export default function ReservationDateTimes({
           endDate={endISO}
           onChange={handleRangeChange}
           minDate={minDate}
+          maxDate={maxDate}
           pickupLabel={t('carDetails.pickupDate')}
           returnLabel={t('carDetails.returnDate')}
           className="w-full"
@@ -102,6 +122,7 @@ export default function ReservationDateTimes({
           id="pickup-time"
           label={t('carDetails.pickupTime')}
           value={pickup.time}
+          options={timeOptions}
           onChange={(time) => {
             if (pickup.date) setPickupDate(mergeDateTime(pickup.date, time))
           }}
@@ -110,6 +131,7 @@ export default function ReservationDateTimes({
           id="return-time"
           label={t('carDetails.returnTime')}
           value={ret.time}
+          options={timeOptions}
           onChange={(time) => {
             if (ret.date) setReturnDate(mergeDateTime(ret.date, time))
           }}
@@ -118,5 +140,3 @@ export default function ReservationDateTimes({
     </div>
   )
 }
-
-export { splitDateTime, mergeDateTime, parseISODate, toISODate }

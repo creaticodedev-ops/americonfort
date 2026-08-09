@@ -36,6 +36,7 @@ const CarDetails = () => {
 
   const navigate = useNavigate()
   const [car, setCar] = useState(null)
+  const [bookingSettings, setBookingSettings] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
@@ -51,20 +52,29 @@ const CarDetails = () => {
   const fallbackImage = assets.car_image1
 
   useEffect(() => {
+    const applySettings = (settings) => {
+      if (settings) setBookingSettings(settings)
+    }
+
     const fromList = cars.find((c) => c._id === id)
     if (fromList) {
       setCar(fromList)
-      return
     }
 
     const fetchCar = async () => {
       try {
         const { data } = await axios.get(`/api/user/cars/${id}`)
-        if (data.success) setCar(data.car)
-        else setNotFound(true)
+        if (data.success) {
+          if (!fromList) setCar(data.car)
+          applySettings(data.bookingSettings)
+        } else if (!fromList) {
+          setNotFound(true)
+        }
       } catch (error) {
-        if (error.response?.status === 404) setNotFound(true)
-        else toast.error(getErrorMessage(error))
+        if (!fromList) {
+          if (error.response?.status === 404) setNotFound(true)
+          else toast.error(getErrorMessage(error))
+        }
       }
     }
 
@@ -96,6 +106,14 @@ const CarDetails = () => {
     const citySet = new Set(cities.map((c) => c.toLowerCase()))
     return pickupLocations.filter((l) => citySet.has(String(l.city || '').toLowerCase()))
   }, [car, pickupLocations])
+
+  useEffect(() => {
+    if (bookingSettings?.pickupReturn?.allowDifferentReturnLocation === false && form.pickupLocationId) {
+      if (form.returnLocationId !== form.pickupLocationId) {
+        setForm((f) => ({ ...f, returnLocationId: f.pickupLocationId }))
+      }
+    }
+  }, [bookingSettings, form.pickupLocationId, form.returnLocationId])
 
   const priceBreakdown = useMemo(() => {
     if (!car) return null
@@ -177,7 +195,27 @@ const CarDetails = () => {
     }
   }
 
-  const minDate = new Date()
+  const minDate = useMemo(() => {
+    const d = new Date()
+    const minHours = Number(bookingSettings?.minAdvanceHours) || 0
+    if (minHours > 0) d.setHours(d.getHours() + minHours)
+    if (bookingSettings?.allowSameDayBooking === false) {
+      d.setDate(d.getDate() + 1)
+      d.setHours(0, 0, 0, 0)
+    }
+    return d
+  }, [bookingSettings])
+
+  const maxDate = useMemo(() => {
+    const maxDays = Number(bookingSettings?.maxAdvanceDays) || 0
+    if (maxDays <= 0) return null
+    const d = new Date()
+    d.setDate(d.getDate() + maxDays)
+    return d
+  }, [bookingSettings])
+
+  const openingTime = bookingSettings?.pickupReturn?.openingTime || '06:00'
+  const closingTime = bookingSettings?.pickupReturn?.closingTime || '22:00'
 
   if (notFound) {
     return (
@@ -293,6 +331,9 @@ const CarDetails = () => {
               t={t}
               formatFeeLabel={(loc) => formatFeeLabel(loc, currency, t('carDetails.free'))}
               minDate={minDate}
+              maxDate={maxDate}
+              openingTime={openingTime}
+              closingTime={closingTime}
             />
           </Suspense>
         </div>
