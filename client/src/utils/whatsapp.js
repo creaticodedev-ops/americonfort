@@ -1,15 +1,42 @@
-/** wa.me deep links — no Meta API. Agency: +212 665 330 116 */
+/** wa.me deep links — no Meta API. Numbers come from admin WhatsApp settings (DB) with env fallback. */
 
 import { BRAND_NAME } from '../constants/brand'
 
 export const DEFAULT_AGENCY_WHATSAPP = '212665330116'
 
-export const getAgencyWhatsAppDial = () => {
+export const normalizeWhatsAppDial = (phone) => {
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('0') && digits.length === 10) return `212${digits.slice(1)}`
+  return digits
+}
+
+/** Env fallback when DB settings are empty */
+export const getEnvAgencyWhatsAppDial = () => {
   const raw =
     import.meta.env.VITE_WHATSAPP_BUSINESS_NUMBER ||
     import.meta.env.VITE_WHATSAPP_NUMBER ||
     DEFAULT_AGENCY_WHATSAPP
-  return String(raw).replace(/\D/g, '') || DEFAULT_AGENCY_WHATSAPP
+  return normalizeWhatsAppDial(raw) || DEFAULT_AGENCY_WHATSAPP
+}
+
+/**
+ * Resolve dial from admin whatsappSettings (user.whatsappSettings).
+ * kind: 'reservation' | 'confirmation'
+ */
+export const getAgencyWhatsAppDial = (whatsappSettings, kind = 'reservation') => {
+  const settings = whatsappSettings || {}
+  const primary = kind === 'confirmation'
+    ? settings.confirmationNumber
+    : settings.reservationNumber
+  const secondary = kind === 'confirmation'
+    ? settings.reservationNumber
+    : settings.confirmationNumber
+  return (
+    normalizeWhatsAppDial(primary)
+    || normalizeWhatsAppDial(secondary)
+    || getEnvAgencyWhatsAppDial()
+  )
 }
 
 const formatDateTime = (value) => {
@@ -18,13 +45,13 @@ const formatDateTime = (value) => {
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString()
 }
 
-export const buildWaMeUrl = (text, dial = getAgencyWhatsAppDial()) => {
-  const to = String(dial).replace(/\D/g, '') || DEFAULT_AGENCY_WHATSAPP
+export const buildWaMeUrl = (text, dial = getEnvAgencyWhatsAppDial()) => {
+  const to = normalizeWhatsAppDial(dial) || getEnvAgencyWhatsAppDial()
   return `https://wa.me/${to}?text=${encodeURIComponent(text)}`
 }
 
 /** Guest reservation after form submit */
-export const buildGuestReservationWaUrl = (reservation, { currency = 'MAD' } = {}) => {
+export const buildGuestReservationWaUrl = (reservation, { currency = 'MAD', dial, whatsappSettings } = {}) => {
   const lines = [
     `Hello, I would like to confirm my ${BRAND_NAME} car rental reservation.`,
     '',
@@ -38,11 +65,12 @@ export const buildGuestReservationWaUrl = (reservation, { currency = 'MAD' } = {
     `Total: ${currency}${reservation.price ?? '—'}`,
   ]
   if (reservation.notes?.trim()) lines.push(`Notes: ${reservation.notes.trim()}`)
-  return buildWaMeUrl(lines.join('\n'))
+  const resolved = dial || getAgencyWhatsAppDial(whatsappSettings, 'reservation')
+  return buildWaMeUrl(lines.join('\n'), resolved)
 }
 
 /** Owner dashboard — open WhatsApp to agency with message to forward to customer */
-export const buildOwnerCompletionWaUrl = (booking, completionUrl, { currency = 'MAD' } = {}) => {
+export const buildOwnerCompletionWaUrl = (booking, completionUrl, { currency = 'MAD', dial, whatsappSettings } = {}) => {
   const reservationId = booking.reservationId || `RES-${booking._id?.toString().slice(-8).toUpperCase()}`
   const vehicle = booking.car
     ? `${booking.car.brand} ${booking.car.model}${booking.car.licensePlate ? ` (${booking.car.licensePlate})` : ''}`
@@ -65,20 +93,17 @@ export const buildOwnerCompletionWaUrl = (booking, completionUrl, { currency = '
     '',
     `(Customer: ${booking.customerPhone || '—'})`,
   ]
-  return buildWaMeUrl(lines.join('\n'))
+  const resolved = dial || getAgencyWhatsAppDial(whatsappSettings, 'confirmation')
+  return buildWaMeUrl(lines.join('\n'), resolved)
 }
 
 /** @deprecated use buildOwnerCompletionWaUrl */
 export const buildCompletionWhatsAppUrl = buildOwnerCompletionWaUrl
-
-export const buildGuestToAgencyWhatsAppUrlFromDial = (dial, reservation, opts) => {
-  if (dial) return buildGuestReservationWaUrl(reservation, opts)
-  return buildGuestReservationWaUrl(reservation, opts)
-}
 
 export default {
   buildGuestReservationWaUrl,
   buildOwnerCompletionWaUrl,
   buildWaMeUrl,
   getAgencyWhatsAppDial,
+  getEnvAgencyWhatsAppDial,
 }

@@ -13,6 +13,7 @@ export const OWNER_PERMISSIONS = [
   'audit',
   'contracts',
   'templates',
+  'settings',
 ];
 
 const userSchema = new mongoose.Schema({
@@ -28,6 +29,15 @@ const userSchema = new mongoose.Schema({
 
     /** Display name for the agency this admin operates */
     agencyName: { type: String, default: '' },
+
+    /**
+     * WhatsApp dial numbers used for guest reservation + booking confirmation wa.me links.
+     * Stored without +; normalized to digits (e.g. 212665330116). Empty → env fallback.
+     */
+    whatsappSettings: {
+      reservationNumber: { type: String, default: '' },
+      confirmationNumber: { type: String, default: '' },
+    },
 
     /**
      * Account gate (independent of license trial).

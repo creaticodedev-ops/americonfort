@@ -9,7 +9,7 @@ import { escapeHtml, getErrorMessage } from '../../utils/apiError'
 import PhoneInput from '../../components/PhoneInput'
 import { isPhoneValid } from '../../utils/phoneValidation'
 import { Link } from 'react-router-dom'
-import { buildOwnerCompletionWaUrl, buildWaMeUrl } from '../../utils/whatsapp'
+import { buildOwnerCompletionWaUrl, buildWaMeUrl, getAgencyWhatsAppDial } from '../../utils/whatsapp'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
 
 const emptyFilters = {
@@ -65,7 +65,8 @@ const statusClass = (status) => {
 }
 
 const ManageBookings = () => {
-  const { currency, axios, hasPermission } = useAppContext()
+  const { currency, axios, hasPermission, user } = useAppContext()
+  const whatsappSettings = user?.whatsappSettings
   const { t } = useI18n()
 
   const [bookings, setBookings] = useState([])
@@ -250,7 +251,10 @@ const ManageBookings = () => {
   }
 
   const openCompletionWaMe = (booking, completionUrl) => {
-    const url = buildOwnerCompletionWaUrl(booking, completionUrl, { currency })
+    const url = buildOwnerCompletionWaUrl(booking, completionUrl, {
+      currency,
+      whatsappSettings,
+    })
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
@@ -437,7 +441,11 @@ const ManageBookings = () => {
       `Vehicle: ${vehicle}`,
       `Status: ${booking.status || '—'}`,
     ].join('\n')
-    window.open(buildWaMeUrl(text), '_blank', 'noopener,noreferrer')
+    window.open(
+      buildWaMeUrl(text, getAgencyWhatsAppDial(whatsappSettings, 'reservation')),
+      '_blank',
+      'noopener,noreferrer',
+    )
   }
 
   const exportCsv = async () => {

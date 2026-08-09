@@ -35,6 +35,7 @@ const AuditLogs = lazy(() => import('./pages/owner/AuditLogs'))
 const Contracts = lazy(() => import('./pages/owner/Contracts'))
 const Invoices = lazy(() => import('./pages/owner/Invoices'))
 const ExportTemplates = lazy(() => import('./pages/owner/ExportTemplates'))
+const Settings = lazy(() => import('./pages/owner/Settings'))
 
 const SuperAdminLogin = lazy(() => import('./pages/superadmin/Login'))
 const SuperAdminLayout = lazy(() => import('./pages/superadmin/Layout'))
@@ -106,6 +107,7 @@ const App = () => {
                 <Route path="invoices" element={withPerm('contracts', Invoices)} />
                 <Route path="templates" element={withPerm('templates', ExportTemplates)} />
                 <Route path="audit" element={withPerm('audit', AuditLogs)} />
+                <Route path="settings" element={withPerm('settings', Settings)} />
               </Route>
               <Route path="/superadmin/login" element={<SuperAdminLogin />} />
               <Route path="/superadmin" element={<SuperAdminLayout />}>

@@ -35,7 +35,7 @@ export const OWNER_NAV_GROUPS = [
   {
     id: 'reporting',
     labelKey: 'admin.menu.groups.reporting',
-    paths: ['/owner/reports', '/owner/audit'],
+    paths: ['/owner/reports', '/owner/audit', '/owner/settings'],
   },
 ]
 

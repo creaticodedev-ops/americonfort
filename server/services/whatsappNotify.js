@@ -5,14 +5,14 @@ import { BRAND_NAME } from '../utils/brand.js';
 
 export const DEFAULT_AGENCY_WHATSAPP = '212665330116';
 
-const normalizePhone = (phone) => {
+export const normalizePhone = (phone) => {
   const digits = String(phone || '').replace(/\D/g, '');
   if (!digits) return '';
   if (digits.startsWith('0') && digits.length === 10) return `212${digits.slice(1)}`;
   return digits;
 };
 
-export const getAgencyWhatsAppDial = () => {
+export const getEnvWhatsAppDial = () => {
   const raw =
     process.env.WHATSAPP_BUSINESS_NUMBER ||
     process.env.WHATSAPP_TO ||
@@ -21,8 +21,32 @@ export const getAgencyWhatsAppDial = () => {
   return normalizePhone(raw) || DEFAULT_AGENCY_WHATSAPP;
 };
 
-export const buildWaMeUrl = (text, dial = getAgencyWhatsAppDial()) => {
-  const to = normalizePhone(dial) || DEFAULT_AGENCY_WHATSAPP;
+/**
+ * Resolve dial number for a given WhatsApp use-case.
+ * DB settings (owner.whatsappSettings) → alternate DB number → env → default.
+ * kind: 'reservation' | 'confirmation'
+ */
+export const resolveWhatsAppDial = (ownerOrSettings, kind = 'reservation') => {
+  const settings = ownerOrSettings?.whatsappSettings || ownerOrSettings || {};
+  const primary = kind === 'confirmation'
+    ? settings.confirmationNumber
+    : settings.reservationNumber;
+  const secondary = kind === 'confirmation'
+    ? settings.reservationNumber
+    : settings.confirmationNumber;
+  return (
+    normalizePhone(primary)
+    || normalizePhone(secondary)
+    || getEnvWhatsAppDial()
+  );
+};
+
+/** @deprecated Prefer resolveWhatsAppDial(owner, kind) */
+export const getAgencyWhatsAppDial = (ownerOrSettings, kind = 'reservation') =>
+  resolveWhatsAppDial(ownerOrSettings, kind);
+
+export const buildWaMeUrl = (text, dial = getEnvWhatsAppDial()) => {
+  const to = normalizePhone(dial) || getEnvWhatsAppDial();
   if (!text?.trim()) return `https://wa.me/${to}`;
   return `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
 };
@@ -74,10 +98,10 @@ export const buildReservationWhatsAppMessage = ({
 };
 
 /** Guest reservation → chat with agency on wa.me */
-export const buildGuestToAgencyWhatsAppUrl = (reservation = {}) => {
+export const buildGuestToAgencyWhatsAppUrl = (reservation = {}, dial) => {
   const currency = process.env.WHATSAPP_CURRENCY || process.env.CURRENCY || 'MAD';
   const body = buildReservationWhatsAppMessage({ ...reservation, currency });
-  return buildWaMeUrl(body);
+  return buildWaMeUrl(body, dial || resolveWhatsAppDial(null, 'reservation'));
 };
 
 /** Owner: message to agency with customer + completion link (review & send in WhatsApp) */
@@ -93,6 +117,7 @@ export const buildCompletionToAgencyWhatsAppUrl = ({
   price,
   currency = 'MAD',
   completionUrl,
+  dial,
 }) => {
   const lines = [
     `${BRAND_NAME} — booking confirmation (please send to customer):`,
@@ -111,7 +136,7 @@ export const buildCompletionToAgencyWhatsAppUrl = ({
     '',
     `Customer phone: ${customerPhone || '—'}`,
   ];
-  return buildWaMeUrl(lines.join('\n'));
+  return buildWaMeUrl(lines.join('\n'), dial || resolveWhatsAppDial(null, 'confirmation'));
 };
 
 /** Legacy no-op — API disabled */

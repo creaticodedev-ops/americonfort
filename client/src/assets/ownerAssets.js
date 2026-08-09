@@ -62,4 +62,5 @@ export const ownerMenuLinks = [
   { nameKey: 'admin.menu.invoices', path: '/owner/invoices', icon: listIcon, coloredIcon: listIconColored, permission: 'contracts' },
   { nameKey: 'admin.menu.templates', path: '/owner/templates', icon: edit_icon, coloredIcon: edit_icon, permission: 'templates' },
   { nameKey: 'admin.menu.audit', path: '/owner/audit', icon: listIcon, coloredIcon: listIconColored, permission: 'audit' },
+  { nameKey: 'admin.menu.settings', path: '/owner/settings', icon: edit_icon, coloredIcon: edit_icon, permission: 'settings' },
 ];

@@ -159,7 +159,10 @@ const CarDetails = () => {
           notes: form.notes,
         }
         if (channel === 'whatsapp') {
-          const url = data.whatsappUrl || buildGuestReservationWaUrl(confirmation, { currency: currency.trim() })
+          const url = data.whatsappUrl || buildGuestReservationWaUrl(confirmation, {
+            currency: currency.trim(),
+            dial: data.whatsappDial,
+          })
           window.open(url, '_blank', 'noopener,noreferrer')
         }
         sessionStorage.setItem('lastReservation', JSON.stringify(confirmation))

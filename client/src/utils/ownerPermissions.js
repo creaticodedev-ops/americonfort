@@ -12,6 +12,7 @@ export const OWNER_PERMISSIONS = [
   'audit',
   'contracts',
   'templates',
+  'settings',
 ];
 
 export const resolveOwnerPermissions = (permissions) => {

@@ -40,6 +40,10 @@ import {
   getMaintenanceCalendar,
   getMaintenanceReport,
 } from "../controllers/maintenanceController.js";
+import {
+  getWhatsAppSettings,
+  updateWhatsAppSettings,
+} from "../controllers/settingsController.js";
 
 const ownerRouter = express.Router();
 const gate = (perm) => [protect, requireOwner, requirePermission(perm)];
@@ -77,6 +81,8 @@ ownerRouter.post('/notifications/read', protect, requireOwner, markNotificationR
 ownerRouter.get('/audit-logs', ...gate('audit'), getAuditLogs);
 ownerRouter.get('/search', protect, requireOwner, globalSearch);
 ownerRouter.get('/reports/export', ...gate('reports'), exportReport);
+ownerRouter.get('/settings/whatsapp', ...gate('settings'), getWhatsAppSettings);
+ownerRouter.put('/settings/whatsapp', ...gate('settings'), updateWhatsAppSettings);
 ownerRouter.post('/update-image', protect, requireOwner, upload.single("image"), handleMulterError, updateUserImage);
 
 export default ownerRouter;

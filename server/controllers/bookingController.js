@@ -11,7 +11,11 @@ import { upsertGuestFromBooking, refreshGuestStats } from "../services/guestCrm.
 import { createNotification, logAudit } from "../utils/adminOps.js";
 import GuestCustomer from "../models/GuestCustomer.js";
 import PickupLocation from "../models/PickupLocation.js";
-import { buildGuestToAgencyWhatsAppUrl, getAgencyWhatsAppDial } from "../services/whatsappNotify.js";
+import {
+  buildGuestToAgencyWhatsAppUrl,
+  resolveWhatsAppDial,
+} from "../services/whatsappNotify.js";
+import User from "../models/User.js";
 import {
   calculateBookingPrice,
   formatLocationLabel,
@@ -414,22 +418,28 @@ export const createBooking = async (req, res) => {
       console.error('Post-booking side effects failed:', sideEffectError.message);
     }
 
-    const whatsappUrl = isWhatsApp
-      ? buildGuestToAgencyWhatsAppUrl({
-          reservationId,
-          customerName: booking.customerName,
-          customerPhone: booking.customerPhone,
-          customerEmail: booking.customerEmail,
-          vehicle: `${carForBooking.brand} ${carForBooking.model}${carForBooking.licensePlate ? ` (${carForBooking.licensePlate})` : ''}`,
-          pickupLocation: booking.pickupLocation,
-          returnLocation: booking.returnLocation,
-          pickupDate: booking.pickupDate,
-          returnDate: booking.returnDate,
-          price: booking.price,
-          priceBreakdown: booking.priceBreakdown,
-          notes: booking.notes,
-        })
-      : null;
+    let whatsappUrl = null;
+    let whatsappDial = null;
+    if (isWhatsApp) {
+      const ownerSettings = await User.findById(carForBooking.owner)
+        .select('whatsappSettings')
+        .lean();
+      whatsappDial = resolveWhatsAppDial(ownerSettings, 'reservation');
+      whatsappUrl = buildGuestToAgencyWhatsAppUrl({
+        reservationId,
+        customerName: booking.customerName,
+        customerPhone: booking.customerPhone,
+        customerEmail: booking.customerEmail,
+        vehicle: `${carForBooking.brand} ${carForBooking.model}${carForBooking.licensePlate ? ` (${carForBooking.licensePlate})` : ''}`,
+        pickupLocation: booking.pickupLocation,
+        returnLocation: booking.returnLocation,
+        pickupDate: booking.pickupDate,
+        returnDate: booking.returnDate,
+        price: booking.price,
+        priceBreakdown: booking.priceBreakdown,
+        notes: booking.notes,
+      }, whatsappDial);
+    }
 
     res.status(201).json({
       success: true,
@@ -443,7 +453,7 @@ export const createBooking = async (req, res) => {
       price,
       priceBreakdown,
       ...(whatsappUrl ? { whatsappUrl } : {}),
-      ...(isWhatsApp ? { whatsappDial: getAgencyWhatsAppDial() } : {}),
+      ...(whatsappDial ? { whatsappDial } : {}),
     });
   } catch (error) {
     console.error(error.message);
