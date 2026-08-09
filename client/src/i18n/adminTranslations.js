@@ -26,6 +26,7 @@ export const adminEn = {
       fleet: 'Fleet',
       documents: 'Documents',
       reporting: 'Reporting & System',
+      settings: 'Settings',
     },
   },
   settings: {
@@ -758,6 +759,7 @@ export const adminFr = {
       fleet: 'Flotte',
       documents: 'Documents',
       reporting: 'Rapports & système',
+      settings: 'Paramètres',
     },
   },
   settings: {
@@ -1487,6 +1489,7 @@ export const adminEs = {
       fleet: 'Flota',
       documents: 'Documentos',
       reporting: 'Informes y sistema',
+      settings: 'Ajustes',
     },
   },
   settings: {

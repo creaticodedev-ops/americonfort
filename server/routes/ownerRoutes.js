@@ -81,8 +81,8 @@ ownerRouter.post('/notifications/read', protect, requireOwner, markNotificationR
 ownerRouter.get('/audit-logs', ...gate('audit'), getAuditLogs);
 ownerRouter.get('/search', protect, requireOwner, globalSearch);
 ownerRouter.get('/reports/export', ...gate('reports'), exportReport);
-ownerRouter.get('/settings/whatsapp', ...gate('settings'), getWhatsAppSettings);
-ownerRouter.put('/settings/whatsapp', ...gate('settings'), updateWhatsAppSettings);
+ownerRouter.get('/settings/whatsapp', protect, requireOwner, getWhatsAppSettings);
+ownerRouter.put('/settings/whatsapp', protect, requireOwner, updateWhatsAppSettings);
 ownerRouter.post('/update-image', protect, requireOwner, upload.single("image"), handleMulterError, updateUserImage);
 
 export default ownerRouter;

@@ -210,14 +210,20 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
     })
   }, [activeGroupId])
 
+  // Default new nav groups to expanded even when older localStorage state exists
   useEffect(() => {
-    if (readStoredExpanded()) return
     if (!groups.length) return
-    const initial = {}
-    groups.forEach((group) => {
-      initial[group.id] = true
+    setExpanded((prev) => {
+      const next = { ...prev }
+      let changed = false
+      groups.forEach((group) => {
+        if (next[group.id] === undefined) {
+          next[group.id] = true
+          changed = true
+        }
+      })
+      return changed ? next : prev
     })
-    setExpanded(initial)
   }, [groups])
 
   useEffect(() => () => {

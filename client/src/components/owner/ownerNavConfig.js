@@ -35,7 +35,12 @@ export const OWNER_NAV_GROUPS = [
   {
     id: 'reporting',
     labelKey: 'admin.menu.groups.reporting',
-    paths: ['/owner/reports', '/owner/audit', '/owner/settings'],
+    paths: ['/owner/reports', '/owner/audit'],
+  },
+  {
+    id: 'settings',
+    labelKey: 'admin.menu.groups.settings',
+    paths: ['/owner/settings'],
   },
 ]
 
@@ -60,7 +65,12 @@ export const getGroupedOwnerNav = (hasPermission) =>
     labelKey: group.labelKey,
     items: group.paths
       .map((path) => linkByPath[path])
-      .filter((link) => link && hasPermission(link.permission)),
+      .filter((link) => {
+        if (!link) return false
+        // null/undefined permission = always show for authenticated owners
+        if (link.permission == null) return true
+        return hasPermission(link.permission)
+      }),
   })).filter((group) => group.items.length > 0)
 
 export const findActiveOwnerNavGroupId = (pathname, groups) => {
