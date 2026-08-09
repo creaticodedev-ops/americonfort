@@ -12,6 +12,7 @@ import {
 import { syncOwnerPermissions, resolveOwnerPermissions } from '../utils/ownerPermissions.js';
 import { normalizeEmail, findUserByEmail } from '../utils/emailUtils.js';
 import { BRAND_NAME } from '../utils/brand.js';
+import { toPublicBookingSettings, resolveBookingSettings } from '../services/bookingRules.js';
 
 const generateToken = (user) => {
     const payload = { _id: user._id.toString(), tv: user.tokenVersion || 0 };
@@ -164,7 +165,19 @@ export const getCarById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Car not found' });
         }
 
-        res.json({ success: true, car: toPublicCatalogCar(car) });
+        let bookingSettings = toPublicBookingSettings({});
+        try {
+            const owner = await User.findById(car.owner).select('bookingSettings').lean();
+            bookingSettings = toPublicBookingSettings(resolveBookingSettings(owner));
+        } catch (settingsError) {
+            console.error('Public booking settings load failed:', settingsError.message);
+        }
+
+        res.json({
+            success: true,
+            car: toPublicCatalogCar(car),
+            bookingSettings,
+        });
     } catch (error) {
         console.error(error.message);
         res.status(500).json({ success: false, message: 'Failed to fetch car' });

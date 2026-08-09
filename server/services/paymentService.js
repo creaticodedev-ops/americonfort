@@ -4,16 +4,24 @@
 
 const currencyCode = () => (process.env.PAYMENT_CURRENCY || process.env.CURRENCY || "mad").toLowerCase();
 
-export const getDepositPercent = () => {
+/**
+ * @param {number} [overridePercent] optional owner bookingSettings.deposit.depositPercent
+ * Falls back to DEPOSIT_PERCENT env, then 30 — preserves existing payment behaviour.
+ */
+export const getDepositPercent = (overridePercent) => {
+  const fromSettings = Number(overridePercent);
+  if (Number.isFinite(fromSettings) && fromSettings > 0 && fromSettings <= 100) {
+    return fromSettings;
+  }
   const n = Number(process.env.DEPOSIT_PERCENT);
   if (!Number.isFinite(n) || n <= 0 || n > 100) return 30;
   return n;
 };
 
-export const computePayableAmount = (total, paymentType) => {
+export const computePayableAmount = (total, paymentType, depositPercent) => {
   const full = Math.max(0, Number(total) || 0);
   if (paymentType === "deposit") {
-    return Math.round((full * getDepositPercent()) / 100 * 100) / 100;
+    return Math.round((full * getDepositPercent(depositPercent)) / 100 * 100) / 100;
   }
   return Math.round(full * 100) / 100;
 };

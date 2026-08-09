@@ -1,6 +1,11 @@
 import User from '../models/User.js';
 import { normalizePhone, getEnvWhatsAppDial, resolveWhatsAppDial } from '../services/whatsappNotify.js';
 import { logAudit } from '../utils/adminOps.js';
+import {
+  BOOKING_SETTINGS_DEFAULTS,
+  resolveBookingSettings,
+  sanitizeBookingSettingsInput,
+} from '../services/bookingRules.js';
 
 const formatSettingsResponse = (user) => {
   const settings = user?.whatsappSettings || {};
@@ -87,7 +92,71 @@ export const updateWhatsAppSettings = async (req, res) => {
   }
 };
 
+export const getBookingSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('bookingSettings agencyName');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+    res.json({
+      success: true,
+      bookingSettings: resolveBookingSettings(user),
+      defaults: BOOKING_SETTINGS_DEFAULTS,
+    });
+  } catch (error) {
+    console.error('[settings] get booking', error.message);
+    res.status(500).json({ success: false, message: 'Failed to load booking settings' });
+  }
+};
+
+export const updateBookingSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+
+    const { settings, errors } = sanitizeBookingSettingsInput({
+      ...resolveBookingSettings(user),
+      ...(req.body || {}),
+      cancellation: { ...resolveBookingSettings(user).cancellation, ...(req.body?.cancellation || {}) },
+      deposit: { ...resolveBookingSettings(user).deposit, ...(req.body?.deposit || {}) },
+      secondDriver: { ...resolveBookingSettings(user).secondDriver, ...(req.body?.secondDriver || {}) },
+      mileage: { ...resolveBookingSettings(user).mileage, ...(req.body?.mileage || {}) },
+      pickupReturn: { ...resolveBookingSettings(user).pickupReturn, ...(req.body?.pickupReturn || {}) },
+      pendingExpiry: { ...resolveBookingSettings(user).pendingExpiry, ...(req.body?.pendingExpiry || {}) },
+    });
+
+    if (errors.length) {
+      return res.status(400).json({ success: false, message: errors[0], errors });
+    }
+
+    user.bookingSettings = settings;
+    user.markModified('bookingSettings');
+    await user.save();
+
+    await logAudit({
+      owner: user._id,
+      action: 'settings.booking.update',
+      entityType: 'User',
+      entityId: user._id,
+      details: 'Updated booking settings',
+    });
+
+    res.json({
+      success: true,
+      message: 'Booking settings saved',
+      bookingSettings: resolveBookingSettings(user),
+    });
+  } catch (error) {
+    console.error('[settings] update booking', error.message);
+    res.status(500).json({ success: false, message: 'Failed to save booking settings' });
+  }
+};
+
 export default {
   getWhatsAppSettings,
   updateWhatsAppSettings,
+  getBookingSettings,
+  updateBookingSettings,
 };

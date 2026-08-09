@@ -60,6 +60,46 @@ const bookingSchema = new mongoose.Schema({
   kmDepart: { type: String, default: "" },
   kmRetour: { type: String, default: "" },
   franchiseAmount: { type: Number, default: null },
+  /** Snapshot of owner booking rules applied at create/update (audit / contracts) */
+  policySnapshot: {
+    mileage: {
+      unlimited: { type: Boolean, default: true },
+      includedKmPerDay: { type: Number, default: 0 },
+      extraKmRate: { type: Number, default: 0 },
+    },
+    cancellation: {
+      enabled: { type: Boolean, default: false },
+      freeCancellationHours: { type: Number, default: 24 },
+      lateCancellationFeePercent: { type: Number, default: 0 },
+      noShowFeePercent: { type: Number, default: 0 },
+      policyText: { type: String, default: '' },
+    },
+    pickupReturn: {
+      fuelPolicy: { type: String, default: 'full_to_full' },
+      lateReturnGraceMinutes: { type: Number, default: 60 },
+      lateReturnFeePerHour: { type: Number, default: 0 },
+      openingTime: { type: String, default: '06:00' },
+      closingTime: { type: String, default: '22:00' },
+    },
+    secondDriver: {
+      enabled: { type: Boolean, default: true },
+      feePerRental: { type: Number, default: 0 },
+      feePerDay: { type: Number, default: 0 },
+      minAge: { type: Number, default: 21 },
+      minLicenseYears: { type: Number, default: 1 },
+      maxExtraDrivers: { type: Number, default: 1 },
+    },
+    depositPercent: { type: Number, default: 0 },
+  },
+  cancellationMeta: {
+    feePercent: { type: Number, default: 0 },
+    feeAmount: { type: Number, default: 0 },
+    withinFreeWindow: { type: Boolean, default: true },
+    reason: { type: String, default: '' },
+    at: { type: Date, default: null },
+  },
+  /** Set when pending reservation auto-expired by booking settings job */
+  expiredAt: { type: Date, default: null },
   /** Optional second driver on rental contract */
   secondDriver: {
     enabled: { type: Boolean, default: false },
@@ -165,6 +205,7 @@ bookingSchema.index({ car: 1, status: 1, pickupDate: 1, returnDate: 1 });
 bookingSchema.index({ owner: 1, createdAt: -1 });
 bookingSchema.index({ owner: 1, customerEmail: 1 });
 bookingSchema.index({ owner: 1, channel: 1, createdAt: -1 });
+bookingSchema.index({ owner: 1, status: 1, createdAt: 1 });
 bookingSchema.index({ "completion.tokenHash": 1 });
 
 const Booking = mongoose.model("Booking", bookingSchema);

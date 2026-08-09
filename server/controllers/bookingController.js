@@ -35,8 +35,22 @@ import {
   resolveAvailableCarUnit,
 } from "../utils/carCatalog.js";
 import { channelQuery } from "../utils/bookingChannel.js";
+import {
+  resolveBookingSettings,
+  validateBookingAgainstRules,
+  evaluateCancellation,
+  resolveSecurityDeposit,
+  buildPolicySnapshot,
+  validateSecondDriverAgainstRules,
+} from "../services/bookingRules.js";
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'ready_for_pickup', 'active', 'completed', 'cancelled'];
+
+const loadOwnerBookingSettings = async (ownerId) => {
+  if (!ownerId) return resolveBookingSettings({});
+  const owner = await User.findById(ownerId).select('bookingSettings').lean();
+  return resolveBookingSettings(owner);
+};
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
 
 const generateReservationId = async () => {
@@ -289,6 +303,8 @@ export const createBooking = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Car is not available for booking' });
     }
 
+    const bookingSettings = await loadOwnerBookingSettings(carData.owner);
+
     const assignedCar = await resolveAvailableCarUnit({
       ownerId: carData.owner,
       brand: carData.brand,
@@ -340,6 +356,20 @@ export const createBooking = async (req, res) => {
       }
     }
 
+    const sameReturnLocation = hasLocationIds
+      ? String(pickupLocationId) === String(returnLocationId)
+      : String(pickupLocation || '').trim().toLowerCase() === String(returnLocation || '').trim().toLowerCase();
+
+    const rulesCheck = validateBookingAgainstRules({
+      settings: bookingSettings,
+      pickupDate: dates.picked,
+      returnDate: dates.returned,
+      sameReturnLocation,
+    });
+    if (!rulesCheck.valid) {
+      return res.status(400).json({ success: false, message: rulesCheck.message, code: rulesCheck.code });
+    }
+
     const priceBreakdown = calculateBookingPrice({
       pricePerDay: carForBooking.pricePerDay,
       pickupDate: dates.picked,
@@ -380,7 +410,8 @@ export const createBooking = async (req, res) => {
       status: 'pending',
       channel: isWhatsApp ? 'whatsapp' : 'online',
       createdBy: null,
-      franchiseAmount: Number(carForBooking.securityDeposit) || 0,
+      franchiseAmount: resolveSecurityDeposit(carForBooking, bookingSettings),
+      policySnapshot: buildPolicySnapshot(bookingSettings),
       kmDepart: carForBooking.mileage != null ? String(carForBooking.mileage) : '',
     });
 
@@ -535,6 +566,8 @@ export const createWalkInBooking = async (req, res) => {
       });
     }
 
+    const bookingSettings = await loadOwnerBookingSettings(ownerId);
+
     if (normalizedEmail) {
       const blacklisted = await GuestCustomer.findOne({
         owner: ownerId,
@@ -576,6 +609,23 @@ export const createWalkInBooking = async (req, res) => {
           message: 'This vehicle is not available at the selected drop-off location',
         });
       }
+    }
+
+    const sameReturnLocation = hasLocationIds
+      ? String(pickupLocationId) === String(returnLocationId)
+      : String(pickupLocation || '').trim().toLowerCase() === String(returnLocation || '').trim().toLowerCase();
+
+    // Walk-in desk bookings: staff can override hours + advance windows
+    const rulesCheck = validateBookingAgainstRules({
+      settings: bookingSettings,
+      pickupDate: dates.picked,
+      returnDate: dates.returned,
+      sameReturnLocation,
+      skipTimeWindow: true,
+      skipAdvance: true,
+    });
+    if (!rulesCheck.valid) {
+      return res.status(400).json({ success: false, message: rulesCheck.message, code: rulesCheck.code });
     }
 
     const priceBreakdown = calculateBookingPrice({
@@ -636,6 +686,8 @@ export const createWalkInBooking = async (req, res) => {
       passportNumber: passportNumber || '',
       status,
       paymentStatus,
+      franchiseAmount: resolveSecurityDeposit(carData, bookingSettings),
+      policySnapshot: buildPolicySnapshot(bookingSettings),
       completion: {
         paymentComplete: paymentStatus === 'paid',
         amountPaid: paymentStatus === 'paid' ? price : 0,
@@ -793,6 +845,23 @@ export const changeBookingStatus = async (req, res) => {
       }
     }
 
+    let cancellationInfo = null;
+    if (status === 'cancelled' && booking.status !== 'cancelled') {
+      const bookingSettings = await loadOwnerBookingSettings(booking.owner);
+      cancellationInfo = evaluateCancellation({ settings: bookingSettings, booking });
+      booking.cancellationMeta = {
+        feePercent: cancellationInfo.feePercent,
+        feeAmount: cancellationInfo.feeAmount,
+        withinFreeWindow: cancellationInfo.withinFreeWindow,
+        reason: 'owner',
+        at: new Date(),
+      };
+      if (cancellationInfo.feeAmount > 0) {
+        const feeNote = `[Cancellation fee] ${cancellationInfo.feePercent}% = ${cancellationInfo.feeAmount}`;
+        booking.notes = booking.notes ? `${booking.notes}\n${feeNote}` : feeNote;
+      }
+    }
+
     booking.status = status;
     await booking.save();
 
@@ -884,8 +953,11 @@ export const changeBookingStatus = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Reservation marked as ${status}`,
+      message: status === 'cancelled' && cancellationInfo?.feeAmount > 0
+        ? `Reservation cancelled — cancellation fee ${cancellationInfo.feeAmount} (${cancellationInfo.feePercent}%)`
+        : `Reservation marked as ${status}`,
       completion: completionMeta,
+      cancellation: cancellationInfo,
     });
   } catch (error) {
     console.error(error.message);
@@ -995,10 +1067,30 @@ export const updateBooking = async (req, res) => {
       booking.markModified('car');
     }
 
+    const bookingSettings = await loadOwnerBookingSettings(booking.owner);
+
     if (pickupDate && returnDate) {
       const dates = parseDateRange(pickupDate, returnDate);
       if (!dates.valid) {
         return res.status(400).json({ success: false, message: dates.message });
+      }
+
+      const nextPickupLoc = pickupLocation ?? booking.pickupLocation;
+      const nextReturnLoc = returnLocation ?? booking.returnLocation;
+      const sameReturnLocation =
+        String(nextPickupLoc || '').trim().toLowerCase()
+        === String(nextReturnLoc || '').trim().toLowerCase();
+
+      const rulesCheck = validateBookingAgainstRules({
+        settings: bookingSettings,
+        pickupDate: dates.picked,
+        returnDate: dates.returned,
+        sameReturnLocation,
+        skipTimeWindow: true,
+        skipAdvance: true,
+      });
+      if (!rulesCheck.valid) {
+        return res.status(400).json({ success: false, message: rulesCheck.message, code: rulesCheck.code });
       }
 
       const available = await checkAvailability(
@@ -1013,6 +1105,7 @@ export const updateBooking = async (req, res) => {
 
       booking.pickupDate = dates.picked;
       booking.returnDate = dates.returned;
+      booking.policySnapshot = buildPolicySnapshot(bookingSettings);
     }
 
     if (pickupLocation) booking.pickupLocation = pickupLocation;
@@ -1068,6 +1161,13 @@ export const updateBooking = async (req, res) => {
     if (driverLicenseExpiry !== undefined) booking.driverLicenseExpiry = String(driverLicenseExpiry).trim();
     if (passportNumber !== undefined) booking.passportNumber = String(passportNumber).trim();
     if (secondDriver !== undefined && typeof secondDriver === 'object') {
+      const sdCheck = validateSecondDriverAgainstRules({
+        settings: bookingSettings,
+        secondDriver,
+      });
+      if (!sdCheck.valid) {
+        return res.status(400).json({ success: false, message: sdCheck.message, code: sdCheck.code });
+      }
       booking.secondDriver = {
         enabled: Boolean(secondDriver.enabled),
         fullName: secondDriver.fullName?.trim() || '',

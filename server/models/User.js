@@ -40,6 +40,69 @@ const userSchema = new mongoose.Schema({
     },
 
     /**
+     * Owner-scoped booking rules (Admin → Settings → Booking Settings).
+     * Empty / missing fields resolve to permissive defaults in bookingRules.js
+     * so existing behaviour is preserved until an owner tightens them.
+     */
+    bookingSettings: {
+      minRentalDays: { type: Number, default: 1 },
+      maxRentalDays: { type: Number, default: 0 },
+      minAdvanceHours: { type: Number, default: 0 },
+      maxAdvanceDays: { type: Number, default: 0 },
+      allowSameDayBooking: { type: Boolean, default: true },
+      cancellation: {
+        enabled: { type: Boolean, default: false },
+        freeCancellationHours: { type: Number, default: 24 },
+        lateCancellationFeePercent: { type: Number, default: 0 },
+        noShowFeePercent: { type: Number, default: 0 },
+        policyText: { type: String, default: '' },
+      },
+      deposit: {
+        defaultSecurityDeposit: { type: Number, default: 0 },
+        depositPercent: { type: Number, default: 0 },
+        requireDepositBeforePickup: { type: Boolean, default: false },
+      },
+      secondDriver: {
+        enabled: { type: Boolean, default: true },
+        feePerRental: { type: Number, default: 0 },
+        feePerDay: { type: Number, default: 0 },
+        minAge: { type: Number, default: 21 },
+        minLicenseYears: { type: Number, default: 1 },
+        maxExtraDrivers: { type: Number, default: 1 },
+      },
+      mileage: {
+        unlimited: { type: Boolean, default: true },
+        includedKmPerDay: { type: Number, default: 0 },
+        extraKmRate: { type: Number, default: 0 },
+      },
+      pickupReturn: {
+        enforceHours: { type: Boolean, default: false },
+        openingTime: { type: String, default: '06:00' },
+        closingTime: { type: String, default: '22:00' },
+        allowAfterHours: { type: Boolean, default: true },
+        afterHoursFee: { type: Number, default: 0 },
+        lateReturnGraceMinutes: { type: Number, default: 60 },
+        lateReturnFeePerHour: { type: Number, default: 0 },
+        allowDifferentReturnLocation: { type: Boolean, default: true },
+        fuelPolicy: {
+          type: String,
+          enum: ['full_to_full', 'same_to_same', 'prepaid'],
+          default: 'full_to_full',
+        },
+      },
+      pendingExpiry: {
+        enabled: { type: Boolean, default: false },
+        expiryHours: { type: Number, default: 24 },
+        action: {
+          type: String,
+          enum: ['cancel', 'notify_only'],
+          default: 'cancel',
+        },
+        notifyOwner: { type: Boolean, default: true },
+      },
+    },
+
+    /**
      * Account gate (independent of license trial).
      * active    → can log in (subject to license for owners)
      * suspended → temporary lock

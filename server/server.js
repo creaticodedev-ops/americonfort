@@ -208,11 +208,17 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(
     '[routes] Booking workflow: POST /api/booking-completion/owner/ensure-link, /api/bookings/owner/completion/ensure-link',
   );
+  try {
+    const { startPendingBookingExpiryJob } = await import('./jobs/pendingBookingExpiry.js');
+    startPendingBookingExpiryJob();
+  } catch (err) {
+    console.error('[pending-expiry] failed to start job:', err.message);
+  }
 });
 
 export default app;

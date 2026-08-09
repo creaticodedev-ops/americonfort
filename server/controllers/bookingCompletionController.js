@@ -22,13 +22,28 @@ import {
   applyCompletionDetailsToBooking,
   validateCompletionDetails,
 } from "../utils/applyCompletionDetails.js";
+import User from "../models/User.js";
+import { resolveDepositPercent, resolveBookingSettings, validateSecondDriverAgainstRules } from "../services/bookingRules.js";
 
 const signIfLocalUpload = (url) => {
   if (!url || typeof url !== "string") return url || "";
   return signDocumentAccessUrl(url);
 };
 
-const publicBookingView = (booking) => {
+/** Prefer snapshot at booking time; else live owner settings; else env default. */
+const depositPercentForBooking = async (booking) => {
+  const snap = Number(booking?.policySnapshot?.depositPercent);
+  if (Number.isFinite(snap) && snap > 0) return snap;
+  try {
+    const owner = await User.findById(booking.owner).select("bookingSettings").lean();
+    return resolveDepositPercent(resolveBookingSettings(owner));
+  } catch {
+    return getDepositPercent();
+  }
+};
+
+const publicBookingView = (booking, depositPercent) => {
+  const pct = depositPercent != null ? depositPercent : getDepositPercent(booking?.policySnapshot?.depositPercent);
   const c = booking.completion || {};
   const flags = {
     documentsComplete: Boolean(c.documentsComplete),
@@ -92,11 +107,14 @@ const publicBookingView = (booking) => {
       documentsComplete: flags.documentsComplete,
       paymentComplete: flags.paymentComplete,
       signatureComplete: flags.signatureComplete,
-      depositPercent: getDepositPercent(),
-      depositAmount: computePayableAmount(booking.price, "deposit"),
-      fullAmount: computePayableAmount(booking.price, "full"),
+      depositPercent: pct,
+      depositAmount: computePayableAmount(booking.price, "deposit", pct),
+      fullAmount: computePayableAmount(booking.price, "full", pct),
       paymentMode: getPaymentMode(),
       expiresAt: c.tokenExpiresAt,
+      secondDriverAllowed: booking?.policySnapshot?.secondDriver?.enabled !== false,
+      mileage: booking?.policySnapshot?.mileage || null,
+      cancellationPolicy: booking?.policySnapshot?.cancellation || null,
     },
   };
 };
@@ -109,7 +127,8 @@ export const getCompletionBooking = async (req, res) => {
     }
     refreshCompletionFlags(booking);
     await booking.save();
-    res.json({ success: true, booking: publicBookingView(booking) });
+    const depositPercent = await depositPercentForBooking(booking);
+    res.json({ success: true, booking: publicBookingView(booking, depositPercent) });
   } catch (error) {
     const status = error.code === "TOKEN_EXPIRED" ? 410 : 400;
     res.status(status).json({ success: false, message: error.message });
@@ -183,16 +202,29 @@ export const saveCompletionDetails = async (req, res) => {
     }
 
     console.log('[SAVE_DETAILS] Incoming body', req.body);
+
+    if (req.body?.secondDriver?.enabled) {
+      const owner = await User.findById(booking.owner).select('bookingSettings').lean();
+      const sdCheck = validateSecondDriverAgainstRules({
+        settings: resolveBookingSettings(owner),
+        secondDriver: req.body.secondDriver,
+      });
+      if (!sdCheck.valid) {
+        return res.status(400).json({ success: false, message: sdCheck.message, code: sdCheck.code });
+      }
+    }
+
     applyCompletionDetailsToBooking(booking, req.body);
 
     await booking.save();
     refreshCompletionFlags(booking);
     const fresh = await Booking.findById(booking._id).populate('car');
+    const depositPercent = await depositPercentForBooking(fresh);
 
     res.json({
       success: true,
       message: 'Contract details saved',
-      booking: publicBookingView(fresh),
+      booking: publicBookingView(fresh, depositPercent),
     });
   } catch (error) {
     console.error(error.message);
@@ -212,7 +244,8 @@ export const createCompletionPayment = async (req, res) => {
     }
 
     const paymentType = req.body.paymentType === "deposit" ? "deposit" : "full";
-    const amount = computePayableAmount(booking.price, paymentType);
+    const depositPercent = await depositPercentForBooking(booking);
+    const amount = computePayableAmount(booking.price, paymentType, depositPercent);
     const mode = getPaymentMode();
     const clientBase = (process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim().replace(/\/$/, "");
     const token = req.params.token;
@@ -281,14 +314,15 @@ export const confirmDemoPayment = async (req, res) => {
     }
 
     const paymentType = req.body.paymentType === "deposit" ? "deposit" : "full";
-    const amount = computePayableAmount(booking.price, paymentType);
+    const depositPercent = await depositPercentForBooking(booking);
+    const amount = computePayableAmount(booking.price, paymentType, depositPercent);
     const result = await markCompletionPayment(booking, { paymentType, amount });
 
     res.json({
       success: true,
       message: "Payment recorded",
       finalized: result.finalized,
-      booking: publicBookingView(result.booking),
+      booking: publicBookingView(result.booking, depositPercent),
     });
   } catch (error) {
     console.error(error.message);
@@ -318,9 +352,11 @@ export const confirmStripePayment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Session mismatch" });
     }
 
+    const depositPercent = await depositPercentForBooking(booking);
     const expectedAmount = computePayableAmount(
       booking.price,
-      session.metadata?.paymentType === "deposit" ? "deposit" : "full"
+      session.metadata?.paymentType === "deposit" ? "deposit" : "full",
+      depositPercent,
     );
     const paidAmount = (session.amount_total || 0) / 100;
     // Allow 1 minor-unit tolerance for currency rounding
