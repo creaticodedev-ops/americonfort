@@ -13,6 +13,7 @@ import {
   getOwnerCars,
   getVehicleStats,
   toggleCarAvailability,
+  toggleCarWebsiteVisibility,
   updateCar,
   updateUserImage,
 } from "../controllers/ownerController.js";
@@ -58,6 +59,7 @@ ownerRouter.get("/vehicles/:id", ...gate('fleet'), getOwnerCarById);
 ownerRouter.get("/vehicles/:id/stats", ...gate('fleet'), getVehicleStats);
 ownerRouter.post("/update-car", ...gate('fleet'), upload.single("image"), handleMulterError, updateCar);
 ownerRouter.post("/toggle-car", ...gate('fleet'), toggleCarAvailability);
+ownerRouter.post("/toggle-car-visibility", ...gate('fleet'), toggleCarWebsiteVisibility);
 ownerRouter.post("/delete-car", ...gate('fleet'), deleteCar);
 
 ownerRouter.get('/dashboard', ...gate('dashboard'), getDashboardData);

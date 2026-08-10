@@ -32,6 +32,8 @@ import {
   groupCarsForCatalog,
   PUBLIC_BOOKING_CAR_FIELDS,
   PUBLIC_CATALOG_FIELDS,
+  PUBLIC_VISIBLE_CAR_FILTER,
+  isPubliclyVisibleCar,
   resolveAvailableCarUnit,
 } from "../utils/carCatalog.js";
 import { channelQuery } from "../utils/bookingChannel.js";
@@ -230,9 +232,7 @@ export const checkAvailabilityOfCar = async (req, res) => {
     }
 
     const carQuery = {
-      isAvaliable: true,
-      owner: { $ne: null },
-      status: { $ne: 'maintenance' },
+      ...PUBLIC_VISIBLE_CAR_FILTER,
     };
     if (location) {
       Object.assign(carQuery, locationAvailabilityFilter(location));
@@ -299,7 +299,7 @@ export const createBooking = async (req, res) => {
     }
 
     const carData = await Car.findById(carId).select(PUBLIC_BOOKING_CAR_FIELDS).lean();
-    if (!carData || !carData.isAvaliable || !carData.owner || carData.status === 'maintenance') {
+    if (!carData || !isPubliclyVisibleCar(carData)) {
       return res.status(404).json({ success: false, message: 'Car is not available for booking' });
     }
 

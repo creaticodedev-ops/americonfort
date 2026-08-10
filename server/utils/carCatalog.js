@@ -27,6 +27,26 @@ export const PUBLIC_CATALOG_FIELDS = [
   'status',
 ].join(' ');
 
+/**
+ * Public catalog / search / details / booking assignment filter.
+ * `visibleOnWebsite: { $ne: false }` keeps legacy documents (missing field) visible.
+ * Never auto-mutated by maintenance/ops — separate from isAvaliable/status.
+ */
+export const PUBLIC_VISIBLE_CAR_FILTER = {
+  isAvaliable: true,
+  owner: { $ne: null },
+  status: { $ne: 'maintenance' },
+  visibleOnWebsite: { $ne: false },
+};
+
+export const isPubliclyVisibleCar = (car) => {
+  if (!car) return false;
+  if (!car.isAvaliable) return false;
+  if (!car.owner) return false;
+  if (car.status === 'maintenance') return false;
+  if (car.visibleOnWebsite === false) return false;
+  return true;
+};
 /** Fields needed server-side to price/assign a public booking (not all returned to client). */
 export const PUBLIC_BOOKING_CAR_FIELDS = [
   '_id',
@@ -34,6 +54,7 @@ export const PUBLIC_BOOKING_CAR_FIELDS = [
   'brand',
   'model',
   'isAvaliable',
+  'visibleOnWebsite',
   'status',
   'pricePerDay',
   'securityDeposit',
@@ -164,6 +185,7 @@ export const resolveAvailableCarUnit = async ({
     model,
     isAvaliable: true,
     status: { $ne: 'maintenance' },
+    visibleOnWebsite: { $ne: false },
   };
 
   const units = await Car.find(baseQuery)
@@ -190,6 +212,8 @@ export const resolveAvailableCarUnit = async ({
 export default {
   PUBLIC_CATALOG_FIELDS,
   PUBLIC_BOOKING_CAR_FIELDS,
+  PUBLIC_VISIBLE_CAR_FILTER,
+  isPubliclyVisibleCar,
   toPlainCar,
   toPublicCatalogCar,
   buildModelKey,

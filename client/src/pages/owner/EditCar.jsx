@@ -47,7 +47,9 @@ const EditCar = () => {
     fleetId: '',
     vin: '',
     branch: '',
+    visibleOnWebsite: true,
   })
+  const [savingVisibility, setSavingVisibility] = useState(false)
 
   useEffect(() => {
     const fetchCar = async () => {
@@ -71,6 +73,7 @@ const EditCar = () => {
             fleetId: c.fleetId || '',
             vin: c.vin || '',
             branch: c.branch || '',
+            visibleOnWebsite: c.visibleOnWebsite !== false,
           })
           setExistingImage(c.image || '')
         } else {
@@ -116,6 +119,30 @@ const EditCar = () => {
     }
   }
 
+  const toggleWebsiteVisibility = async () => {
+    const next = !car.visibleOnWebsite
+    const confirmMsg = car.visibleOnWebsite
+      ? t('admin.fleet.hideConfirm', { name: `${car.brand} ${car.model}` })
+      : t('admin.fleet.showConfirm', { name: `${car.brand} ${car.model}` })
+    if (!window.confirm(confirmMsg)) return
+
+    setSavingVisibility(true)
+    try {
+      const { data } = await axios.post('/api/owner/toggle-car-visibility', {
+        carId: id,
+        visibleOnWebsite: next,
+      })
+      if (data.success) {
+        setCar((c) => ({ ...c, visibleOnWebsite: data.car?.visibleOnWebsite !== false }))
+        toast.success(data.message)
+      } else toast.error(data.message)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
+
   if (loading) {
     return <div className="px-4 py-8 md:px-8 lg:px-10 xl:px-12 md:py-10 text-gray-500">{t('admin.fleet.loading')}</div>
   }
@@ -123,6 +150,38 @@ const EditCar = () => {
   return (
     <div className='px-4 py-8 md:px-8 lg:px-10 xl:px-12 md:py-10 flex-1 min-w-0 pb-12'>
       <Title title={`${t('admin.common.edit')} ${t('admin.fleet.car')}`} subTitle={t('admin.fleet.subtitle')} />
+
+      <div className="mt-6 max-w-xl rounded-2xl border border-borderColor bg-white p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t('admin.fleet.websiteVisibility')}</p>
+            <p className="mt-1 text-xs text-muted">{t('admin.fleet.websiteVisibilityHint')}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                car.visibleOnWebsite ? 'bg-sky-100 text-sky-800' : 'bg-rose-100 text-rose-800'
+              }`}
+            >
+              {car.visibleOnWebsite
+                ? t('admin.fleet.visibleOnWebsite')
+                : t('admin.fleet.hiddenFromWebsite')}
+            </span>
+            <button
+              type="button"
+              disabled={savingVisibility}
+              onClick={toggleWebsiteVisibility}
+              className="rounded-xl border border-borderColor px-3 py-2 text-xs font-medium text-ink hover:bg-sand/40 disabled:opacity-60"
+            >
+              {savingVisibility
+                ? t('admin.common.loading')
+                : car.visibleOnWebsite
+                  ? t('admin.fleet.hideFromWebsite')
+                  : t('admin.fleet.showOnWebsite')}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <form onSubmit={onSubmitHandler} className='flex flex-col gap-5 text-gray-500 text-sm mt-6 max-w-xl w-full'>
         <div className='flex items-center gap-2 w-full'>

@@ -140,6 +140,9 @@ app.get("/health", async (_req, res) => {
   });
 });
 
+const { getPublicSitemap } = await import("./controllers/sitemapController.js");
+app.get("/sitemap.xml", getPublicSitemap);
+
 if (hasBuiltClient) {
   app.use(express.static(clientDistPath, { index: false }));
 }

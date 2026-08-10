@@ -44,6 +44,12 @@ const carSchema = new mongoose.Schema({
      */
     status: { type: String, enum: ['available', 'booked', 'maintenance'], default: 'available' },
     isAvaliable: {type: Boolean, default: true},
+    /**
+     * Public website visibility (independent of operational availability).
+     * Hidden cars stay in admin, keep bookings/contracts/payments, but never
+     * appear in public catalog, search, details, or SEO surfaces.
+     */
+    visibleOnWebsite: { type: Boolean, default: true },
     // Fleet maintenance & compliance
     nextServiceMileage: { type: Number, default: 0 },
     nextServiceDate: { type: Date, default: null },
@@ -64,6 +70,7 @@ const carSchema = new mongoose.Schema({
 carSchema.index({ owner: 1 });
 carSchema.index({ isAvaliable: 1, location: 1 });
 carSchema.index({ isAvaliable: 1, locations: 1 });
+carSchema.index({ visibleOnWebsite: 1, isAvaliable: 1, locations: 1 });
 carSchema.index({ owner: 1, nextServiceDate: 1 });
 carSchema.index({ owner: 1, insuranceExpiry: 1 });
 carSchema.index({ owner: 1, status: 1 });

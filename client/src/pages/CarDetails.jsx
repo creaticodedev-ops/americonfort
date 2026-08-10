@@ -220,6 +220,7 @@ const CarDetails = () => {
   if (notFound) {
     return (
       <div className="page-pad page-shell mt-10 sm:mt-16 text-center pb-16">
+        <Seo title="Vehicle not found" path={`/car-details/${id}`} noindex />
         <h1 className="text-2xl font-semibold text-gray-800">Vehicle not found</h1>
         <button type="button" onClick={() => navigate('/cars')} className="mt-4 text-primary cursor-pointer">{t('carDetails.back')}</button>
       </div>

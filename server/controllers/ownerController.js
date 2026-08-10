@@ -18,6 +18,7 @@ import {
   getCarLocations,
   normalizeLocations,
 } from "../utils/carLocations.js";
+import { logAudit } from "../utils/adminOps.js";
 
 const uploadToImageKit = async (imageFile, folder, width = '1280') => {
   if (!imagekit) {
@@ -545,10 +546,14 @@ export const updateCar = async (req, res) => {
       const allowed = [
         'brand', 'model', 'year', 'category', 'transmission', 'fuel_type',
         'seating_capacity', 'description', 'pricePerDay', 'features',
-        'licensePlate', 'mileage', 'fleetId', 'vin', 'branch',
+        'licensePlate', 'mileage', 'fleetId', 'vin', 'branch', 'visibleOnWebsite',
       ];
       for (const key of allowed) {
         if (updates[key] !== undefined) car[key] = updates[key];
+      }
+
+      if (updates.visibleOnWebsite !== undefined) {
+        car.visibleOnWebsite = Boolean(updates.visibleOnWebsite);
       }
 
       if (updates.category !== undefined) car.category = normalizeCategory(updates.category);
@@ -612,10 +617,65 @@ export const toggleCarAvailability = async (req, res) => {
     car.isAvaliable = !car.isAvaliable;
     await car.save();
 
-    res.json({ success: true, message: 'Availability updated' });
+    res.json({
+      success: true,
+      message: car.isAvaliable ? 'Vehicle marked available for rentals' : 'Vehicle marked offline for rentals',
+      car: { _id: car._id, isAvaliable: car.isAvaliable, visibleOnWebsite: car.visibleOnWebsite !== false },
+    });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to toggle availability' });
+  }
+};
+
+/**
+ * Show / hide a vehicle on the public website.
+ * Does not change isAvaliable, status, pricing, or existing bookings.
+ */
+export const toggleCarWebsiteVisibility = async (req, res) => {
+  try {
+    const { _id } = req.user;
+    const { carId, visibleOnWebsite } = req.body;
+
+    const car = await assertOwnerCar(carId, _id);
+    if (!car) {
+      return res.status(404).json({ success: false, message: 'Car not found' });
+    }
+
+    const next =
+      visibleOnWebsite === undefined
+        ? !(car.visibleOnWebsite !== false)
+        : Boolean(visibleOnWebsite);
+
+    car.visibleOnWebsite = next;
+    await car.save();
+
+    await logAudit({
+      owner: _id,
+      actor: _id,
+      action: next ? 'car.website.show' : 'car.website.hide',
+      entityType: 'Car',
+      entityId: car._id,
+      details: next
+        ? `Vehicle ${car.brand} ${car.model} shown on website`
+        : `Vehicle ${car.brand} ${car.model} hidden from website`,
+    });
+
+    res.json({
+      success: true,
+      message: next
+        ? 'Vehicle is now visible on the website'
+        : 'Vehicle is now hidden from the website',
+      car: {
+        _id: car._id,
+        visibleOnWebsite: car.visibleOnWebsite,
+        isAvaliable: car.isAvaliable,
+        status: car.status,
+      },
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to update website visibility' });
   }
 };
 

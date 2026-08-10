@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import Car from "../models/Car.js";
 import mongoose from 'mongoose';
-import { groupCarsForCatalog, PUBLIC_CATALOG_FIELDS, toPublicCatalogCar } from '../utils/carCatalog.js';
+import { groupCarsForCatalog, PUBLIC_CATALOG_FIELDS, PUBLIC_VISIBLE_CAR_FILTER, toPublicCatalogCar } from '../utils/carCatalog.js';
 import {
   syncLicenseStatus,
   serializeLicense,
@@ -131,11 +131,7 @@ export const getUserData = async (req, res) => {
 
 export const getCars = async (req, res) => {
     try {
-        const cars = await Car.find({
-            isAvaliable: true,
-            owner: { $ne: null },
-            status: { $ne: 'maintenance' },
-        })
+        const cars = await Car.find(PUBLIC_VISIBLE_CAR_FILTER)
             .select(PUBLIC_CATALOG_FIELDS)
             .sort({ createdAt: -1 })
             .lean();
@@ -155,9 +151,7 @@ export const getCarById = async (req, res) => {
 
         const car = await Car.findOne({
             _id: id,
-            isAvaliable: true,
-            owner: { $ne: null },
-            status: { $ne: 'maintenance' },
+            ...PUBLIC_VISIBLE_CAR_FILTER,
         })
             .select(PUBLIC_CATALOG_FIELDS)
             .lean();

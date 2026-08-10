@@ -19,11 +19,19 @@ const statusBadge = (car) => {
   return 'bg-gray-100 text-gray-600'
 }
 
-const statusLabel = (car) => {
-  if (car.status === 'maintenance') return 'In Maintenance'
-  if (car.isAvaliable) return 'Available'
-  return 'Offline'
+const statusLabel = (car, t) => {
+  if (car.status === 'maintenance') return t('admin.fleet.statusMaintenance')
+  if (car.isAvaliable) return t('admin.fleet.statusAvailable')
+  return t('admin.fleet.statusOffline')
 }
+
+const isVisibleOnWebsite = (car) => car.visibleOnWebsite !== false
+
+const visibilityBadge = (car) =>
+  isVisibleOnWebsite(car) ? 'bg-sky-100 text-sky-800' : 'bg-rose-100 text-rose-800'
+
+const visibilityLabel = (car, t) =>
+  isVisibleOnWebsite(car) ? t('admin.fleet.visibleOnWebsite') : t('admin.fleet.hiddenFromWebsite')
 
 const ManageCars = () => {
   const { isOwner, axios, currency } = useAppContext()
@@ -34,6 +42,7 @@ const ManageCars = () => {
   const [cars, setCars] = useState([])
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
+  const [togglingVisibilityId, setTogglingVisibilityId] = useState('')
   const [filters, setFilters] = useState({
     search: '',
     fleetId: '',
@@ -77,6 +86,36 @@ const ManageCars = () => {
       } else toast.error(data.message)
     } catch (error) {
       toast.error(getErrorMessage(error))
+    }
+  }
+
+  const toggleWebsiteVisibility = async (car) => {
+    const currentlyVisible = isVisibleOnWebsite(car)
+    const confirmMsg = currentlyVisible
+      ? t('admin.fleet.hideConfirm', { name: `${car.brand} ${car.model}` })
+      : t('admin.fleet.showConfirm', { name: `${car.brand} ${car.model}` })
+    if (!window.confirm(confirmMsg)) return
+
+    setTogglingVisibilityId(car._id)
+    try {
+      const { data } = await axios.post('/api/owner/toggle-car-visibility', {
+        carId: car._id,
+        visibleOnWebsite: !currentlyVisible,
+      })
+      if (data.success) {
+        toast.success(data.message)
+        setCars((list) =>
+          list.map((item) =>
+            item._id === car._id
+              ? { ...item, visibleOnWebsite: data.car?.visibleOnWebsite }
+              : item,
+          ),
+        )
+      } else toast.error(data.message)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setTogglingVisibilityId('')
     }
   }
 
@@ -142,6 +181,18 @@ const ManageCars = () => {
         className="text-xs text-gray-600 hover:underline px-2 py-1 rounded-md bg-gray-50 sm:bg-transparent sm:px-0 sm:py-0"
       >
         {t('admin.fleet.toggle')}
+      </button>
+      <button
+        type="button"
+        disabled={togglingVisibilityId === car._id}
+        onClick={() => toggleWebsiteVisibility(car)}
+        className="text-xs text-sky-800 hover:underline px-2 py-1 rounded-md bg-sky-50 sm:bg-transparent sm:px-0 sm:py-0 disabled:opacity-60"
+      >
+        {togglingVisibilityId === car._id
+          ? t('admin.common.loading')
+          : isVisibleOnWebsite(car)
+            ? t('admin.fleet.hideFromWebsite')
+            : t('admin.fleet.showOnWebsite')}
       </button>
       <button
         type="button"
@@ -275,7 +326,12 @@ const ManageCars = () => {
                       <span
                         className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${statusBadge(car)}`}
                       >
-                        {statusLabel(car)}
+                        {statusLabel(car, t)}
+                      </span>
+                      <span
+                        className={`inline-block mt-1.5 ml-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${visibilityBadge(car)}`}
+                      >
+                        {visibilityLabel(car, t)}
                       </span>
                     </div>
                     <p className="text-sm font-semibold text-gray-800 shrink-0">
@@ -321,6 +377,7 @@ const ManageCars = () => {
                     <th className="p-3 font-medium">{t('admin.fleet.category')}</th>
                     <th className="p-3 font-medium">{t('admin.fleet.price')}</th>
                     <th className="p-3 font-medium">{t('admin.fleet.status')}</th>
+                    <th className="p-3 font-medium">{t('admin.fleet.website')}</th>
                     <th className="p-3 font-medium">{t('admin.fleet.actions')}</th>
                   </tr>
                 </thead>
@@ -365,7 +422,12 @@ const ManageCars = () => {
                       </td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs ${statusBadge(car)}`}>
-                          {statusLabel(car)}
+                          {statusLabel(car, t)}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${visibilityBadge(car)}`}>
+                          {visibilityLabel(car, t)}
                         </span>
                       </td>
                       <td className="p-3">
