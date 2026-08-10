@@ -4,6 +4,7 @@ import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { BRAND_NAME } from '../constants/brand'
 import { buildWaMeUrl, getEnvAgencyWhatsAppDial } from '../utils/whatsapp'
+import { trackWhatsAppClick } from '../utils/ga'
 
 const WhatsAppIcon = ({ className = 'h-5 w-5' }) => (
   <svg
@@ -32,59 +33,73 @@ const WhatsAppHelp = () => {
   ].filter(Boolean)
 
   return (
-    <section className="page-pad page-shell pb-20 sm:pb-28 md:pb-36">
-      <Motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.6 }}
-        className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-borderColor bg-white"
-      >
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_0%_0%,rgba(143,31,31,0.07),transparent_55%),radial-gradient(ellipse_at_100%_100%,rgba(22,18,16,0.04),transparent_50%)]"
-          aria-hidden="true"
-        />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" aria-hidden="true" />
+    <section className="bg-light border-t border-borderColor">
+      <div className="page-pad page-shell py-12 sm:py-14 md:py-16 lg:py-20">
+        <Motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.35 }}
+          transition={{ duration: 0.55 }}
+          className={[
+            'relative text-center overflow-hidden',
+            /* Mobile: compact premium card */
+            'rounded-2xl border border-borderColor bg-white px-5 py-8',
+            'shadow-[0_12px_40px_-28px_rgba(22,18,16,0.35)]',
+            /* Desktop: flush section panel — no floating card */
+            'md:rounded-none md:border-0 md:bg-transparent md:shadow-none md:px-0 md:py-2',
+          ].join(' ')}
+        >
+          {/* Soft brand wash — stronger in the mobile card, subtler on desktop */}
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(143,31,31,0.08),transparent_58%)] md:bg-[radial-gradient(ellipse_at_50%_0%,rgba(143,31,31,0.05),transparent_52%)]"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent md:inset-x-[18%]"
+            aria-hidden="true"
+          />
 
-        <div className="relative px-6 py-10 sm:px-10 sm:py-12 md:px-14 md:py-14 text-center">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-primary font-medium mb-3">
-            {t('whatsappHelp.eyebrow')}
-          </p>
-          <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-medium text-ink leading-tight">
-            {t('whatsappHelp.title')}
-          </h2>
-          <p className="mt-4 mx-auto max-w-xl text-muted text-sm md:text-base font-light leading-relaxed">
-            {t('whatsappHelp.subtitle')}
-          </p>
-
-          <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
-            <Motion.a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ y: -1 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center justify-center gap-2.5 h-12 px-6 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium tracking-wide transition-colors"
-            >
-              <WhatsAppIcon className="h-[1.15rem] w-[1.15rem] opacity-95" />
-              {t('whatsappHelp.cta')}
-            </Motion.a>
-            <Link
-              to="/cars"
-              className="inline-flex items-center justify-center gap-1.5 h-12 px-5 rounded-xl border border-borderColor bg-light/60 hover:bg-white hover:border-primary/30 text-ink text-sm transition"
-            >
-              {t('whatsappHelp.secondary')}
-              <span aria-hidden="true" className="text-primary">→</span>
-            </Link>
-          </div>
-
-          {trustItems.length > 0 ? (
-            <p className="mt-7 text-[11px] sm:text-xs uppercase tracking-[0.16em] text-muted">
-              {trustItems.join(' · ')}
+          <div className="relative mx-auto w-full max-w-2xl md:max-w-3xl">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-primary font-medium mb-2.5 md:mb-3">
+              {t('whatsappHelp.eyebrow')}
             </p>
-          ) : null}
-        </div>
-      </Motion.div>
+            <h2 className="font-display text-[1.65rem] leading-tight sm:text-3xl md:text-4xl lg:text-[2.75rem] font-medium text-ink">
+              {t('whatsappHelp.title')}
+            </h2>
+            <p className="mt-3 md:mt-4 mx-auto max-w-xl text-muted text-sm md:text-base font-light leading-relaxed">
+              {t('whatsappHelp.subtitle')}
+            </p>
+
+            <div className="mt-6 md:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3">
+              <Motion.a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackWhatsAppClick({ location: 'home_whatsapp_help' })}
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center justify-center gap-2.5 h-12 px-6 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium tracking-wide transition-colors"
+              >
+                <WhatsAppIcon className="h-[1.15rem] w-[1.15rem] opacity-95" />
+                {t('whatsappHelp.cta')}
+              </Motion.a>
+              <Link
+                to="/cars"
+                className="inline-flex items-center justify-center gap-1.5 h-12 px-5 rounded-xl border border-borderColor bg-light hover:bg-white hover:border-primary/30 text-ink text-sm transition md:bg-white/70"
+              >
+                {t('whatsappHelp.secondary')}
+                <span aria-hidden="true" className="text-primary">→</span>
+              </Link>
+            </div>
+
+            {trustItems.length > 0 ? (
+              <p className="mt-5 md:mt-6 text-[10px] sm:text-[11px] uppercase tracking-[0.14em] sm:tracking-[0.16em] text-muted leading-relaxed">
+                {trustItems.join(' · ')}
+              </p>
+            ) : null}
+          </div>
+        </Motion.div>
+      </div>
     </section>
   )
 }

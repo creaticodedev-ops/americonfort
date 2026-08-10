@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Title from '../components/Title'
 import Seo from '../components/Seo'
 import { assets } from '../assets/assets'
@@ -13,6 +13,7 @@ import { VEHICLE_CATEGORIES, groupCarsByCategory } from '../utils/vehicleCategor
 import { getCarLocations } from '../utils/carLocations'
 import { AIRPORT_LANDING_PATH } from '../constants/site'
 import { buildBreadcrumbList, buildOrganization } from '../seo/structuredData'
+import { trackViewItemList } from '../utils/ga'
 
 const Cars = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -86,6 +87,28 @@ const Cars = () => {
   useEffect(() => {
     if (!isSearchData) applyFilter()
   }, [input, cars, isSearchData])
+
+  const lastListKey = useRef('')
+  useEffect(() => {
+    if (!filteredCars.length) return
+    // Avoid spamming GA while the user types in the search box
+    if (input.trim()) return
+    const listId = isSearchData ? 'search_results' : 'fleet'
+    const key = `${listId}:${filteredCars.map((c) => c._id).join(',')}`
+    if (key === lastListKey.current) return
+    lastListKey.current = key
+    trackViewItemList({
+      itemListId: listId,
+      itemListName: isSearchData ? 'Search results' : 'Fleet',
+      items: filteredCars.slice(0, 20).map((car, index) => ({
+        item_id: car._id,
+        item_name: `${car.brand || ''} ${car.model || ''}`.trim(),
+        item_category: car.category,
+        price: car.pricePerDay,
+        index,
+      })),
+    })
+  }, [filteredCars, isSearchData, input])
 
   const sections = useMemo(() => {
     let list = filteredCars

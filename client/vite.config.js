@@ -12,12 +12,25 @@ const seoHeadSnippets = () => {
     snippets += `    <meta name="google-site-verification" content="${gscVerification}" />\n`
   }
   if (ga4Id) {
+    // Consent defaults before config: Google Tags with Consent Mode v2 otherwise
+    // hold analytics until update — this site has no consent banner, so grant analytics.
+    // send_page_view:false → SPA Analytics.jsx owns page_view (no duplicate on first paint).
     snippets += `    <script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        analytics_storage: 'granted',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        wait_for_update: 0
+      });
       gtag('js', new Date());
-      gtag('config', '${ga4Id}', { anonymize_ip: true });
+      gtag('config', '${ga4Id}', {
+        send_page_view: false,
+        anonymize_ip: true
+      });
     </script>
 `
   }

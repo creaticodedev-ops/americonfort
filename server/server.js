@@ -104,7 +104,8 @@ app.use((_req, res, next) => {
     ].filter(Boolean).join(" "),
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com",
+    // 'unsafe-inline' required for the GA4 gtag bootstrap snippet in index.html
+    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
     `connect-src ${connectSrc.join(" ")}`,
     "frame-src 'self' https://js.stripe.com https://checkout.stripe.com",
     "worker-src 'self' blob:",

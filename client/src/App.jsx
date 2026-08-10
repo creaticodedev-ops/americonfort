@@ -5,6 +5,7 @@ import Home from './pages/Home'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
 import Loader from './components/Loader'
+import SiteAnalytics from './components/Analytics'
 import RequirePermission from './components/owner/RequirePermission'
 import { Toaster } from 'react-hot-toast'
 import { useAppContext } from './context/AppContext'
@@ -23,7 +24,6 @@ const Terms = lazy(() => import('./pages/Terms'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const Insurance = lazy(() => import('./pages/Insurance'))
 const Cookies = lazy(() => import('./pages/Cookies'))
-const SiteAnalytics = lazy(() => import('./components/Analytics'))
 
 const Layout = lazy(() => import('./pages/owner/Layout'))
 const Dashboard = lazy(() => import('./pages/owner/Dashboard'))
@@ -92,11 +92,7 @@ const App = () => {
       )}
 
       {!hidePublicChrome && <Navbar />}
-      {!hidePublicChrome && (
-        <Suspense fallback={null}>
-          <SiteAnalytics />
-        </Suspense>
-      )}
+      <SiteAnalytics />
 
       <div className={needsNavOffset ? 'pt-[65px] sm:pt-[73px]' : ''}>
         <Suspense fallback={<Loader />}>

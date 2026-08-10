@@ -14,6 +14,12 @@ import { calculateBookingPricePreview } from '../utils/pricing'
 import { isPhoneValid } from '../utils/phoneValidation'
 import { buildGuestReservationWaUrl } from '../utils/whatsapp'
 import {
+  trackBeginCheckout,
+  trackBookingSubmit,
+  trackViewItem,
+  trackWhatsAppClick,
+} from '../utils/ga'
+import {
   buildBreadcrumbList,
   buildOrganization,
   buildVehicleProductOffer,
@@ -87,6 +93,17 @@ const CarDetails = () => {
   }, [cars, id, carsLoading, axios])
 
   useEffect(() => {
+    if (!car?._id) return
+    trackViewItem({
+      itemId: car._id,
+      itemName: `${car.brand || ''} ${car.model || ''}`.trim(),
+      itemCategory: car.category,
+      price: car.pricePerDay,
+      currency: String(currency || 'MAD').replace(/\s/g, '') || 'MAD',
+    })
+  }, [car?._id])
+
+  useEffect(() => {
     if (pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) {
       setPickupDate(`${pickupDate}T10:00`)
     }
@@ -149,6 +166,16 @@ const CarDetails = () => {
       return
     }
 
+    const currencyCode = String(currency || 'MAD').replace(/\s/g, '') || 'MAD'
+    const itemName = `${car?.brand || ''} ${car?.model || ''}`.trim()
+    trackBeginCheckout({
+      itemId: id,
+      itemName,
+      value: priceBreakdown?.total,
+      currency: currencyCode,
+      channel,
+    })
+
     setSubmitting(true)
     try {
       const { data } = await axios.post('/api/bookings/create', {
@@ -181,7 +208,16 @@ const CarDetails = () => {
           channel: data.channel || channel,
           notes: form.notes,
         }
+        trackBookingSubmit({
+          reservationId: data.reservationId,
+          value: data.price,
+          currency: currencyCode,
+          channel: data.channel || channel,
+          itemId: id,
+          itemName,
+        })
         if (channel === 'whatsapp') {
+          trackWhatsAppClick({ location: 'booking_submit' })
           const url = data.whatsappUrl || buildGuestReservationWaUrl(confirmation, {
             currency: currency.trim(),
             dial: data.whatsappDial,

@@ -4,6 +4,7 @@ import Seo from '../components/Seo'
 import PublicPage from '../components/PublicPage'
 import { AIRPORT_LANDING_PATH, BUSINESS } from '../constants/site'
 import { buildAutoRental, buildBreadcrumbList, buildOrganization } from '../seo/structuredData'
+import { trackContactClick } from '../utils/ga'
 
 const crumbs = [
   { name: 'Home', path: '/' },
@@ -38,13 +39,21 @@ const Contact = () => {
           </li>
           <li>
             <strong className="text-ink font-medium">Phone:</strong>{' '}
-            <a className="text-primary underline" href={`tel:${BUSINESS.telephone}`}>
+            <a
+              className="text-primary underline"
+              href={`tel:${BUSINESS.telephone}`}
+              onClick={() => trackContactClick({ method: 'phone', location: 'contact_page' })}
+            >
               {BUSINESS.telephoneDisplay}
             </a>
           </li>
           <li>
             <strong className="text-ink font-medium">Email:</strong>{' '}
-            <a className="text-primary underline" href={`mailto:${BUSINESS.email}`}>
+            <a
+              className="text-primary underline"
+              href={`mailto:${BUSINESS.email}`}
+              onClick={() => trackContactClick({ method: 'email', location: 'contact_page' })}
+            >
               {BUSINESS.email}
             </a>
           </li>
