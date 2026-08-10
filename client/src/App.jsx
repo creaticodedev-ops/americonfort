@@ -121,7 +121,7 @@ const App = () => {
                 <Route path="invoices" element={withPerm('contracts', Invoices)} />
                 <Route path="templates" element={withPerm('templates', ExportTemplates)} />
                 <Route path="audit" element={withPerm('audit', AuditLogs)} />
-                <Route path="settings" element={<Settings />} />
+                <Route path="settings/*" element={<Settings />} />
               </Route>
               <Route path="/superadmin/login" element={<SuperAdminLogin />} />
               <Route path="/superadmin" element={<SuperAdminLayout />}>
