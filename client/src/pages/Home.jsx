@@ -10,7 +10,7 @@ import {
 const FeaturedSection = lazy(() => import('../components/FeaturedSection'))
 const Banner = lazy(() => import('../components/Banner'))
 const Testimonial = lazy(() => import('../components/Testimonial'))
-const Newsletter = lazy(() => import('../components/Newsletter'))
+const WhatsAppHelp = lazy(() => import('../components/WhatsAppHelp'))
 
 const BelowFoldFallback = () => (
   <div className="min-h-[12rem]" aria-hidden="true" />
@@ -39,7 +39,7 @@ const Home = () => {
         <FeaturedSection />
         <Banner />
         <Testimonial />
-        <Newsletter />
+        <WhatsAppHelp />
       </Suspense>
     </>
   )

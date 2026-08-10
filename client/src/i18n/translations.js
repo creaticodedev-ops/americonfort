@@ -64,13 +64,17 @@ export const en = {
       { name: 'Youssef B.', location: 'Marrakech', text: 'The car was in perfect condition, and the whole experience was fast and hassle-free.' },
     ],
   },
-  newsletter: {
-    eyebrow: 'Stay informed',
-    title: 'Offers, arrivals, exclusives',
-    subtitle: 'Subscribe for seasonal rates and new vehicles — we keep it infrequent and useful.',
-    placeholder: 'Enter your email',
-    subscribe: 'Subscribe',
-    thanks: 'Thank you for subscribing!',
+  whatsappHelp: {
+    eyebrow: 'Need help?',
+    title: 'A question before you book?',
+    subtitle:
+      'Wondering about a car, availability, dates, or rates? Message us on WhatsApp — our team is here to help.',
+    cta: 'Chat on WhatsApp',
+    secondary: 'Browse our cars',
+    trust1: 'Quick replies',
+    trust2: 'Availability',
+    trust3: 'Clear rates',
+    message: 'Hello {{brand}}, I have a question before booking.',
   },
   cars: {
     title: 'Available Cars',
@@ -357,13 +361,17 @@ export const fr = {
       { name: 'Youssef B.', location: 'Marrakech', text: 'La voiture était en parfait état, et toute l\'expérience a été rapide et sans souci.' },
     ],
   },
-  newsletter: {
-    eyebrow: 'Restez informé',
-    title: 'Offres, nouveautés, exclusivités',
-    subtitle: 'Recevez les tarifs saisonniers et les nouveaux véhicules — rarement, et utilement.',
-    placeholder: 'Entrez votre e-mail',
-    subscribe: 'S\'abonner',
-    thanks: 'Merci pour votre inscription !',
+  whatsappHelp: {
+    eyebrow: 'Besoin d’aide ?',
+    title: 'Une question avant de réserver ?',
+    subtitle:
+      'Une question sur une voiture, une disponibilité, une date ou un tarif ? Écrivez-nous directement sur WhatsApp, notre équipe vous accompagne.',
+    cta: 'Parler sur WhatsApp',
+    secondary: 'Voir nos voitures',
+    trust1: 'Réponse rapide',
+    trust2: 'Disponibilité',
+    trust3: 'Tarifs clairs',
+    message: 'Bonjour {{brand}}, j’ai une question avant de réserver.',
   },
   cars: {
     title: 'Voitures disponibles',
@@ -649,13 +657,17 @@ export const es = {
       { name: 'Youssef B.', location: 'Marrakech', text: 'El coche estaba en perfectas condiciones y toda la experiencia fue rápida y sin complicaciones.' },
     ],
   },
-  newsletter: {
-    eyebrow: 'Mantente informado',
-    title: 'Ofertas, novedades, exclusivas',
-    subtitle: 'Recibe tarifas de temporada y nuevos vehículos — poco frecuente y útil.',
-    placeholder: 'Introduzca su correo',
-    subscribe: 'Suscribirse',
-    thanks: '¡Gracias por suscribirte!',
+  whatsappHelp: {
+    eyebrow: '¿Necesita ayuda?',
+    title: '¿Una pregunta antes de reservar?',
+    subtitle:
+      '¿Dudas sobre un coche, disponibilidad, fechas o tarifas? Escríbanos por WhatsApp — nuestro equipo le acompaña.',
+    cta: 'Hablar por WhatsApp',
+    secondary: 'Ver nuestros coches',
+    trust1: 'Respuesta rápida',
+    trust2: 'Disponibilidad',
+    trust3: 'Tarifas claras',
+    message: 'Hola {{brand}}, tengo una pregunta antes de reservar.',
   },
   cars: {
     title: 'Coches disponibles',

@@ -35,7 +35,7 @@ const Privacy = () => {
         <h2 className="font-display text-xl text-ink font-medium">Why we use it</h2>
         <p>
           Data is used to process and confirm bookings, communicate with you about your reservation, and operate
-          the rental service. Newsletter signup, if used, is only for the purpose stated on that form.
+          the rental service.
         </p>
         <h2 className="font-display text-xl text-ink font-medium">Sharing</h2>
         <p>
