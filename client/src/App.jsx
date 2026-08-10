@@ -15,6 +15,15 @@ const BookingConfirmation = lazy(() => import('./pages/BookingConfirmation'))
 const CompleteBooking = lazy(() => import('./pages/CompleteBooking'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Login = lazy(() => import('./components/Login'))
+const AirportLanding = lazy(() => import('./pages/AirportLanding'))
+const About = lazy(() => import('./pages/About'))
+const Contact = lazy(() => import('./pages/Contact'))
+const Faq = lazy(() => import('./pages/Faq'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const Insurance = lazy(() => import('./pages/Insurance'))
+const Cookies = lazy(() => import('./pages/Cookies'))
+const SiteAnalytics = lazy(() => import('./components/Analytics'))
 
 const Layout = lazy(() => import('./pages/owner/Layout'))
 const Dashboard = lazy(() => import('./pages/owner/Dashboard'))
@@ -83,6 +92,11 @@ const App = () => {
       )}
 
       {!hidePublicChrome && <Navbar />}
+      {!hidePublicChrome && (
+        <Suspense fallback={null}>
+          <SiteAnalytics />
+        </Suspense>
+      )}
 
       <div className={needsNavOffset ? 'pt-[65px] sm:pt-[73px]' : ''}>
         <Suspense fallback={<Loader />}>
@@ -125,6 +139,14 @@ const App = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/car-details/:id" element={<CarDetails />} />
                 <Route path="/cars" element={<Cars />} />
+                <Route path="/location-voiture-casablanca-aeroport" element={<AirportLanding />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/faq" element={<Faq />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/insurance" element={<Insurance />} />
+                <Route path="/cookies" element={<Cookies />} />
                 <Route path="/booking-confirmation" element={<BookingConfirmation />} />
                 <Route path="/complete-booking/:token" element={<CompleteBooking />} />
                 <Route path="/admin" element={<Navigate to="/owner" replace />} />

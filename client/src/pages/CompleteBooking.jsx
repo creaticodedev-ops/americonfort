@@ -11,6 +11,7 @@ import { useI18n } from '../i18n/I18nContext'
 import { useAppContext } from '../context/AppContext'
 import { getErrorMessage } from '../utils/apiError'
 import Loader from '../components/Loader'
+import Seo from '../components/Seo'
 import {
   FormField,
   SectionCard,
@@ -331,11 +332,19 @@ const CompleteBooking = () => {
     ready: t('completion.stageReady'),
   })
 
-  if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader /></div>
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Seo title="Complete booking" path={`/complete-booking/${token || ''}`} noindex />
+        <Loader />
+      </div>
+    )
+  }
 
   if (error) {
     return (
       <div className="max-w-lg mx-auto px-6 py-24 text-center">
+        <Seo title="Complete booking" path={`/complete-booking/${token || ''}`} noindex />
         <h1 className="font-display text-3xl text-ink">{t('completion.invalidTitle')}</h1>
         <p className="mt-3 text-muted">{error}</p>
         <Link to="/" className="inline-block mt-8 px-5 py-2.5 rounded-xl bg-primary text-white text-sm">
@@ -352,6 +361,7 @@ const CompleteBooking = () => {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#f5efe8_0%,_#faf8f5_45%,_#f0ebe4_100%)] pb-20">
+      <Seo title="Complete booking" path={`/complete-booking/${token || ''}`} noindex />
       <div className="relative overflow-hidden bg-ink text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(143,31,31,0.35),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.08),transparent_40%)]" />
         <div className="relative page-pad py-12 md:py-16">

@@ -19,16 +19,42 @@
       ]
     },
     {
-      "source": "/(robots.txt|sitemap.xml|llms.txt|favicon.svg|apple-touch-icon.png|og-image.webp)",
+      "source": "/(robots.txt|llms.txt|favicon.svg|apple-touch-icon.png|og-image.webp)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=86400"
         }
       ]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
+      ]
+    },
+    {
+      "source": "/location-voiture-casablanca-aeroport",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
     }
   ],
   "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "https://api.americonfort.com/sitemap.xml"
+    },
+    {
+      "source": "/location-voiture-casablanca-aeroport",
+      "destination": "/location-voiture-casablanca-aeroport/index.html"
+    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

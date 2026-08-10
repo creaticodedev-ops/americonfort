@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "optimize-images": "node scripts/optimize-images.mjs"
+    "optimize-images": "node scripts/optimize-images.mjs",
+    "verify:seo": "node scripts/verify-seo-phase1.mjs"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",

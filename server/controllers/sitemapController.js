@@ -1,12 +1,35 @@
 import Car from '../models/Car.js';
 import { PUBLIC_VISIBLE_CAR_FILTER } from '../utils/carCatalog.js';
 
+/** Canonical public host for all sitemap locs (Phase 1 SEO). */
+const CANONICAL_SITE = 'https://www.americonfort.com';
+
+const STATIC_PATHS = [
+  { path: '/', changefreq: 'weekly', priority: '1.0' },
+  { path: '/cars', changefreq: 'daily', priority: '0.9' },
+  { path: '/location-voiture-casablanca-aeroport', changefreq: 'weekly', priority: '0.95' },
+  { path: '/about', changefreq: 'monthly', priority: '0.6' },
+  { path: '/contact', changefreq: 'monthly', priority: '0.7' },
+  { path: '/faq', changefreq: 'monthly', priority: '0.7' },
+  { path: '/terms', changefreq: 'yearly', priority: '0.3' },
+  { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
+  { path: '/insurance', changefreq: 'yearly', priority: '0.4' },
+  { path: '/cookies', changefreq: 'yearly', priority: '0.3' },
+];
+
 const siteBase = () => {
-  const raw = (process.env.CLIENT_URL || process.env.PUBLIC_SITE_URL || 'https://www.americonfort.com')
+  const raw = (process.env.PUBLIC_SITE_URL || process.env.CLIENT_URL || CANONICAL_SITE)
     .split(',')[0]
     .trim()
     .replace(/\/$/, '');
-  return raw || 'https://www.americonfort.com';
+  if (!raw) return CANONICAL_SITE;
+  try {
+    const host = new URL(raw.includes('://') ? raw : `https://${raw}`).hostname;
+    if (/americonfort\.com$/i.test(host)) return CANONICAL_SITE;
+  } catch {
+    return CANONICAL_SITE;
+  }
+  return raw;
 };
 
 const escapeXml = (value) =>
@@ -20,6 +43,7 @@ const escapeXml = (value) =>
 /**
  * Dynamic sitemap — only publicly visible cars are listed as detail URLs.
  * Hidden / offline / maintenance vehicles are excluded.
+ * Served at API /sitemap.xml and proxied to https://www.americonfort.com/sitemap.xml
  */
 export const getPublicSitemap = async (_req, res) => {
   try {
@@ -30,8 +54,11 @@ export const getPublicSitemap = async (_req, res) => {
       .lean();
 
     const urls = [
-      { loc: `${base}/`, changefreq: 'weekly', priority: '1.0' },
-      { loc: `${base}/cars`, changefreq: 'daily', priority: '0.9' },
+      ...STATIC_PATHS.map((p) => ({
+        loc: `${base}${p.path === '/' ? '/' : p.path}`,
+        changefreq: p.changefreq,
+        priority: p.priority,
+      })),
       ...cars.map((car) => ({
         loc: `${base}/car-details/${car._id}`,
         lastmod: car.updatedAt ? new Date(car.updatedAt).toISOString() : undefined,
@@ -57,6 +84,7 @@ ${urls
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('X-Robots-Tag', 'noindex');
     res.status(200).send(body);
   } catch (error) {
     console.error('[sitemap]', error.message);

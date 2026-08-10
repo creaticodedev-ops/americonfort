@@ -1,6 +1,7 @@
 # https://www.americonfort.com/robots.txt
 User-agent: *
 Allow: /
+
 Disallow: /owner
 Disallow: /owner/
 Disallow: /superadmin
@@ -10,4 +11,5 @@ Disallow: /admin/
 Disallow: /booking-confirmation
 Disallow: /complete-booking
 
+# Canonical public sitemap (proxied from API; includes visible vehicles + indexable pages)
 Sitemap: https://www.americonfort.com/sitemap.xml

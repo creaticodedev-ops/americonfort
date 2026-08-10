@@ -3,7 +3,7 @@ import Title from '../components/Title'
 import Seo from '../components/Seo'
 import { assets } from '../assets/assets'
 import CarCard from '../components/CarCard'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
 import { motion as Motion } from 'motion/react'
@@ -11,6 +11,8 @@ import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
 import { VEHICLE_CATEGORIES, groupCarsByCategory } from '../utils/vehicleCategories'
 import { getCarLocations } from '../utils/carLocations'
+import { AIRPORT_LANDING_PATH } from '../constants/site'
+import { buildBreadcrumbList, buildOrganization } from '../seo/structuredData'
 
 const Cars = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -110,12 +112,24 @@ const Cars = () => {
     setSearchParams(next, { replace: true })
   }
 
+  const jsonLd = useMemo(
+    () => [
+      buildOrganization(),
+      buildBreadcrumbList([
+        { name: 'Home', path: '/' },
+        { name: 'Cars', path: '/cars' },
+      ]),
+    ],
+    [],
+  )
+
   return (
     <div className="pb-20 sm:pb-28">
       <Seo
-        title={t('cars.title')}
-        description={t('cars.subtitle')}
+        title={t('cars.seoTitle')}
+        description={t('cars.seoDescription')}
         path="/cars"
+        jsonLd={jsonLd}
       />
       <Motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -155,8 +169,8 @@ const Cars = () => {
 
         {availableCategories.length > 0 && (
           <div className="relative z-10 mt-8 w-full max-w-4xl flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
+            <Link
+              to="/cars"
               onClick={() => selectCategory('')}
               className={`px-3.5 py-1.5 text-xs sm:text-sm rounded-full border transition-colors ${
                 !activeCategory
@@ -165,11 +179,11 @@ const Cars = () => {
               }`}
             >
               {t('cars.allCategories')}
-            </button>
+            </Link>
             {availableCategories.map((cat) => (
-              <button
+              <Link
                 key={cat}
-                type="button"
+                to={`/cars?category=${encodeURIComponent(cat)}`}
                 onClick={() => selectCategory(cat)}
                 className={`px-3.5 py-1.5 text-xs sm:text-sm rounded-full border transition-colors ${
                   activeCategory.toLowerCase() === cat.toLowerCase()
@@ -178,10 +192,15 @@ const Cars = () => {
                 }`}
               >
                 {cat}
-              </button>
+              </Link>
             ))}
           </div>
         )}
+        <p className="relative z-10 mt-6 text-center text-sm text-muted">
+          <Link to={AIRPORT_LANDING_PATH} className="text-primary hover:underline">
+            {t('cars.airportLink')}
+          </Link>
+        </p>
       </Motion.div>
 
       <div className="page-pad page-shell mt-4 sm:mt-6">

@@ -2,14 +2,14 @@ import React, { useMemo } from 'react'
 import Title from './Title'
 import { assets } from '../assets/assets'
 import CarCard from './CarCard'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { groupCarsByCategory } from '../utils/vehicleCategories'
+import { AIRPORT_LANDING_PATH } from '../constants/site'
 
 const FeaturedSection = () => {
-  const navigate = useNavigate()
   const { cars } = useAppContext()
   const { t } = useI18n()
 
@@ -49,16 +49,13 @@ const FeaturedSection = () => {
                 </p>
                 <h3 className="font-display text-2xl sm:text-3xl text-ink">{section.category}</h3>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate(`/cars?category=${encodeURIComponent(section.category)}`)
-                  window.scrollTo(0, 0)
-                }}
+              <Link
+                to={`/cars?category=${encodeURIComponent(section.category)}`}
+                onClick={() => window.scrollTo(0, 0)}
                 className="text-xs sm:text-sm text-primary hover:underline shrink-0"
               >
                 {t('featured.viewCategory')}
-              </button>
+              </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
               {section.cars.map((car, index) => (
@@ -82,16 +79,23 @@ const FeaturedSection = () => {
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="flex justify-center mt-14 md:mt-16"
+        className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-14 md:mt-16"
       >
-        <button
-          type="button"
-          onClick={() => { navigate('/cars'); window.scrollTo(0, 0) }}
-          className="group inline-flex items-center gap-2 px-7 py-3 border border-ink/15 hover:border-primary hover:text-primary rounded-xl text-sm tracking-wide transition-all duration-300 cursor-pointer"
+        <Link
+          to="/cars"
+          onClick={() => window.scrollTo(0, 0)}
+          className="group inline-flex items-center gap-2 px-7 py-3 border border-ink/15 hover:border-primary hover:text-primary rounded-xl text-sm tracking-wide transition-all duration-300"
         >
           {t('featured.exploreAll')}
           <img src={assets.arrow_icon} alt="" width={14} height={14} loading="lazy" className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-        </button>
+        </Link>
+        <Link
+          to={AIRPORT_LANDING_PATH}
+          onClick={() => window.scrollTo(0, 0)}
+          className="text-xs sm:text-sm text-muted hover:text-primary underline-offset-2 hover:underline"
+        >
+          {t('featured.airportLink')}
+        </Link>
       </Motion.div>
     </section>
   )

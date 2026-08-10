@@ -8,7 +8,7 @@ import { useI18n } from '../i18n/I18nContext'
 import { BRAND_NAME } from '../constants/brand'
 import { INSTAGRAM_URL } from '../constants/social'
 
-/** Thin monochrome Instagram glyph — matches HDN Car icon weight. */
+/** Thin monochrome Instagram glyph. */
 const InstagramIcon = ({ className = '' }) => (
   <svg
     viewBox="0 0 24 24"
@@ -99,15 +99,17 @@ const Navbar = () => {
             />
           </button>
 
-          <a
-            href={INSTAGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Instagram"
-            className="inline-flex h-11 w-11 items-center justify-center text-ink/80 transition-opacity duration-200 hover:opacity-100 hover:text-ink active:opacity-70"
-          >
-            <InstagramIcon className="h-[21px] w-[21px]" />
-          </a>
+          {INSTAGRAM_URL ? (
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              className="inline-flex h-11 w-11 items-center justify-center text-ink/80 transition-opacity duration-200 hover:opacity-100 hover:text-ink active:opacity-70"
+            >
+              <InstagramIcon className="h-[21px] w-[21px]" />
+            </a>
+          ) : null}
         </div>
 
         <Link

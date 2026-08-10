@@ -5,14 +5,15 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Americonfort — premium car rental in Morocco. Browse vehicles and reserve online with ease." />
+    <meta name="description" content="Americonfort — premium car rental in Morocco. Browse vehicles and reserve online with ease. Pickup available around Casablanca Airport (Mohammed V)." />
     <meta name="theme-color" content="#8F1F1F" />
     <meta name="robots" content="index, follow" />
+    <!-- Set VITE_GSC_VERIFICATION at build time; Seo.jsx also injects it client-side. -->
     <link rel="canonical" href="https://www.americonfort.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Americonfort" />
     <meta property="og:title" content="Americonfort — Premium Car Rental in Morocco" />
-    <meta property="og:description" content="Americonfort — premium car rental in Morocco. Browse vehicles and reserve online with ease." />
+    <meta property="og:description" content="Americonfort — premium car rental in Morocco. Browse vehicles and reserve online with ease. Pickup available around Casablanca Airport (Mohammed V)." />
     <meta property="og:url" content="https://www.americonfort.com/" />
     <meta property="og:image" content="https://www.americonfort.com/og-image.webp" />
     <meta property="og:locale" content="en_US" />
@@ -24,7 +25,33 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": "https://www.americonfort.com/#organization",
+        "name": "Americonfort",
+        "url": "https://www.americonfort.com",
+        "email": "americonfort@gmail.com",
+        "telephone": "+212670551055",
+        "logo": "https://www.americonfort.com/og-image.webp",
+        "image": "https://www.americonfort.com/og-image.webp",
+        "description": "Premium car rental in Morocco. Browse vehicles and reserve online with ease.",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Aéroport international Mohamed V",
+          "addressLocality": "Casablanca",
+          "addressRegion": "Casablanca-Settat",
+          "addressCountry": "MA"
+        },
+        "areaServed": {
+          "@type": "Country",
+          "name": "Morocco"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
         "@type": "AutoRental",
+        "@id": "https://www.americonfort.com/#autorental",
         "name": "Americonfort",
         "url": "https://www.americonfort.com",
         "email": "americonfort@gmail.com",
@@ -35,11 +62,26 @@
           "@type": "PostalAddress",
           "streetAddress": "Aéroport international Mohamed V",
           "addressLocality": "Casablanca",
+          "addressRegion": "Casablanca-Settat",
           "addressCountry": "MA"
         },
-        "areaServed": {
-          "@type": "Country",
-          "name": "Morocco"
+        "areaServed": [
+          { "@type": "Country", "name": "Morocco" },
+          { "@type": "City", "name": "Casablanca" },
+          {
+            "@type": "Airport",
+            "name": "Aéroport international Mohammed V",
+            "iataCode": "CMN",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "Aéroport international Mohamed V",
+              "addressLocality": "Casablanca",
+              "addressCountry": "MA"
+            }
+          }
+        ],
+        "parentOrganization": {
+          "@id": "https://www.americonfort.com/#organization"
         }
       }
     </script>

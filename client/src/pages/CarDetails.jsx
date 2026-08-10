@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { assets } from '../assets/assets'
 import ResponsiveImage from '../components/ResponsiveImage'
 import Loader from '../components/Loader'
@@ -13,6 +13,11 @@ import { formatLocationsDisplay, getCarLocations } from '../utils/carLocations'
 import { calculateBookingPricePreview } from '../utils/pricing'
 import { isPhoneValid } from '../utils/phoneValidation'
 import { buildGuestReservationWaUrl } from '../utils/whatsapp'
+import {
+  buildBreadcrumbList,
+  buildOrganization,
+  buildVehicleProductOffer,
+} from '../seo/structuredData'
 
 const ReservationPanel = lazy(() => import('../components/reservation/ReservationPanel'))
 
@@ -217,12 +222,34 @@ const CarDetails = () => {
   const openingTime = bookingSettings?.pickupReturn?.openingTime || '06:00'
   const closingTime = bookingSettings?.pickupReturn?.closingTime || '22:00'
 
+  const currencyCode = String(currency || 'MAD').replace(/\s/g, '') || 'MAD'
+
+  const carJsonLd = useMemo(() => {
+    if (!car) return null
+    return [
+      buildOrganization(),
+      buildBreadcrumbList([
+        { name: 'Home', path: '/' },
+        { name: 'Cars', path: '/cars' },
+        { name: `${car.brand} ${car.model}`, path: `/car-details/${car._id}` },
+      ]),
+      buildVehicleProductOffer(car, { currency: currencyCode }),
+    ].filter(Boolean)
+  }, [car, currencyCode])
+
   if (notFound) {
     return (
       <div className="page-pad page-shell mt-10 sm:mt-16 text-center pb-16">
-        <Seo title="Vehicle not found" path={`/car-details/${id}`} noindex />
+        <Seo
+          title="Vehicle not found"
+          description="This vehicle is unavailable or not listed on the Americonfort website."
+          path={`/car-details/${id}`}
+          noindex
+        />
         <h1 className="text-2xl font-semibold text-gray-800">Vehicle not found</h1>
-        <button type="button" onClick={() => navigate('/cars')} className="mt-4 text-primary cursor-pointer">{t('carDetails.back')}</button>
+        <Link to="/cars" className="mt-4 inline-block text-primary hover:underline">
+          {t('carDetails.back')}
+        </Link>
       </div>
     )
   }
@@ -236,23 +263,28 @@ const CarDetails = () => {
     { icon: assets.location_icon, text: formatLocationsDisplay(car) },
   ]
 
+  const seoTitle = `${car.brand} ${car.model} — Car Rental Morocco`
+  const seoDescription =
+    car.description ||
+    `Rent the ${car.brand} ${car.model}${car.category ? ` (${car.category})` : ''} with Americonfort in Morocco. Daily rate from ${currency}${car.pricePerDay}. Reserve online.`
+
   return (
     <div className="page-pad page-shell mt-6 sm:mt-10 md:mt-12 pb-16 sm:pb-20 bg-gradient-to-b from-white to-sand/30 min-h-screen">
       <Seo
-        title={`${car.brand} ${car.model}`}
-        description={car.description || `Rent ${car.brand} ${car.model} with Americonfort in Morocco.`}
+        title={seoTitle}
+        description={seoDescription}
         path={`/car-details/${car._id}`}
         type="product"
         image={car.image || car.images?.[0]}
+        jsonLd={carJsonLd}
       />
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-sm text-muted transition hover:text-ink cursor-pointer"
+      <Link
+        to="/cars"
+        className="mb-6 inline-flex items-center gap-2 text-sm text-muted transition hover:text-ink"
       >
         <img src={assets.arrow_icon} alt="" width={16} height={16} className="w-4 h-4 rotate-180 opacity-60" />
         {t('carDetails.back')}
-      </button>
+      </Link>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10 xl:gap-14">
         <div className="order-2 lg:order-1 lg:col-span-7 xl:col-span-8 min-w-0">

@@ -3,11 +3,11 @@ import banner_car_image from '../assets/banner_car_image.webp'
 import banner_car_avif from '../assets/banner_car_image.avif'
 import { motion as Motion } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { AIRPORT_LANDING_PATH } from '../constants/site'
 
 const Banner = () => {
   const { t } = useI18n()
-  const navigate = useNavigate()
 
   return (
     <section className="page-pad page-shell py-8 md:py-12">
@@ -45,15 +45,22 @@ const Banner = () => {
           <p className="mt-4 text-white/90 text-sm md:text-base leading-relaxed font-light max-w-md">
             {t('banner.line1')}
           </p>
-          <Motion.button
-            whileHover={{ y: -1 }}
-            whileTap={{ scale: 0.98 }}
-            type="button"
-            onClick={() => navigate('/cars')}
-            className="mt-7 self-start px-6 py-2.5 bg-primary hover:bg-primary-dull transition-colors text-white rounded-xl text-sm tracking-wide cursor-pointer"
-          >
-            {t('banner.cta')}
-          </Motion.button>
+          <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
+            <Motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+              <Link
+                to="/cars"
+                className="inline-flex px-6 py-2.5 bg-primary hover:bg-primary-dull transition-colors text-white rounded-xl text-sm tracking-wide"
+              >
+                {t('banner.cta')}
+              </Link>
+            </Motion.div>
+            <Link
+              to={AIRPORT_LANDING_PATH}
+              className="text-sm text-white/85 hover:text-white underline underline-offset-4"
+            >
+              {t('banner.airportCta')}
+            </Link>
+          </div>
         </div>
       </Motion.div>
     </section>

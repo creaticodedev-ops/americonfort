@@ -41,6 +41,7 @@ export const en = {
     subtitle: 'A refined selection of well-maintained cars, ready for business, travel, and everything in between.',
     exploreAll: 'Explore the full fleet',
     viewCategory: 'View category',
+    airportLink: 'Casablanca airport car rental',
   },
   banner: {
     eyebrow: 'Ready when you are',
@@ -48,6 +49,7 @@ export const en = {
     line1: 'Airport delivery, city pickups, and flexible returns — booked in minutes with no hidden fees.',
     line2: '',
     cta: 'Browse cars',
+    airportCta: 'Casablanca Mohammed V airport',
   },
   testimonials: {
     eyebrow: 'Client stories',
@@ -70,12 +72,16 @@ export const en = {
   cars: {
     title: 'Available Cars',
     subtitle: 'Browse by category — Economy, Compact, Sedan, SUV, Luxury, Van, and more — to compare the right vehicle.',
+    seoTitle: 'Car Rental Fleet in Morocco | Americonfort',
+    seoDescription:
+      'Browse Americonfort vehicles in Morocco — Economy, Compact, Sedan, SUV, Luxury, Van and more. Clear daily rates and online reservation without an account.',
     searchPlaceholder: 'Search by make, model, or features',
     showing: 'Showing {{count}} Cars',
     noCars: 'No cars available',
     allCategories: 'All categories',
     categoryLabel: 'Category',
     categoryCount: '{{count}} vehicles',
+    airportLink: 'Airport rental — Casablanca Mohammed V',
   },
   carDetails: {
     back: 'Back to all cars',
@@ -168,6 +174,7 @@ export const en = {
     contact: 'Contact',
     home: 'Home',
     browseCars: 'Browse Cars',
+    airportRental: 'Casablanca airport',
     aboutUs: 'About Us',
     helpCenter: 'Help Center',
     termsOfService: 'Terms of Service',
@@ -324,6 +331,7 @@ export const fr = {
     subtitle: 'Une sélection soignée de voitures entretenues, prêtes pour le business, les voyages et le quotidien.',
     exploreAll: 'Voir toute la flotte',
     viewCategory: 'Voir la catégorie',
+    airportLink: 'Location voiture aéroport Casablanca',
   },
   banner: {
     eyebrow: 'Prêt quand vous l\'êtes',
@@ -331,6 +339,7 @@ export const fr = {
     line1: 'Livraison aéroport, prises en ville et retours flexibles — réservé en quelques minutes, sans frais cachés.',
     line2: '',
     cta: 'Parcourir les voitures',
+    airportCta: 'Aéroport Mohammed V — Casablanca',
   },
   testimonials: {
     eyebrow: 'Avis clients',
@@ -353,12 +362,16 @@ export const fr = {
   cars: {
     title: 'Voitures disponibles',
     subtitle: 'Parcourez par catégorie — Économique, Compacte, Berline, SUV, Luxe, Van, etc. — pour comparer facilement.',
+    seoTitle: 'Location de voitures au Maroc | Flotte Americonfort',
+    seoDescription:
+      'Parcourez la flotte Americonfort au Maroc — Économique, Compacte, Berline, SUV, Luxe, Van et plus. Tarifs journaliers clairs et réservation en ligne sans compte.',
     searchPlaceholder: 'Rechercher par marque, modèle ou caractéristiques',
     showing: '{{count}} voitures affichées',
     noCars: 'Aucune voiture disponible',
     allCategories: 'Toutes les catégories',
     categoryLabel: 'Catégorie',
     categoryCount: '{{count}} véhicules',
+    airportLink: 'Location aéroport — Casablanca Mohammed V',
   },
   carDetails: {
     back: 'Retour aux voitures',
@@ -450,6 +463,7 @@ export const fr = {
     contact: 'Contact',
     home: 'Accueil',
     browseCars: 'Parcourir les voitures',
+    airportRental: 'Aéroport Casablanca',
     aboutUs: 'À propos',
     helpCenter: 'Centre d\'aide',
     termsOfService: 'Conditions d\'utilisation',
@@ -606,6 +620,7 @@ export const es = {
     subtitle: 'Una selección cuidada de coches bien mantenidos, listos para negocios, viajes y el día a día.',
     exploreAll: 'Ver toda la flota',
     viewCategory: 'Ver categoría',
+    airportLink: 'Alquiler aeropuerto Casablanca',
   },
   banner: {
     eyebrow: 'Listo cuando tú lo estés',
@@ -613,6 +628,7 @@ export const es = {
     line1: 'Entrega en aeropuerto, recogidas en ciudad y devoluciones flexibles — reserva en minutos, sin tarifas ocultas.',
     line2: '',
     cta: 'Ver coches',
+    airportCta: 'Aeropuerto Mohammed V — Casablanca',
   },
   testimonials: {
     eyebrow: 'Voces de clientes',
@@ -635,12 +651,16 @@ export const es = {
   cars: {
     title: 'Coches disponibles',
     subtitle: 'Navegue por categoría — Economy, Compact, Sedan, SUV, Luxury, Van, etc. — para comparar fácilmente.',
+    seoTitle: 'Alquiler de coches en Marruecos | Flota Americonfort',
+    seoDescription:
+      'Explore la flota Americonfort en Marruecos — Economy, Compact, Sedan, SUV, Luxury, Van y más. Tarifas diarias claras y reserva online sin cuenta.',
     searchPlaceholder: 'Buscar por marca, modelo o características',
     showing: 'Mostrando {{count}} coches',
     noCars: 'No hay coches disponibles',
     allCategories: 'Todas las categorías',
     categoryLabel: 'Categoría',
     categoryCount: '{{count}} vehículos',
+    airportLink: 'Alquiler aeropuerto — Casablanca Mohammed V',
   },
   carDetails: {
     back: 'Volver a todos los coches',
@@ -732,6 +752,7 @@ export const es = {
     contact: 'Contacto',
     home: 'Inicio',
     browseCars: 'Ver coches',
+    airportRental: 'Aeropuerto Casablanca',
     aboutUs: 'Sobre nosotros',
     helpCenter: 'Centro de ayuda',
     termsOfService: 'Términos de servicio',

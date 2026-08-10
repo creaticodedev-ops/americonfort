@@ -85,6 +85,12 @@ app.use((_req, res, next) => {
     "https://ik.imagekit.io",
     "https://api.stripe.com",
     "https://checkout.stripe.com",
+    // GA4 / gtag (loaded only when VITE_GA4_MEASUREMENT_ID is set on the client)
+    "https://www.google-analytics.com",
+    "https://analytics.google.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+    "https://www.googletagmanager.com",
   ];
   const csp = [
     "default-src 'self'",
@@ -93,12 +99,12 @@ app.use((_req, res, next) => {
     "frame-ancestors 'none'",
     "form-action 'self' https://checkout.stripe.com",
     [
-      "img-src 'self' data: blob: https://ik.imagekit.io https://images.unsplash.com",
+      "img-src 'self' data: blob: https://ik.imagekit.io https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com",
       (process.env.API_PUBLIC_URL || "").replace(/\/$/, ""),
     ].filter(Boolean).join(" "),
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self'",
+    "script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com",
     `connect-src ${connectSrc.join(" ")}`,
     "frame-src 'self' https://js.stripe.com https://checkout.stripe.com",
     "worker-src 'self' blob:",
@@ -142,6 +148,26 @@ app.get("/health", async (_req, res) => {
 
 const { getPublicSitemap } = await import("./controllers/sitemapController.js");
 app.get("/sitemap.xml", getPublicSitemap);
+
+/** Prerendered local SEO landing — crawlable HTML without the SPA shell. */
+const airportStaticHtml = path.join(
+  clientDistPath,
+  "location-voiture-casablanca-aeroport",
+  "index.html"
+);
+const sendAirportLanding = (_req, res, next) => {
+  const file = fs.existsSync(airportStaticHtml)
+    ? airportStaticHtml
+    : path.join(
+        __dirname,
+        "../client/public/location-voiture-casablanca-aeroport/index.html"
+      );
+  if (!fs.existsSync(file)) return next();
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  return res.sendFile(path.resolve(file));
+};
+app.get("/location-voiture-casablanca-aeroport", sendAirportLanding);
+app.get("/location-voiture-casablanca-aeroport/", sendAirportLanding);
 
 if (hasBuiltClient) {
   app.use(express.static(clientDistPath, { index: false }));
