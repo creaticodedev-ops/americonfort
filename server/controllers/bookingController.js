@@ -521,8 +521,20 @@ export const createWalkInBooking = async (req, res) => {
       nationality,
       driverLicenseNumber,
       driverLicenseExpiry,
+      driverLicenseIssuedOn,
       passportNumber,
       dateOfBirth,
+      placeOfBirth,
+      customerAddress,
+      identityDocumentNumber,
+      identityIssuedOn,
+      deliveredBy,
+      receivedBy,
+      fuelLevelStart,
+      kmDepart,
+      kmRetour,
+      franchiseAmount,
+      secondDriver,
     } = req.body;
 
     const hasLocationIds =
@@ -656,9 +668,43 @@ export const createWalkInBooking = async (req, res) => {
           ? requestedPayment
           : 'pending';
 
-    const guestEmail =
-      normalizedEmail ||
-      `walkin+${phoneCheck.e164.replace(/\D/g, '').slice(-9) || Date.now()}@local.americonfort`;
+    const guestEmail = normalizedEmail || '';
+
+    let secondDriverPayload = {
+      enabled: false,
+      fullName: '',
+      dateOfBirth: '',
+      nationality: '',
+      driverLicenseNumber: '',
+      driverLicenseExpiry: '',
+      passportNumber: '',
+      phone: '',
+    };
+    if (secondDriver && typeof secondDriver === 'object' && secondDriver.enabled) {
+      const sdCheck = validateSecondDriverAgainstRules({
+        settings: bookingSettings,
+        secondDriver,
+      });
+      if (!sdCheck.valid) {
+        return res.status(400).json({ success: false, message: sdCheck.message, code: sdCheck.code });
+      }
+      secondDriverPayload = {
+        enabled: true,
+        fullName: String(secondDriver.fullName || '').trim(),
+        dateOfBirth: String(secondDriver.dateOfBirth || '').trim(),
+        nationality: String(secondDriver.nationality || '').trim(),
+        driverLicenseNumber: String(secondDriver.driverLicenseNumber || '').trim(),
+        driverLicenseExpiry: String(secondDriver.driverLicenseExpiry || '').trim(),
+        passportNumber: String(secondDriver.passportNumber || '').trim(),
+        phone: String(secondDriver.phone || '').trim(),
+      };
+    }
+
+    const securityDeposit = resolveSecurityDeposit(carData, bookingSettings);
+    const franchise =
+      franchiseAmount !== undefined && franchiseAmount !== null && franchiseAmount !== ''
+        ? Number(franchiseAmount)
+        : securityDeposit;
 
     const booking = await Booking.create({
       reservationId,
@@ -681,13 +727,26 @@ export const createWalkInBooking = async (req, res) => {
       notes: notes || '',
       nationality: nationality || '',
       dateOfBirth: dateOfBirth || '',
+      placeOfBirth: placeOfBirth || '',
+      customerAddress: customerAddress || '',
+      identityDocumentNumber: identityDocumentNumber || '',
+      identityIssuedOn: identityIssuedOn || '',
       driverLicenseNumber: driverLicenseNumber || '',
       driverLicenseExpiry: driverLicenseExpiry || '',
+      driverLicenseIssuedOn: driverLicenseIssuedOn || '',
       passportNumber: passportNumber || '',
+      deliveredBy: deliveredBy || '',
+      receivedBy: receivedBy || '',
+      fuelLevelStart: fuelLevelStart || '',
+      kmDepart: kmDepart != null && String(kmDepart).trim() !== ''
+        ? String(kmDepart).trim()
+        : (carData.mileage != null ? String(carData.mileage) : ''),
+      kmRetour: kmRetour != null && String(kmRetour).trim() !== '' ? String(kmRetour).trim() : '',
       status,
       paymentStatus,
-      franchiseAmount: resolveSecurityDeposit(carData, bookingSettings),
+      franchiseAmount: Number.isFinite(franchise) ? franchise : securityDeposit,
       policySnapshot: buildPolicySnapshot(bookingSettings),
+      secondDriver: secondDriverPayload,
       completion: {
         paymentComplete: paymentStatus === 'paid',
         amountPaid: paymentStatus === 'paid' ? price : 0,
@@ -1017,10 +1076,21 @@ export const updateBooking = async (req, res) => {
       paymentStatus,
       carId,
       dateOfBirth,
+      placeOfBirth,
       nationality,
+      customerAddress,
+      identityDocumentNumber,
+      identityIssuedOn,
       driverLicenseNumber,
       driverLicenseExpiry,
+      driverLicenseIssuedOn,
       passportNumber,
+      deliveredBy,
+      receivedBy,
+      fuelLevelStart,
+      kmDepart,
+      kmRetour,
+      franchiseAmount,
       secondDriver,
     } = req.body;
 
@@ -1156,10 +1226,24 @@ export const updateBooking = async (req, res) => {
       booking.customerPhone = phoneCheck.e164;
     }
     if (dateOfBirth !== undefined) booking.dateOfBirth = String(dateOfBirth).trim();
+    if (placeOfBirth !== undefined) booking.placeOfBirth = String(placeOfBirth).trim();
     if (nationality !== undefined) booking.nationality = String(nationality).trim();
+    if (customerAddress !== undefined) booking.customerAddress = String(customerAddress).trim();
+    if (identityDocumentNumber !== undefined) booking.identityDocumentNumber = String(identityDocumentNumber).trim();
+    if (identityIssuedOn !== undefined) booking.identityIssuedOn = String(identityIssuedOn).trim();
     if (driverLicenseNumber !== undefined) booking.driverLicenseNumber = String(driverLicenseNumber).trim();
     if (driverLicenseExpiry !== undefined) booking.driverLicenseExpiry = String(driverLicenseExpiry).trim();
+    if (driverLicenseIssuedOn !== undefined) booking.driverLicenseIssuedOn = String(driverLicenseIssuedOn).trim();
     if (passportNumber !== undefined) booking.passportNumber = String(passportNumber).trim();
+    if (deliveredBy !== undefined) booking.deliveredBy = String(deliveredBy).trim();
+    if (receivedBy !== undefined) booking.receivedBy = String(receivedBy).trim();
+    if (fuelLevelStart !== undefined) booking.fuelLevelStart = String(fuelLevelStart).trim();
+    if (kmDepart !== undefined) booking.kmDepart = String(kmDepart).trim();
+    if (kmRetour !== undefined) booking.kmRetour = String(kmRetour).trim();
+    if (franchiseAmount !== undefined && franchiseAmount !== null && franchiseAmount !== '') {
+      const n = Number(franchiseAmount);
+      if (Number.isFinite(n) && n >= 0) booking.franchiseAmount = n;
+    }
     if (secondDriver !== undefined && typeof secondDriver === 'object') {
       const sdCheck = validateSecondDriverAgainstRules({
         settings: bookingSettings,

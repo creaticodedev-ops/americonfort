@@ -18,6 +18,7 @@ import {
   getDefaultContractTemplate,
   getDefaultInvoiceTemplate,
 } from '../utils/resolveExportTemplate.js';
+import { displayCustomerEmail, resolveIdentityDocument } from '../utils/contractFields.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONTRACTS_ROOT = path.join(__dirname, '..', 'uploads', 'contracts');
@@ -165,11 +166,19 @@ export const buildContractStructuredFromBooking = (booking, {
     }
     return '';
   };
+  const identityDocumentNumber = pick(
+    bookingObj.identityDocumentNumber,
+    variables.identity_document === '—' ? '' : variables.identity_document,
+  );
+  const passportNumber = pick(bookingObj.passportNumber, variables.passport_number);
   return {
     contractNumber: contractNumber || '',
     reservationId: pick(bookingObj.reservationId, variables.reservation_id),
     customerName: pick(bookingObj.customerName, variables.customer_name),
-    customerEmail: pick(bookingObj.customerEmail, variables.customer_email),
+    customerEmail: displayCustomerEmail(
+      pick(bookingObj.customerEmail, variables.customer_email),
+      '',
+    ),
     customerPhone: pick(bookingObj.customerPhone, variables.customer_phone),
     customerAddress: pick(bookingObj.customerAddress, variables.customer_address),
     nationality: pick(bookingObj.nationality, variables.customer_nationality),
@@ -178,8 +187,11 @@ export const buildContractStructuredFromBooking = (booking, {
     driverLicenseNumber: pick(bookingObj.driverLicenseNumber, variables.driver_license),
     driverLicenseExpiry: pick(bookingObj.driverLicenseExpiry, variables.driver_license_expiry),
     driverLicenseIssuedOn: pick(bookingObj.driverLicenseIssuedOn, variables.driver_license_issued_on),
-    passportNumber: pick(bookingObj.passportNumber, variables.passport_number),
-    identityDocumentNumber: pick(bookingObj.identityDocumentNumber, bookingObj.passportNumber, variables.identity_document),
+    passportNumber,
+    identityDocumentNumber: resolveIdentityDocument(
+      { identityDocumentNumber, passportNumber },
+      '',
+    ),
     identityIssuedOn: pick(bookingObj.identityIssuedOn, variables.identity_issued_on),
     pickupDate: bookingObj.pickupDate || null,
     returnDate: bookingObj.returnDate || null,

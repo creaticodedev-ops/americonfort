@@ -60,6 +60,7 @@ export const DEFAULT_CONTRACT_BODY = `
       <tr><td>Délivré le</td><td>{{identity_issued_on}}</td></tr>
       <tr><td>Permis de conduire N°</td><td>{{driver_license}}</td></tr>
       <tr><td>Permis délivré le</td><td>{{driver_license_issued_on}}</td></tr>
+      <tr><td>Permis expire le</td><td>{{driver_license_expiry}}</td></tr>
       <tr><td>Adresse</td><td>{{customer_address}}</td></tr>
       <tr><td>Tél.</td><td>{{customer_phone}}</td></tr>
       <tr><td>Email</td><td>{{customer_email}}</td></tr>

@@ -10,6 +10,17 @@ import { getCarLocations } from '../../utils/carLocations'
 import PhoneInput from '../../components/PhoneInput'
 import { isPhoneValid } from '../../utils/phoneValidation'
 
+const emptySecondDriver = {
+  enabled: false,
+  fullName: '',
+  dateOfBirth: '',
+  nationality: '',
+  driverLicenseNumber: '',
+  driverLicenseExpiry: '',
+  passportNumber: '',
+  phone: '',
+}
+
 const emptyForm = {
   car: '',
   fullName: '',
@@ -25,13 +36,45 @@ const emptyForm = {
   sendCompletionLink: false,
   nationality: '',
   dateOfBirth: '',
+  placeOfBirth: '',
+  customerAddress: '',
+  identityDocumentNumber: '',
+  identityIssuedOn: '',
   driverLicenseNumber: '',
   driverLicenseExpiry: '',
+  driverLicenseIssuedOn: '',
   passportNumber: '',
+  deliveredBy: '',
+  receivedBy: '',
+  fuelLevelStart: '',
+  kmDepart: '',
+  kmRetour: '',
+  franchiseAmount: '',
+  secondDriver: { ...emptySecondDriver },
 }
 
+const Field = ({ label, required, hint, children, className = '' }) => (
+  <div className={className}>
+    <label className="mb-1.5 block text-xs font-medium text-gray-600">
+      {label}{required ? <span className="text-primary"> *</span> : null}
+    </label>
+    {children}
+    {hint ? <p className="mt-1 text-[11px] text-muted">{hint}</p> : null}
+  </div>
+)
+
+const Section = ({ title, subtitle, children }) => (
+  <section className="rounded-2xl border border-borderColor bg-white p-4 sm:p-5 space-y-4">
+    <div className="border-b border-borderColor/70 pb-3">
+      <h2 className="text-sm font-semibold tracking-wide text-ink">{title}</h2>
+      {subtitle ? <p className="mt-1 text-xs text-muted">{subtitle}</p> : null}
+    </div>
+    {children}
+  </section>
+)
+
 const WalkInBooking = () => {
-  const { axios, currency, pickupLocations } = useAppContext()
+  const { axios, currency, pickupLocations, user } = useAppContext()
   const { t } = useI18n()
   const navigate = useNavigate()
   const [cars, setCars] = useState([])
@@ -45,6 +88,9 @@ const WalkInBooking = () => {
     passport: null,
   })
   const [uploadingDoc, setUploadingDoc] = useState('')
+
+  const input =
+    'w-full rounded-xl border border-borderColor bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/10'
 
   useEffect(() => {
     ;(async () => {
@@ -60,6 +106,27 @@ const WalkInBooking = () => {
   }, [axios])
 
   const selectedCar = useMemo(() => cars.find((c) => c._id === form.car), [cars, form.car])
+
+  useEffect(() => {
+    if (!selectedCar) return
+    setForm((f) => {
+      const next = { ...f }
+      let changed = false
+      if (!f.franchiseAmount && selectedCar.securityDeposit != null) {
+        next.franchiseAmount = String(selectedCar.securityDeposit)
+        changed = true
+      }
+      if (!f.kmDepart && selectedCar.mileage != null) {
+        next.kmDepart = String(selectedCar.mileage)
+        changed = true
+      }
+      if (!f.deliveredBy && user?.name) {
+        next.deliveredBy = user.name
+        changed = true
+      }
+      return changed ? next : f
+    })
+  }, [selectedCar, user?.name])
 
   const bookableLocations = useMemo(() => {
     if (!selectedCar) return pickupLocations
@@ -84,8 +151,12 @@ const WalkInBooking = () => {
   }, [bookableLocations])
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }))
+  const setSecondDriver = (key, value) =>
+    setForm((f) => ({
+      ...f,
+      secondDriver: { ...f.secondDriver, [key]: value },
+    }))
 
-  // Live price estimate (client-side approximation matching server days logic)
   useEffect(() => {
     if (!selectedCar || !form.pickupDate || !form.returnDate) {
       setQuote(null)
@@ -109,8 +180,17 @@ const WalkInBooking = () => {
       pickupFee,
       dropoffFee,
       total: rental + pickupFee + dropoffFee,
+      franchise: Number(form.franchiseAmount) || Number(selectedCar.securityDeposit) || 0,
     })
-  }, [selectedCar, form.pickupDate, form.returnDate, form.pickupLocationId, form.returnLocationId, pickupLocations])
+  }, [
+    selectedCar,
+    form.pickupDate,
+    form.returnDate,
+    form.pickupLocationId,
+    form.returnLocationId,
+    form.franchiseAmount,
+    pickupLocations,
+  ])
 
   const uploadDocument = async (bookingId, file, docType, identityType) => {
     if (!file || !bookingId) return
@@ -159,19 +239,28 @@ const WalkInBooking = () => {
       toast.error(t('admin.walkIn.invalidPhone'))
       return
     }
+    if (form.secondDriver.enabled && !form.secondDriver.fullName.trim()) {
+      toast.error(t('admin.walkIn.secondDriverNameRequired'))
+      return
+    }
     setSaving(true)
     try {
-      const { data } = await axios.post('/api/bookings/owner/walk-in', {
+      const payload = {
         ...form,
+        franchiseAmount: form.franchiseAmount === '' ? undefined : Number(form.franchiseAmount),
+        secondDriver: form.secondDriver.enabled
+          ? form.secondDriver
+          : { ...emptySecondDriver, enabled: false },
         paymentStatus: form.markPaid ? 'paid' : 'pending',
-      })
+      }
+      const { data } = await axios.post('/api/bookings/owner/walk-in', payload)
       if (data.success) {
         toast.success(data.message)
         if (data.booking?._id) {
           await uploadPendingDocuments(data.booking._id)
         }
         setCreated(data)
-        setForm(emptyForm)
+        setForm({ ...emptyForm, secondDriver: { ...emptySecondDriver } })
         setQuote(null)
       } else toast.error(data.message)
     } catch (error) {
@@ -180,8 +269,6 @@ const WalkInBooking = () => {
       setSaving(false)
     }
   }
-
-  const input = 'border border-borderColor rounded-md px-3 py-2 text-sm w-full outline-none focus:border-primary bg-white'
 
   return (
     <div className="px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 flex-1 pb-12 min-w-0">
@@ -196,72 +283,31 @@ const WalkInBooking = () => {
       </div>
 
       {created && (
-        <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <p className="font-semibold">
-            {t('admin.walkIn.created', { id: created.reservationId })}
-          </p>
+        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-sm text-emerald-950">
+          <p className="font-semibold">{t('admin.walkIn.created', { id: created.reservationId })}</p>
+          <p className="mt-1 text-xs text-emerald-800/80">{t('admin.walkIn.createdContractHint')}</p>
           {created.completion?.completionUrl && (
-            <p className="mt-2 break-all text-xs">
-              Completion link: {created.completion.completionUrl}
-            </p>
-          )}
-          {created.booking?._id && (
-            <div className="mt-4 rounded-lg border border-emerald-300 bg-white p-3 space-y-2">
-              <p className="font-medium text-sm">{t('admin.walkIn.uploadDocuments')}</p>
-              <p className="text-xs text-gray-500">{t('admin.walkIn.uploadDocumentsHint')}</p>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadLicense')}</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={uploadingDoc === 'driving_license'}
-                  className="block text-xs mt-1"
-                  onChange={(e) => {
-                    uploadDocument(created.booking._id, e.target.files?.[0], 'driving_license')
-                    e.target.value = ''
-                  }}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadNationalId')}</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={uploadingDoc === 'identity'}
-                  className="block text-xs mt-1"
-                  onChange={(e) => {
-                    uploadDocument(created.booking._id, e.target.files?.[0], 'identity', 'national_id')
-                    e.target.value = ''
-                  }}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadPassport')}</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={uploadingDoc === 'passport'}
-                  className="block text-xs mt-1"
-                  onChange={(e) => {
-                    uploadDocument(created.booking._id, e.target.files?.[0], 'passport')
-                    e.target.value = ''
-                  }}
-                />
-              </div>
-            </div>
+            <p className="mt-2 break-all text-xs">Completion link: {created.completion.completionUrl}</p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => navigate('/owner/contracts')}
+              className="rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-white"
+            >
+              {t('admin.walkIn.openContracts')}
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/owner/manage-bookings')}
-              className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs"
+              className="rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs"
             >
               {t('admin.walkIn.openBookings')}
             </button>
             <button
               type="button"
               onClick={() => setCreated(null)}
-              className="px-3 py-1.5 border rounded-lg text-xs"
+              className="rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs"
             >
               {t('admin.walkIn.createAnother')}
             </button>
@@ -269,181 +315,263 @@ const WalkInBooking = () => {
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="mt-6 grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-5 rounded-xl border border-borderColor bg-white p-4 sm:p-6">
-          <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">{t('admin.walkIn.customer')}</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.fullName')} *</label>
-              <input className={input} required value={form.fullName} onChange={(e) => setField('fullName', e.target.value)} />
+      <form onSubmit={onSubmit} className="mt-6 grid gap-6 lg:grid-cols-12">
+        <div className="lg:col-span-8 space-y-5">
+          <Section title={t('admin.walkIn.customer')} subtitle={t('admin.walkIn.customerHint')}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('admin.walkIn.fullName')} required>
+                <input className={input} required value={form.fullName} onChange={(e) => setField('fullName', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.phone')} required>
+                <PhoneInput value={form.phone} onChange={(phone) => setField('phone', phone)} required />
+              </Field>
+              <Field label={t('admin.walkIn.email')} hint={t('admin.walkIn.emailHint')}>
+                <input type="email" className={input} value={form.email} onChange={(e) => setField('email', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.nationality')}>
+                <input className={input} value={form.nationality} onChange={(e) => setField('nationality', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.dateOfBirth')}>
+                <input type="date" className={input} value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.placeOfBirth')}>
+                <input className={input} value={form.placeOfBirth} onChange={(e) => setField('placeOfBirth', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.address')} className="sm:col-span-2">
+                <input className={input} value={form.customerAddress} onChange={(e) => setField('customerAddress', e.target.value)} />
+              </Field>
             </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.phone')} *</label>
-              <PhoneInput value={form.phone} onChange={(phone) => setField('phone', phone)} required />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.email')}</label>
-              <input type="email" className={input} value={form.email} onChange={(e) => setField('email', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.nationality')}</label>
-              <input className={input} value={form.nationality} onChange={(e) => setField('nationality', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.dateOfBirth')}</label>
-              <input type="date" className={input} value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.license')}</label>
-              <input className={input} value={form.driverLicenseNumber} onChange={(e) => setField('driverLicenseNumber', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.licenseExpiry')}</label>
-              <input type="date" className={input} value={form.driverLicenseExpiry} onChange={(e) => setField('driverLicenseExpiry', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.passport')}</label>
-              <input className={input} value={form.passportNumber} onChange={(e) => setField('passportNumber', e.target.value)} />
-            </div>
-          </div>
+          </Section>
 
-          <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pt-2">{t('admin.walkIn.rental')}</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500">{t('admin.walkIn.vehicle')} *</label>
-              <select className={input} required value={form.car} onChange={(e) => setField('car', e.target.value)}>
-                <option value="">{t('admin.walkIn.selectVehicle')}</option>
-                {cars.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.fleetId ? `[${c.fleetId}] ` : ''}{c.brand} {c.model} — {currency}{c.pricePerDay}/day
-                    {c.licensePlate ? ` · ${c.licensePlate}` : ''}
-                    {c.branch ? ` · ${c.branch}` : ''}
-                  </option>
-                ))}
-              </select>
+          <Section title={t('admin.walkIn.identitySection')} subtitle={t('admin.walkIn.identityHint')}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('admin.walkIn.identityDocument')} hint={t('admin.walkIn.identityDocumentHint')}>
+                <input className={input} value={form.identityDocumentNumber} onChange={(e) => setField('identityDocumentNumber', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.identityIssuedOn')}>
+                <input type="date" className={input} value={form.identityIssuedOn} onChange={(e) => setField('identityIssuedOn', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.passport')}>
+                <input className={input} value={form.passportNumber} onChange={(e) => setField('passportNumber', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.license')}>
+                <input className={input} value={form.driverLicenseNumber} onChange={(e) => setField('driverLicenseNumber', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.licenseIssuedOn')}>
+                <input type="date" className={input} value={form.driverLicenseIssuedOn} onChange={(e) => setField('driverLicenseIssuedOn', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.licenseExpiry')}>
+                <input type="date" className={input} value={form.driverLicenseExpiry} onChange={(e) => setField('driverLicenseExpiry', e.target.value)} />
+              </Field>
             </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.pickup')} *</label>
-              <input type="datetime-local" className={input} required value={form.pickupDate} onChange={(e) => setField('pickupDate', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.return')} *</label>
-              <input type="datetime-local" className={input} required value={form.returnDate} onChange={(e) => setField('returnDate', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.pickupLoc')} *</label>
-              <select className={input} required value={form.pickupLocationId} onChange={(e) => setField('pickupLocationId', e.target.value)}>
-                <option value="">{t('admin.walkIn.selectLoc')}</option>
-                {bookableLocations.map((l) => (
-                  <option key={l._id} value={l._id}>{l.city} — {l.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.returnLoc')} *</label>
-              <select className={input} required value={form.returnLocationId} onChange={(e) => setField('returnLocationId', e.target.value)}>
-                <option value="">{t('admin.walkIn.selectLoc')}</option>
-                {bookableLocations.map((l) => (
-                  <option key={l._id} value={l._id}>{l.city} — {l.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500">{t('admin.walkIn.notes')}</label>
-              <textarea rows={2} className={input} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />
-            </div>
-          </div>
+          </Section>
 
-          <div className="rounded-xl border border-borderColor bg-gray-50 p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">{t('admin.walkIn.uploadDocuments')}</h2>
-            <p className="text-xs text-gray-500">{t('admin.walkIn.uploadDocumentsHint')}</p>
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadLicense')} *</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="block text-xs mt-1 w-full"
-                  onChange={(e) => setDocFiles((d) => ({ ...d, driving_license: e.target.files?.[0] || null }))}
-                />
-                {docFiles.driving_license && <p className="text-[11px] text-emerald-700 mt-1 truncate">{docFiles.driving_license.name}</p>}
+          <Section title={t('admin.walkIn.secondDriverSection')} subtitle={t('admin.walkIn.secondDriverHint')}>
+            <label className="flex items-center gap-2.5 text-sm text-ink cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-borderColor text-primary"
+                checked={form.secondDriver.enabled}
+                onChange={(e) => setSecondDriver('enabled', e.target.checked)}
+              />
+              {t('admin.walkIn.secondDriverEnable')}
+            </label>
+            {form.secondDriver.enabled && (
+              <div className="grid gap-4 sm:grid-cols-2 pt-1">
+                <Field label={t('admin.walkIn.secondDriverName')} required>
+                  <input className={input} value={form.secondDriver.fullName} onChange={(e) => setSecondDriver('fullName', e.target.value)} />
+                </Field>
+                <Field label={t('admin.walkIn.secondDriverPhone')}>
+                  <input className={input} value={form.secondDriver.phone} onChange={(e) => setSecondDriver('phone', e.target.value)} />
+                </Field>
+                <Field label={t('admin.walkIn.secondDriverDob')}>
+                  <input type="date" className={input} value={form.secondDriver.dateOfBirth} onChange={(e) => setSecondDriver('dateOfBirth', e.target.value)} />
+                </Field>
+                <Field label={t('admin.walkIn.secondDriverNationality')}>
+                  <input className={input} value={form.secondDriver.nationality} onChange={(e) => setSecondDriver('nationality', e.target.value)} />
+                </Field>
+                <Field label={t('admin.walkIn.secondDriverLicense')}>
+                  <input className={input} value={form.secondDriver.driverLicenseNumber} onChange={(e) => setSecondDriver('driverLicenseNumber', e.target.value)} />
+                </Field>
+                <Field label={t('admin.walkIn.secondDriverLicenseExpiry')}>
+                  <input type="date" className={input} value={form.secondDriver.driverLicenseExpiry} onChange={(e) => setSecondDriver('driverLicenseExpiry', e.target.value)} />
+                </Field>
+                <Field label={t('admin.walkIn.secondDriverPassport')}>
+                  <input className={input} value={form.secondDriver.passportNumber} onChange={(e) => setSecondDriver('passportNumber', e.target.value)} />
+                </Field>
               </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadNationalId')} *</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="block text-xs mt-1 w-full"
-                  onChange={(e) => setDocFiles((d) => ({ ...d, national_id: e.target.files?.[0] || null }))}
-                />
-                {docFiles.national_id && <p className="text-[11px] text-emerald-700 mt-1 truncate">{docFiles.national_id.name}</p>}
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.walkIn.uploadPassport')}</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="block text-xs mt-1 w-full"
-                  onChange={(e) => setDocFiles((d) => ({ ...d, passport: e.target.files?.[0] || null }))}
-                />
-                {docFiles.passport && <p className="text-[11px] text-emerald-700 mt-1 truncate">{docFiles.passport.name}</p>}
-              </div>
+            )}
+          </Section>
+
+          <Section title={t('admin.walkIn.rental')} subtitle={t('admin.walkIn.rentalHint')}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('admin.walkIn.vehicle')} required className="sm:col-span-2">
+                <select className={input} required value={form.car} onChange={(e) => setField('car', e.target.value)}>
+                  <option value="">{t('admin.walkIn.selectVehicle')}</option>
+                  {cars.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.fleetId ? `[${c.fleetId}] ` : ''}{c.brand} {c.model} — {currency}{c.pricePerDay}/day
+                      {c.licensePlate ? ` · ${c.licensePlate}` : ''}
+                      {c.branch ? ` · ${c.branch}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t('admin.walkIn.pickup')} required>
+                <input type="datetime-local" className={input} required value={form.pickupDate} onChange={(e) => setField('pickupDate', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.return')} required>
+                <input type="datetime-local" className={input} required value={form.returnDate} onChange={(e) => setField('returnDate', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.pickupLoc')} required>
+                <select className={input} required value={form.pickupLocationId} onChange={(e) => setField('pickupLocationId', e.target.value)}>
+                  <option value="">{t('admin.walkIn.selectLoc')}</option>
+                  {bookableLocations.map((l) => (
+                    <option key={l._id} value={l._id}>{l.city} — {l.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t('admin.walkIn.returnLoc')} required>
+                <select className={input} required value={form.returnLocationId} onChange={(e) => setField('returnLocationId', e.target.value)}>
+                  <option value="">{t('admin.walkIn.selectLoc')}</option>
+                  {bookableLocations.map((l) => (
+                    <option key={l._id} value={l._id}>{l.city} — {l.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t('admin.walkIn.notes')} className="sm:col-span-2">
+                <textarea rows={2} className={input} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />
+              </Field>
             </div>
-          </div>
+          </Section>
+
+          <Section title={t('admin.walkIn.handoverSection')} subtitle={t('admin.walkIn.handoverHint')}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('admin.walkIn.deliveredBy')}>
+                <input className={input} value={form.deliveredBy} onChange={(e) => setField('deliveredBy', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.receivedBy')}>
+                <input className={input} value={form.receivedBy} onChange={(e) => setField('receivedBy', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.fuelLevel')}>
+                <select className={input} value={form.fuelLevelStart} onChange={(e) => setField('fuelLevelStart', e.target.value)}>
+                  <option value="">{t('admin.walkIn.fuelSelect')}</option>
+                  <option value="1/8">1/8</option>
+                  <option value="1/4">1/4</option>
+                  <option value="3/8">3/8</option>
+                  <option value="1/2">1/2</option>
+                  <option value="5/8">5/8</option>
+                  <option value="3/4">3/4</option>
+                  <option value="7/8">7/8</option>
+                  <option value="Full">Full</option>
+                </select>
+              </Field>
+              <Field label={t('admin.walkIn.franchiseAmount')}>
+                <input type="number" min={0} className={input} value={form.franchiseAmount} onChange={(e) => setField('franchiseAmount', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.kmDepart')}>
+                <input className={input} value={form.kmDepart} onChange={(e) => setField('kmDepart', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.kmRetour')}>
+                <input className={input} value={form.kmRetour} onChange={(e) => setField('kmRetour', e.target.value)} />
+              </Field>
+            </div>
+          </Section>
+
+          <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHint')}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                ['driving_license', t('admin.walkIn.uploadLicense')],
+                ['national_id', t('admin.walkIn.uploadNationalId')],
+                ['passport', t('admin.walkIn.uploadPassport')],
+              ].map(([key, label]) => (
+                <div key={key} className="rounded-xl border border-dashed border-borderColor bg-sand/20 p-3">
+                  <label className="text-xs font-medium text-gray-600">{label}</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="mt-2 block w-full text-xs"
+                    onChange={(e) => setDocFiles((d) => ({ ...d, [key]: e.target.files?.[0] || null }))}
+                  />
+                  {docFiles[key] && <p className="mt-1 truncate text-[11px] text-emerald-700">{docFiles[key].name}</p>}
+                </div>
+              ))}
+            </div>
+          </Section>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-xl border border-borderColor bg-white p-4 sm:p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-800">{t('admin.walkIn.options')}</h2>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.walkIn.initialStatus')}</label>
+        <aside className="lg:col-span-4 space-y-4 lg:sticky lg:top-24 self-start">
+          <Section title={t('admin.walkIn.options')}>
+            <Field label={t('admin.walkIn.initialStatus')}>
               <select className={input} value={form.status} onChange={(e) => setField('status', e.target.value)}>
                 <option value="pending">Pending</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="ready_for_pickup">Ready for pickup</option>
                 <option value="active">Active (out)</option>
               </select>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-ink">
               <input type="checkbox" checked={form.markPaid} onChange={(e) => setField('markPaid', e.target.checked)} />
               {t('admin.walkIn.markPaid')}
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-start gap-2 text-sm text-ink">
               <input
                 type="checkbox"
+                className="mt-0.5"
                 checked={form.sendCompletionLink}
                 onChange={(e) => setField('sendCompletionLink', e.target.checked)}
                 disabled={!form.email}
               />
-              {t('admin.walkIn.sendLink')}
+              <span>
+                {t('admin.walkIn.sendLink')}
+                <span className="mt-0.5 block text-xs text-muted">{t('admin.walkIn.sendLinkHint')}</span>
+              </span>
             </label>
-            <p className="text-xs text-gray-400">{t('admin.walkIn.sendLinkHint')}</p>
-          </div>
+          </Section>
 
-          <div className="rounded-xl border border-borderColor bg-white p-4 sm:p-5">
-            <h2 className="text-sm font-semibold text-gray-800 mb-3">{t('admin.walkIn.estimate')}</h2>
+          <div className="rounded-2xl border border-borderColor bg-gradient-to-b from-white to-sand/30 p-4 sm:p-5">
+            <h2 className="text-sm font-semibold text-ink mb-3">{t('admin.walkIn.estimate')}</h2>
             {quote ? (
-              <ul className="text-sm space-y-1.5 text-gray-600">
-                <li className="flex justify-between"><span>{t('admin.walkIn.days', { count: quote.days })}</span><span>{currency}{quote.rental}</span></li>
-                {quote.pickupFee > 0 && <li className="flex justify-between"><span>Pickup fee</span><span>{currency}{quote.pickupFee}</span></li>}
-                {quote.dropoffFee > 0 && <li className="flex justify-between"><span>Return fee</span><span>{currency}{quote.dropoffFee}</span></li>}
-                <li className="flex justify-between font-semibold text-gray-900 pt-2 border-t border-borderColor">
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex justify-between gap-3">
+                  <span>{t('admin.walkIn.days', { count: quote.days })}</span>
+                  <span>{currency}{quote.rental}</span>
+                </li>
+                {quote.pickupFee > 0 && (
+                  <li className="flex justify-between gap-3">
+                    <span>{t('admin.walkIn.pickupFee')}</span>
+                    <span>{currency}{quote.pickupFee}</span>
+                  </li>
+                )}
+                {quote.dropoffFee > 0 && (
+                  <li className="flex justify-between gap-3">
+                    <span>{t('admin.walkIn.returnFee')}</span>
+                    <span>{currency}{quote.dropoffFee}</span>
+                  </li>
+                )}
+                {quote.franchise > 0 && (
+                  <li className="flex justify-between gap-3 text-xs text-muted">
+                    <span>{t('admin.walkIn.franchiseAmount')}</span>
+                    <span>{currency}{quote.franchise}</span>
+                  </li>
+                )}
+                <li className="flex justify-between gap-3 border-t border-borderColor pt-2 font-semibold text-ink">
                   <span>{t('admin.walkIn.total')}</span>
                   <span>{currency}{quote.total}</span>
                 </li>
               </ul>
             ) : (
-              <p className="text-sm text-gray-400">{t('admin.walkIn.estimateHint')}</p>
+              <p className="text-sm text-muted">{t('admin.walkIn.estimateHint')}</p>
             )}
             <button
               type="submit"
               disabled={saving}
-              className="mt-5 w-full bg-primary hover:bg-primary-dull text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-60"
+              className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white transition hover:bg-primary-dull disabled:opacity-60"
             >
               {saving ? t('admin.walkIn.saving') : t('admin.walkIn.submit')}
             </button>
           </div>
-        </div>
+        </aside>
       </form>
     </div>
   )

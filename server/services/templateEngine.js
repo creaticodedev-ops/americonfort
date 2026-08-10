@@ -1,6 +1,7 @@
 import { defaultAgencyName } from '../utils/brand.js';
 import { logoToDataUri } from '../utils/uploadPaths.js';
 import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
+import { displayCustomerEmail, resolveIdentityDocument } from '../utils/contractFields.js';
 
 export const TEMPLATE_VARIABLES = [
   { key: 'contract_number', label: 'Contract Number', group: 'contract' },
@@ -197,9 +198,10 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
   const b = mergedBooking?.priceBreakdown || {};
   const currency = agency.currency || process.env.CURRENCY || 'MAD';
   const sd = mergedBooking?.secondDriver || {};
-  const identityDoc =
-    firstNonEmpty(mergedBooking, ['identityDocumentNumber', 'passportNumber']) ||
-    '—';
+  const identityDoc = resolveIdentityDocument({
+    identityDocumentNumber: firstNonEmpty(mergedBooking, ['identityDocumentNumber']),
+    passportNumber: firstNonEmpty(mergedBooking, ['passportNumber', 'passport']),
+  });
   const franchise =
     booking?.franchiseAmount ??
     car.securityDeposit ??
@@ -208,7 +210,7 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     contract_number: contractNumber || '—',
     reservation_id: firstNonEmpty(mergedBooking, ['reservationId', 'reservation_id']) || '—',
     customer_name: firstNonEmpty(mergedBooking, ['customerName', 'customer_name']) || '—',
-    customer_email: firstNonEmpty(mergedBooking, ['customerEmail', 'customer_email']) || '—',
+    customer_email: displayCustomerEmail(firstNonEmpty(mergedBooking, ['customerEmail', 'customer_email'])),
     customer_phone: firstNonEmpty(mergedBooking, ['customerPhone', 'customer_phone']) || '—',
     customer_nationality: firstNonEmpty(mergedBooking, ['nationality', 'customerNationality']) || '—',
     customer_dob: firstNonEmpty(mergedBooking, ['dateOfBirth', 'customerDob']) || '—',
@@ -239,8 +241,8 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
       mergedBooking?.fleetId,
       mergedBooking?.vin,
     ].find((value) => value !== undefined && value !== null && String(value).trim() !== '') || '—',
-    delivered_by: firstNonEmpty(mergedBooking, ['deliveredBy']) || booking?.owner?.agencyName || owner?.agencyName || agency?.name || defaultAgencyName(),
-    received_by: firstNonEmpty(mergedBooking, ['receivedBy']) || booking?.owner?.agencyName || owner?.agencyName || agency?.name || defaultAgencyName(),
+    delivered_by: firstNonEmpty(mergedBooking, ['deliveredBy']) || '—',
+    received_by: firstNonEmpty(mergedBooking, ['receivedBy']) || '—',
     fuel_level_start: firstNonEmpty(mergedBooking, ['fuelLevelStart']) || '—',
     km_depart: mergedBooking?.kmDepart != null && mergedBooking?.kmDepart !== '' ? String(mergedBooking.kmDepart) : (car.mileage != null ? String(car.mileage) : '—'),
     km_retour: mergedBooking?.kmRetour != null && mergedBooking?.kmRetour !== '' ? String(mergedBooking.kmRetour) : '—',
