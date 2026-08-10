@@ -1,5 +1,6 @@
 import Booking from "../models/Booking.js";
 import Payment from "../models/Payment.js";
+import User from "../models/User.js";
 import {
   buildCompletionUrl,
   generateCompletionToken,
@@ -12,6 +13,7 @@ import { ensureDefaultTemplates } from "../controllers/exportTemplateController.
 import { getDefaultContractTemplate } from "../utils/resolveExportTemplate.js";
 import { logAudit } from "../utils/adminOps.js";
 import { storeDataUrlImage } from "./documentStore.js";
+import { resolveIncludeCompanyStamp } from "./documentSettings.js";
 import { upsertContractFromBooking } from "../controllers/contractController.js";
 
 const formatDt = (v) => {
@@ -224,6 +226,15 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
   }
 
   const contractNumber = booking.reservationId || `CTR-${booking._id.toString().slice(-8).toUpperCase()}`;
+  const ownerId = booking.owner?._id || booking.owner;
+  const ownerDoc =
+    booking.owner && typeof booking.owner === 'object' && booking.owner.documentSettings != null
+      ? booking.owner
+      : await User.findById(ownerId).select('documentSettings agencyName email').lean();
+  const includeCompanyStamp = resolveIncludeCompanyStamp({
+    owner: ownerDoc || booking.owner,
+    documentType: 'contracts',
+  });
   let persistedContract;
   try {
     // Never overwrite manually edited contracts during completion
@@ -232,7 +243,7 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
       booking,
       user: booking.owner,
       template,
-      includeCompanyStamp: true,
+      includeCompanyStamp,
       contractNumber,
       note: 'Booking completion',
       forceFromBooking: false,

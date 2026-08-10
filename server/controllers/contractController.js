@@ -2,8 +2,10 @@ import fs from 'fs';
 import mongoose from 'mongoose';
 import Contract from '../models/Contract.js';
 import Booking from '../models/Booking.js';
+import User from '../models/User.js';
 import { generateContractPdf } from '../services/templatePdfExport.js';
 import { buildDocumentHtml, buildTemplateVariables } from '../services/templateEngine.js';
+import { resolveIncludeCompanyStamp } from '../services/documentSettings.js';
 import { logAudit } from '../utils/adminOps.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
 import { resolveContractTemplate } from '../utils/resolveExportTemplate.js';
@@ -274,11 +276,18 @@ export const getContract = async (req, res) => {
 
 export const generateContract = async (req, res) => {
   try {
-    const { bookingId, templateId, includeCompanyStamp = true, forceFromBooking = false } = req.body;
+    const { bookingId, templateId, forceFromBooking = false } = req.body;
 
     if (!mongoose.isValidObjectId(bookingId)) {
       return res.status(400).json({ success: false, message: 'Invalid booking ID' });
     }
+
+    const ownerUser = await User.findById(req.user._id).select('documentSettings agencyName email');
+    const includeCompanyStamp = resolveIncludeCompanyStamp({
+      bodyValue: req.body?.includeCompanyStamp,
+      owner: ownerUser || req.user,
+      documentType: 'contracts',
+    });
 
     const booking = await Booking.findOne({
       _id: bookingId,
@@ -311,7 +320,7 @@ export const generateContract = async (req, res) => {
     }
 
     const contract = await upsertContractFromBooking({
-      owner: req.user,
+      owner: ownerUser || req.user,
       booking,
       user: req.user,
       template,
@@ -538,11 +547,18 @@ export const previewContract = async (req, res) => {
 
 export const previewContractFromBooking = async (req, res) => {
   try {
-    const { bookingId, templateId, includeCompanyStamp = true } = req.body;
+    const { bookingId, templateId } = req.body;
 
     if (!mongoose.isValidObjectId(bookingId)) {
       return res.status(400).json({ success: false, message: 'Invalid booking ID' });
     }
+
+    const ownerUser = await User.findById(req.user._id).select('documentSettings agencyName email');
+    const includeCompanyStamp = resolveIncludeCompanyStamp({
+      bodyValue: req.body?.includeCompanyStamp,
+      owner: ownerUser || req.user,
+      documentType: 'contracts',
+    });
 
     const booking = await Booking.findOne({
       _id: bookingId,
@@ -565,10 +581,15 @@ export const previewContractFromBooking = async (req, res) => {
     }
 
     const contractNumber = 'PREVIEW';
-    const variables = buildTemplateVariables(booking, { contractNumber, owner: req.user, template, includeCompanyStamp });
+    const variables = buildTemplateVariables(booking, {
+      contractNumber,
+      owner: ownerUser || req.user,
+      template,
+      includeCompanyStamp,
+    });
     const html = buildDocumentHtml(template, variables);
 
-    res.json({ success: true, html, variables });
+    res.json({ success: true, html, variables, includeCompanyStamp });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to preview contract' });

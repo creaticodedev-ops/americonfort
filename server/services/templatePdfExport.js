@@ -60,11 +60,17 @@ const embedRemoteImagesAsDataUris = async (html) => {
 };
 
 /** Pre-resolve template logo/signature so PDF never depends on ephemeral local disk alone. */
-const embedTemplateAssetUrls = async (template = {}) => {
+const embedTemplateAssetUrls = async (template = {}, { includeCompanyStamp = true } = {}) => {
   const next = { ...(template?.toObject ? template.toObject() : template) };
   if (next.logoUrl) {
     const logoData = await resolveImageAsDataUri(next.logoUrl);
     if (logoData) next.logoUrl = logoData;
+  }
+  if (!includeCompanyStamp) {
+    // Keep stamp completely out of the render pipeline when disabled.
+    next.companySignatureUrl = '';
+    next.signatureUrl = '';
+    return next;
   }
   const signatureUrl = next.companySignatureUrl || next.signatureUrl;
   if (signatureUrl) {
@@ -127,7 +133,7 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
     throw new Error('Contract owner is required');
   }
 
-  const readyTemplate = await embedTemplateAssetUrls(template);
+  const readyTemplate = await embedTemplateAssetUrls(template, { includeCompanyStamp });
   const variables = buildTemplateVariables(booking, {
     contractNumber,
     owner,
@@ -139,7 +145,7 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
   const dir = path.join(CONTRACTS_ROOT, String(owner._id || owner));
   ensureDir(dir);
   const token = Math.random().toString(36).slice(2, 10);
-  const safeNumber = String(contractNumber || 'contract').replace(/[^a-zA-Z0-9-]/g, '');
+  const safeNumber = String(contractNumber || 'contract').replace(/[^a-zA-Z0-9-_]/g, '');
   const fileName = `contract-${safeNumber}-${token}.pdf`;
   const filePath = path.join(dir, fileName);
 
@@ -163,7 +169,7 @@ export const generateDocumentFromTemplate = async ({ template, booking, owner, d
     throw new Error('Export template is required');
   }
 
-  const readyTemplate = await embedTemplateAssetUrls(template);
+  const readyTemplate = await embedTemplateAssetUrls(template, { includeCompanyStamp });
   const variables = buildTemplateVariables(booking, {
     owner,
     template: readyTemplate,

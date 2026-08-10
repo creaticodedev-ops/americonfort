@@ -55,6 +55,8 @@ const Contracts = () => {
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewTitle, setPreviewTitle] = useState('')
   const [editingId, setEditingId] = useState(null)
+  /** Owner Settings → Agency Stamp default; used when opening Generate */
+  const [stampDefault, setStampDefault] = useState(true)
 
   const inputClass = 'border border-borderColor px-3 py-2 rounded-lg w-full text-sm'
 
@@ -170,14 +172,18 @@ const Contracts = () => {
             onChange={(e) => set('notes', e.target.value)}
           />
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={form.includeCompanyStamp !== false}
-            onChange={(e) => set('includeCompanyStamp', e.target.checked)}
-          />
-          {t('admin.contracts.includeStamp')}
-        </label>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borderColor bg-gray-50 px-4 py-3">
+          <p className="text-xs text-gray-500 max-w-md">{t('admin.contracts.includeStampHint')}</p>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer whitespace-nowrap">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-borderColor text-primary focus:ring-primary/30"
+              checked={form.includeCompanyStamp !== false}
+              onChange={(e) => set('includeCompanyStamp', e.target.checked)}
+            />
+            {t('admin.contracts.includeStamp')}
+          </label>
+        </div>
       </div>
     )
   }
@@ -217,6 +223,25 @@ const Contracts = () => {
   }, [prefilledBookingId])
 
   useEffect(() => {
+    let cancelled = false
+    const loadStampDefault = async () => {
+      try {
+        const { data } = await axios.get('/api/owner/settings/documents')
+        if (cancelled || !data.success) return
+        const show = data.documentSettings?.contracts?.showAgencyStamp !== false
+        setStampDefault(show)
+        setGenerateForm((f) => ({ ...f, includeCompanyStamp: show }))
+      } catch {
+        // Keep default true if settings cannot be loaded
+      }
+    }
+    loadStampDefault()
+    return () => {
+      cancelled = true
+    }
+  }, [axios])
+
+  useEffect(() => {
     if (generateForm.bookingId && bookings.length) {
       loadBookingDetails(generateForm.bookingId)
     }
@@ -239,7 +264,7 @@ const Contracts = () => {
     setGenerateForm({
       bookingId: '',
       templateId: '',
-      includeCompanyStamp: true,
+      includeCompanyStamp: stampDefault,
       dateOfBirth: '',
       nationality: '',
       driverLicenseNumber: '',
@@ -325,7 +350,7 @@ const Contracts = () => {
       const { data } = await axios.post('/api/contracts/preview', {
         bookingId: generateForm.bookingId,
         templateId: generateForm.templateId || undefined,
-        includeCompanyStamp: generateForm.includeCompanyStamp,
+        includeCompanyStamp: Boolean(generateForm.includeCompanyStamp),
       })
       if (data.success) {
         setPreviewHtml(data.html)
@@ -356,7 +381,7 @@ const Contracts = () => {
         const { data } = await axios.post('/api/contracts/generate', {
           bookingId: generateForm.bookingId,
           templateId: generateForm.templateId || undefined,
-          includeCompanyStamp: generateForm.includeCompanyStamp,
+          includeCompanyStamp: Boolean(generateForm.includeCompanyStamp),
           forceFromBooking,
         })
         if (data.success) return data
@@ -381,7 +406,7 @@ const Contracts = () => {
           const { data: forced } = await axios.post('/api/contracts/generate', {
             bookingId: generateForm.bookingId,
             templateId: generateForm.templateId || undefined,
-            includeCompanyStamp: generateForm.includeCompanyStamp,
+            includeCompanyStamp: Boolean(generateForm.includeCompanyStamp),
             forceFromBooking: true,
           })
           if (!forced.success) throw new Error(forced.message || 'Failed to generate contract')
@@ -648,35 +673,37 @@ const Contracts = () => {
             )}
           </div>
 
-          <div className="space-y-2 rounded-xl border border-borderColor bg-gray-50 p-3">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-borderColor bg-white p-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
               <input
                 type="checkbox"
-                checked={generateForm.includeCompanyStamp}
+                className="h-4 w-4 rounded border-borderColor text-primary focus:ring-primary/30"
+                checked={Boolean(generateForm.includeCompanyStamp)}
                 onChange={(e) => setGenerateForm((f) => ({ ...f, includeCompanyStamp: e.target.checked }))}
               />
-              {t('admin.contracts.includeStamp')}
+              <span>
+                <span className="font-medium">{t('admin.contracts.includeStamp')}</span>
+                <span className="block text-xs text-gray-500 mt-0.5">{t('admin.contracts.includeStampHint')}</span>
+              </span>
             </label>
-            <p className="text-xs text-gray-500">{t('admin.contracts.includeStampHint')}</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={generating}
-              onClick={previewFromBooking}
-              className="px-4 py-2 rounded-xl border border-borderColor text-sm disabled:opacity-60"
-            >
-              {t('admin.contracts.previewDraft')}
-            </button>
-            <button
-              type="button"
-              disabled={generating}
-              onClick={() => generateContract()}
-              className="px-4 py-2 rounded-xl bg-primary text-white text-sm disabled:opacity-60"
-            >
-              {generating ? t('admin.contracts.generatingTitle') : t('admin.contracts.generateFinal')}
-            </button>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={generating}
+                onClick={previewFromBooking}
+                className="px-4 py-2 rounded-xl border border-borderColor text-sm disabled:opacity-60"
+              >
+                {t('admin.contracts.previewDraft')}
+              </button>
+              <button
+                type="button"
+                disabled={generating}
+                onClick={() => generateContract()}
+                className="px-4 py-2 rounded-xl bg-primary text-white text-sm disabled:opacity-60"
+              >
+                {generating ? t('admin.contracts.generatingTitle') : t('admin.contracts.generateFinal')}
+              </button>
+            </div>
           </div>
         </div>
       )}

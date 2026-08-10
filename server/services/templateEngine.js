@@ -133,8 +133,14 @@ export const buildSignaturesRowHtml = (booking, { template, includeCompanyStamp 
   const sd = booking?.secondDriver;
   const secondEnabled = Boolean(sd?.enabled);
   const cols = secondEnabled ? 3 : 2;
+  // When stamp is disabled: no <img>, no placeholder box, no broken src — leave the
+  // agency column label/name only (signature image area stays completely empty).
   const companySig = includeCompanyStamp
-    ? buildImageHtml(template?.companySignatureUrl || template?.signatureUrl || '', 'Agency signature', 'max-height:80px;max-width:220px;margin-top:6px;')
+    ? buildImageHtml(
+        template?.companySignatureUrl || template?.signatureUrl || '',
+        'Agency signature',
+        'max-height:80px;max-width:220px;margin-top:6px;',
+      )
     : '';
   const customerSig = buildImageHtml(
     booking?.completion?.signatureUrl || '',

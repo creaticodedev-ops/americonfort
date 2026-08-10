@@ -40,6 +40,20 @@ const userSchema = new mongoose.Schema({
     },
 
     /**
+     * Owner-scoped document preferences (Admin → Settings → Agency Stamp).
+     * Applied as defaults when generating contracts/invoices; per-document
+     * includeCompanyStamp can still override on generate/edit.
+     */
+    documentSettings: {
+      contracts: {
+        showAgencyStamp: { type: Boolean, default: true },
+      },
+      invoices: {
+        showAgencyStamp: { type: Boolean, default: true },
+      },
+    },
+
+    /**
      * Owner-scoped booking rules (Admin → Settings → Booking Settings).
      * Empty / missing fields resolve to permissive defaults in bookingRules.js
      * so existing behaviour is preserved until an owner tightens them.

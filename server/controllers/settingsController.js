@@ -6,6 +6,11 @@ import {
   resolveBookingSettings,
   sanitizeBookingSettingsInput,
 } from '../services/bookingRules.js';
+import {
+  DOCUMENT_SETTINGS_DEFAULTS,
+  resolveDocumentSettings,
+  sanitizeDocumentSettingsInput,
+} from '../services/documentSettings.js';
 
 const formatSettingsResponse = (user) => {
   const settings = user?.whatsappSettings || {};
@@ -154,9 +159,77 @@ export const updateBookingSettings = async (req, res) => {
   }
 };
 
+export const getDocumentSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('documentSettings agencyName');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+    res.json({
+      success: true,
+      documentSettings: resolveDocumentSettings(user),
+      defaults: DOCUMENT_SETTINGS_DEFAULTS,
+    });
+  } catch (error) {
+    console.error('[settings] get documents', error.message);
+    res.status(500).json({ success: false, message: 'Failed to load document settings' });
+  }
+};
+
+export const updateDocumentSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+
+    const mergedInput = {
+      ...resolveDocumentSettings(user),
+      ...(req.body || {}),
+      contracts: {
+        ...resolveDocumentSettings(user).contracts,
+        ...(req.body?.contracts || {}),
+      },
+      invoices: {
+        ...resolveDocumentSettings(user).invoices,
+        ...(req.body?.invoices || {}),
+      },
+      showAgencyStampOnContracts: req.body?.showAgencyStampOnContracts,
+    };
+
+    const { settings, errors } = sanitizeDocumentSettingsInput(mergedInput);
+    if (errors.length) {
+      return res.status(400).json({ success: false, message: errors[0], errors });
+    }
+
+    user.documentSettings = settings;
+    user.markModified('documentSettings');
+    await user.save();
+
+    await logAudit({
+      owner: user._id,
+      action: 'settings.documents.update',
+      entityType: 'User',
+      entityId: user._id,
+      details: `Updated document settings (contracts.showAgencyStamp=${settings.contracts.showAgencyStamp})`,
+    });
+
+    res.json({
+      success: true,
+      message: 'Document settings saved',
+      documentSettings: resolveDocumentSettings(user),
+    });
+  } catch (error) {
+    console.error('[settings] update documents', error.message);
+    res.status(500).json({ success: false, message: 'Failed to save document settings' });
+  }
+};
+
 export default {
   getWhatsAppSettings,
   updateWhatsAppSettings,
   getBookingSettings,
   updateBookingSettings,
+  getDocumentSettings,
+  updateDocumentSettings,
 };

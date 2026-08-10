@@ -46,6 +46,8 @@ import {
   updateWhatsAppSettings,
   getBookingSettings,
   updateBookingSettings,
+  getDocumentSettings,
+  updateDocumentSettings,
 } from "../controllers/settingsController.js";
 
 const ownerRouter = express.Router();
@@ -89,6 +91,8 @@ ownerRouter.get('/settings/whatsapp', protect, requireOwner, getWhatsAppSettings
 ownerRouter.put('/settings/whatsapp', protect, requireOwner, updateWhatsAppSettings);
 ownerRouter.get('/settings/booking', protect, requireOwner, getBookingSettings);
 ownerRouter.put('/settings/booking', protect, requireOwner, updateBookingSettings);
+ownerRouter.get('/settings/documents', protect, requireOwner, getDocumentSettings);
+ownerRouter.put('/settings/documents', protect, requireOwner, updateDocumentSettings);
 ownerRouter.post('/update-image', protect, requireOwner, upload.single("image"), handleMulterError, updateUserImage);
 
 export default ownerRouter;
