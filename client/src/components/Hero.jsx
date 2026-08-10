@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
 import { useI18n } from '../i18n/I18nContext'
 import DateRangePicker from './DateRangePicker'
 import CitySelect from './CitySelect'
 import { BRAND_NAME } from '../constants/brand'
+import { AIRPORT_LANDING_PATH } from '../constants/site'
 import toast from 'react-hot-toast'
 
 const Hero = () => {
@@ -130,6 +132,23 @@ const Hero = () => {
               className="w-full max-h-[200px] sm:max-h-[280px] md:max-h-[340px] h-auto object-contain select-none drop-shadow-[0_30px_60px_rgba(22,18,16,0.18)]"
             />
           </picture>
+        </div>
+
+        {/* Local SEO cue — closes the hero composition; not a separate page band */}
+        <div className="mt-8 sm:mt-10 md:mt-12 w-full max-w-lg mx-auto px-2 text-center">
+          <div className="h-px w-10 mx-auto bg-borderColor mb-5 sm:mb-6" aria-hidden="true" />
+          <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.18em] text-primary/75 font-medium">
+            {t('hero.localEyebrow')}
+          </p>
+          <p className="mt-2 text-sm sm:text-[15px] text-muted font-light leading-relaxed">
+            {t('hero.localLead')}{' '}
+            <Link
+              to={AIRPORT_LANDING_PATH}
+              className="text-ink font-medium underline-offset-[3px] decoration-primary/30 hover:text-primary hover:decoration-primary transition"
+            >
+              {t('hero.localLink')}
+            </Link>
+          </p>
         </div>
       </div>
     </section>

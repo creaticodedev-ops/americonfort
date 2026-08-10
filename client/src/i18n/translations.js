@@ -34,6 +34,9 @@ export const en = {
     invalidRange: 'Return date must be after pick-up',
     searchCity: 'Search city...',
     noCities: 'No cities found',
+    localEyebrow: 'Casablanca · Mohammed V',
+    localLead: 'Arriving by air? Learn about',
+    localLink: 'car rental at Casablanca Airport',
   },
   featured: {
     eyebrow: 'The fleet',
@@ -324,6 +327,9 @@ export const fr = {
     invalidRange: 'La date de retour doit être après le départ',
     searchCity: 'Rechercher une ville...',
     noCities: 'Aucune ville trouvée',
+    localEyebrow: 'Casablanca · Mohammed V',
+    localLead: 'Vous arrivez par avion ? Découvrez la',
+    localLink: 'location de voiture à l’aéroport de Casablanca',
   },
   featured: {
     eyebrow: 'La flotte',
@@ -613,6 +619,9 @@ export const es = {
     invalidRange: 'La devolución debe ser posterior a la recogida',
     searchCity: 'Buscar ciudad...',
     noCities: 'No se encontraron ciudades',
+    localEyebrow: 'Casablanca · Mohammed V',
+    localLead: '¿Llega en avión? Consulte el',
+    localLink: 'alquiler de coche en el aeropuerto de Casablanca',
   },
   featured: {
     eyebrow: 'La flota',
