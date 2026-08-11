@@ -250,7 +250,7 @@ export const generateInvoice = async (req, res) => {
       booking,
     });
 
-    const sourceData = buildInvoiceSourceData({
+    const sourceData = await buildInvoiceSourceData({
       owner: req.user,
       template,
       invoiceNumber,
@@ -448,7 +448,7 @@ export const createManualInvoice = async (req, res) => {
       includeCompanyStamp,
     });
 
-    const sourceData = buildInvoiceSourceData({
+    const sourceData = await buildInvoiceSourceData({
       owner: req.user,
       template,
       invoiceNumber: finalInvoiceNumber,
@@ -540,7 +540,7 @@ export const updateInvoice = async (req, res) => {
 
     markSourceLocked(invoice);
 
-    const variables = rebuildVariablesFromStructured(invoice, {
+    const variables = await rebuildVariablesFromStructured(invoice, {
       type: 'invoice',
       owner: req.user,
       booking: null,
@@ -687,7 +687,7 @@ export const previewInvoice = async (req, res) => {
       const booking = (!invoice.sourceLocked && invoice.booking)
         ? await Booking.findById(invoice.booking).populate('car')
         : null;
-      const variables = rebuildVariablesFromStructured(invoice, {
+      const variables = await rebuildVariablesFromStructured(invoice, {
         type: 'invoice',
         owner: req.user,
         booking,

@@ -111,9 +111,42 @@ export const resolveImageAsDataUri = async (imageUrl, { timeoutMs = 12_000 } = {
   }
 };
 
+/**
+ * Inline customer / second-driver completion signatures as data URIs.
+ * Agency/company stamp is handled separately (template assets) and must not be touched here.
+ *
+ * Why: those signatures are private ImageKit files or HMAC-gated /uploads/documents paths.
+ * Emitting a remote <img src> often produces a broken icon in preview/PDF. If bytes cannot
+ * be resolved, clear the URL so the template shows an empty signature area instead.
+ */
+export const embedCompletionSignatures = async (booking) => {
+  if (!booking) return booking;
+  const next = booking?.toObject ? booking.toObject() : { ...booking };
+  const completion = { ...(next.completion || {}) };
+  let changed = false;
+
+  for (const key of ['signatureUrl', 'secondDriverSignatureUrl']) {
+    const raw = completion[key];
+    if (!raw || String(raw).trim() === '') continue;
+    if (String(raw).startsWith('data:image')) continue;
+
+    const dataUri = await resolveImageAsDataUri(raw);
+    completion[key] = dataUri || '';
+    changed = true;
+    if (!dataUri) {
+      console.warn(`[IMAGE] Clearing unresolved ${key} to avoid broken signature icon`);
+    }
+  }
+
+  if (!changed) return next;
+  next.completion = completion;
+  return next;
+};
+
 export default {
   resolveLocalUploadPath,
   toRelativeUploadUrl,
   logoToDataUri,
   resolveImageAsDataUri,
+  embedCompletionSignatures,
 };

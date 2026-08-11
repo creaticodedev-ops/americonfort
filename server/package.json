@@ -26,6 +26,8 @@
     "test:puppeteer": "node scripts/verify-puppeteer-launch.mjs",
     "test:template-assets": "node scripts/verify-template-assets-pdf.mjs",
     "test:contract-pdf": "node scripts/verify-contract-pdf-form.mjs",
+    "test:contract-signatures": "node scripts/verify-contract-signature-embed.mjs",
+    "test:contract-stamp": "node scripts/verify-contract-stamp-setting.mjs",
     "test:agencies": "node scripts/verify-agencies-phase1.mjs"
   },
   "keywords": [],

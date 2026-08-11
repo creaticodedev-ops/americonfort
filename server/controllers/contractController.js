@@ -4,7 +4,7 @@ import Contract from '../models/Contract.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 import { generateContractPdf } from '../services/templatePdfExport.js';
-import { buildDocumentHtml, buildTemplateVariables } from '../services/templateEngine.js';
+import { buildDocumentHtml, buildTemplateVariables, buildTemplateVariablesAsync } from '../services/templateEngine.js';
 import { resolveIncludeCompanyStamp } from '../services/documentSettings.js';
 import { logAudit } from '../utils/adminOps.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
@@ -93,7 +93,7 @@ export const upsertContractFromBooking = async ({
     includeCompanyStamp,
   });
 
-  const sourceData = buildContractSourceData(bookingObj, {
+  const sourceData = await buildContractSourceData(bookingObj, {
     contractNumber,
     owner,
     template: templateObj,
@@ -384,7 +384,7 @@ export const updateContract = async (req, res) => {
     markSourceLocked(contract);
 
     // Rebuild from structured only (booking ignored while locked)
-    const variables = rebuildVariablesFromStructured(contract, {
+    const variables = await rebuildVariablesFromStructured(contract, {
       type: 'contract',
       owner: req.user,
       booking: null,
@@ -526,7 +526,7 @@ export const previewContract = async (req, res) => {
       const booking = (!contract.sourceLocked && contract.booking)
         ? await Booking.findById(contract.booking).populate('car')
         : null;
-      const variables = rebuildVariablesFromStructured(contract, {
+      const variables = await rebuildVariablesFromStructured(contract, {
         type: 'contract',
         owner: req.user,
         booking,
@@ -581,7 +581,7 @@ export const previewContractFromBooking = async (req, res) => {
     }
 
     const contractNumber = 'PREVIEW';
-    const variables = buildTemplateVariables(booking, {
+    const variables = await buildTemplateVariablesAsync(booking, {
       contractNumber,
       owner: ownerUser || req.user,
       template,

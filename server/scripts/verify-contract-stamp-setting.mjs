@@ -78,9 +78,13 @@ console.log('[stamp-setting] enabled → stamp HTML present')
   assert.match(row, /<img\b/i)
 }
 
-console.log('[stamp-setting] disabled → stamp area empty (no img / placeholder)')
+console.log('[stamp-setting] disabled → stamp area empty; customer signature still independent')
 {
-  const vars = buildTemplateVariables(booking, {
+  const bookingWithCustomerSig = {
+    ...booking,
+    completion: { signatureUrl: tinyPng },
+  }
+  const vars = buildTemplateVariables(bookingWithCustomerSig, {
     contractNumber: 'CTR-OFF',
     owner: { agencyName: 'Agency' },
     template,
@@ -91,13 +95,12 @@ console.log('[stamp-setting] disabled → stamp area empty (no img / placeholder
   assert.doesNotMatch(vars.signatures_row_html, /companySignatureUrl|broken|placeholder/i)
   // Agency column label may remain, but no stamp image
   assert.doesNotMatch(vars.signatures_row_html, /alt="Agency signature"/i)
-  assert.doesNotMatch(vars.signatures_row_html, /data:image\/png/i)
+  assert.match(vars.customer_signature_html, /data:image\/png/)
+  assert.match(vars.signatures_row_html, /Customer signature/)
 
-  const row = buildSignaturesRowHtml(booking, { template, includeCompanyStamp: false })
-  assert.doesNotMatch(row, /<img\b[^>]*Agency signature/i)
-  assert.doesNotMatch(row, /data:image\/png/i)
-  // Customer / structure still rendered
-  assert.match(row, /Customer Signature/i)
+  const row = buildSignaturesRowHtml(bookingWithCustomerSig, { template, includeCompanyStamp: false })
+  assert.doesNotMatch(row, /alt="Agency signature"/i)
+  assert.match(row, /Customer signature/)
 }
 
 console.log('\n[stamp-setting] OK — enabled shows stamp, disabled leaves stamp area empty\n')

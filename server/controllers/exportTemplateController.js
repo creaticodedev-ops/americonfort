@@ -383,8 +383,8 @@ export const previewTemplate = async (req, res) => {
       booking = await Booking.findOne({ _id: bookingId, owner: req.user._id }).populate('car').lean();
     }
 
-    const { buildTemplateVariables, buildDocumentHtml } = await import('../services/templateEngine.js');
-    const variables = buildTemplateVariables(booking || {}, { owner: req.user, template });
+    const { buildTemplateVariablesAsync, buildDocumentHtml } = await import('../services/templateEngine.js');
+    const variables = await buildTemplateVariablesAsync(booking || {}, { owner: req.user, template });
     const html = buildDocumentHtml(template, variables);
 
     res.json({ success: true, html, variables });

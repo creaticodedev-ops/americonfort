@@ -4,10 +4,11 @@ import { fileURLToPath } from 'url';
 import {
   buildDocumentHtml,
   buildTemplateVariables,
+  buildTemplateVariablesAsync,
 } from './templateEngine.js';
 import { generatePdfFromTemplate } from './templatePdfExport.js';
 import { publicUploadUrl } from './pdfDocuments.js';
-import { resolveLocalUploadPath } from '../utils/uploadPaths.js';
+import { resolveLocalUploadPath, embedCompletionSignatures } from '../utils/uploadPaths.js';
 import {
   MAX_DOCUMENT_VERSIONS,
   MAX_SECTION_HTML_BYTES,
@@ -245,14 +246,16 @@ export const buildContractStructuredFromBooking = (booking, {
   };
 };
 
-export const buildContractSourceData = (booking, {
+export const buildContractSourceData = async (booking, {
   contractNumber,
   owner,
   template,
   includeCompanyStamp = true,
   agency = {},
 } = {}) => {
-  const bookingObj = booking?.toObject ? booking.toObject() : booking;
+  const bookingObj = await embedCompletionSignatures(
+    booking?.toObject ? booking.toObject() : booking,
+  );
   const templateObj = template?.toObject ? template.toObject() : template;
   const variables = buildTemplateVariables(bookingObj, {
     contractNumber,
@@ -279,7 +282,7 @@ export const buildContractSourceData = (booking, {
   };
 };
 
-export const buildInvoiceSourceData = ({
+export const buildInvoiceSourceData = async ({
   owner,
   template,
   invoiceNumber,
@@ -287,28 +290,30 @@ export const buildInvoiceSourceData = ({
   booking = null,
   includeCompanyStamp = true,
 }) => {
-  const bookingLike = buildBookingLikeFromInvoice(
-    {
-      invoiceNumber,
-      customerName: invoiceData.customerName,
-      customerEmail: invoiceData.customerEmail,
-      customerPhone: invoiceData.customerPhone,
-      customerAddress: invoiceData.customerAddress,
-      vehicleBrand: invoiceData.vehicleBrand,
-      vehicleModel: invoiceData.vehicleModel,
-      vehicleYear: invoiceData.vehicleYear,
-      vehiclePlate: invoiceData.vehiclePlate,
-      vehicleType: invoiceData.vehicleType,
-      invoiceDate: invoiceData.invoiceDate,
-      dueDate: invoiceData.dueDate,
-      subtotal: invoiceData.subtotal,
-      discountAmount: invoiceData.discountAmount,
-      totalAmount: invoiceData.totalAmount,
-      paymentStatus: invoiceData.paymentStatus,
-      notes: invoiceData.notes,
-      source: booking ? 'booking' : 'manual',
-    },
-    booking?.toObject ? booking.toObject() : booking,
+  const bookingLike = await embedCompletionSignatures(
+    buildBookingLikeFromInvoice(
+      {
+        invoiceNumber,
+        customerName: invoiceData.customerName,
+        customerEmail: invoiceData.customerEmail,
+        customerPhone: invoiceData.customerPhone,
+        customerAddress: invoiceData.customerAddress,
+        vehicleBrand: invoiceData.vehicleBrand,
+        vehicleModel: invoiceData.vehicleModel,
+        vehicleYear: invoiceData.vehicleYear,
+        vehiclePlate: invoiceData.vehiclePlate,
+        vehicleType: invoiceData.vehicleType,
+        invoiceDate: invoiceData.invoiceDate,
+        dueDate: invoiceData.dueDate,
+        subtotal: invoiceData.subtotal,
+        discountAmount: invoiceData.discountAmount,
+        totalAmount: invoiceData.totalAmount,
+        paymentStatus: invoiceData.paymentStatus,
+        notes: invoiceData.notes,
+        source: booking ? 'booking' : 'manual',
+      },
+      booking?.toObject ? booking.toObject() : booking,
+    ),
   );
   const templateObj = template?.toObject ? template.toObject() : template;
   const variables = buildTemplateVariables(bookingLike, {
@@ -404,7 +409,7 @@ export const syncDocumentListFields = (doc, type = 'contract') => {
 };
 
 /** Rebuild template variables from structured edits + optional booking */
-export const rebuildVariablesFromStructured = (doc, {
+export const rebuildVariablesFromStructured = async (doc, {
   type,
   owner,
   booking = null,
@@ -425,14 +430,16 @@ export const rebuildVariablesFromStructured = (doc, {
   };
 
   if (type === 'invoice') {
-    const bookingLike = buildBookingLikeFromInvoice(
-      {
-        ...doc.toObject?.() || doc,
-        ...structured,
-        invoiceNumber: doc.invoiceNumber || structured.invoiceNumber,
-        sourceData: { structured },
-      },
-      bookingSource,
+    const bookingLike = await embedCompletionSignatures(
+      buildBookingLikeFromInvoice(
+        {
+          ...doc.toObject?.() || doc,
+          ...structured,
+          invoiceNumber: doc.invoiceNumber || structured.invoiceNumber,
+          sourceData: { structured },
+        },
+        bookingSource,
+      ),
     );
     return buildTemplateVariables(bookingLike, {
       contractNumber: doc.invoiceNumber,
@@ -531,7 +538,8 @@ export const rebuildVariablesFromStructured = (doc, {
         fromStructured(structured, 'secondDriverSignatureUrl', base.completion?.secondDriverSignatureUrl) || '',
     },
   };
-  return buildTemplateVariables(bookingLike, {
+  const readyBooking = await embedCompletionSignatures(bookingLike);
+  return buildTemplateVariables(readyBooking, {
     contractNumber: doc.contractNumber || structured.contractNumber,
     owner,
     template: snap,
@@ -557,7 +565,7 @@ export const renderAndStorePdf = async ({
     if (!doc.sourceLocked && doc.booking) {
       booking = await Booking.findById(doc.booking).populate('car').lean();
     }
-    variables = rebuildVariablesFromStructured(doc, { type, owner, booking });
+    variables = await rebuildVariablesFromStructured(doc, { type, owner, booking });
     doc.sourceData = {
       ...(doc.sourceData || {}),
       variables,
@@ -941,7 +949,7 @@ export const hydrateLegacyDocument = async (doc, { type, owner }) => {
 
   if (needsSource || needsStructuredEnrich) {
     if (type === 'contract' && booking) {
-      const built = buildContractSourceData(booking, {
+      const built = await buildContractSourceData(booking, {
         contractNumber: doc.contractNumber,
         owner,
         template: doc.templateSnapshot || template,
@@ -956,7 +964,7 @@ export const hydrateLegacyDocument = async (doc, { type, owner }) => {
       doc.customerPhone = doc.customerPhone || doc.sourceData.structured.customerPhone || booking.customerPhone || '';
       doc.customerEmail = doc.customerEmail || doc.sourceData.structured.customerEmail || booking.customerEmail || '';
     } else if (type === 'invoice') {
-      const built = buildInvoiceSourceData({
+      const built = await buildInvoiceSourceData({
         owner,
         template: doc.templateSnapshot || template,
         invoiceNumber: doc.invoiceNumber,

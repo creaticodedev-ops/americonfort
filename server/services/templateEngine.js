@@ -1,5 +1,5 @@
 import { defaultAgencyName } from '../utils/brand.js';
-import { logoToDataUri } from '../utils/uploadPaths.js';
+import { logoToDataUri, embedCompletionSignatures } from '../utils/uploadPaths.js';
 import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
 import { displayCustomerEmail, resolveIdentityDocument } from '../utils/contractFields.js';
 
@@ -101,21 +101,44 @@ const firstNonEmpty = (source, keys) => {
 
 /**
  * Resolve image src for HTML/PDF.
- * Prefer local data-URI embeds (Puppeteer-safe). Otherwise mint a short-lived
- * signed URL for private ImageKit / gated local document paths.
+ * Prefer local data-URI embeds (Puppeteer-safe + preview-safe).
+ * Otherwise mint a short-lived signed URL for private ImageKit / gated local document paths.
+ *
+ * Callers that render customer/second-driver signatures should first run
+ * embedCompletionSignatures() so protected assets become data URIs (or empty).
+ * Never invent a placeholder image — empty URL → empty HTML (no broken icon).
  */
 const buildImageHtml = (imageUrl, alt, style = 'max-height:48px;max-width:140px;margin-top:6px;') => {
   if (!imageUrl) {
     return '';
   }
   try {
-    const dataUri = logoToDataUri(imageUrl);
+    const raw = String(imageUrl).trim();
+    if (!raw) return '';
+
+    if (raw.startsWith('data:image')) {
+      return `<img src="${raw}" alt="${alt}" style="${style}" />`;
+    }
+
+    const dataUri = logoToDataUri(raw);
     if (dataUri) {
       return `<img src="${dataUri}" alt="${alt}" style="${style}" />`;
     }
 
-    // Mint short-lived access for private ImageKit / local document URLs (PDF render).
-    const src = signDocumentAccessUrl(String(imageUrl), 60 * 60);
+    // Protected customer docs must not fall through to a dead <img> in sync contexts.
+    // Prefer empty area over a broken icon; async embedCompletionSignatures handles the happy path.
+    const isProtectedDoc =
+      raw.includes('/uploads/documents') ||
+      raw.includes('/booking-signatures') ||
+      raw.includes('/booking-docs');
+    if (isProtectedDoc) {
+      console.warn(`[IMAGE_HTML] Skipping unresolved protected ${alt} URL (would render broken icon)`);
+      return '';
+    }
+
+    // Public branding assets (agency stamp / logos on ImageKit or open URLs)
+    const src = signDocumentAccessUrl(raw, 60 * 60);
+    if (!src) return '';
     return `<img src="${src}" alt="${alt}" style="${style}" />`;
   } catch (error) {
     console.error('[IMAGE_HTML] Failed for', alt, error.message);
@@ -346,6 +369,16 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
   };
 };
 
+/**
+ * Async entry point for contract/invoice rendering.
+ * Inlines customer + second-driver signatures before variable build.
+ * Agency stamp behavior is unchanged (controlled by includeCompanyStamp + template assets).
+ */
+export const buildTemplateVariablesAsync = async (booking, options = {}) => {
+  const readyBooking = await embedCompletionSignatures(booking);
+  return buildTemplateVariables(readyBooking, options);
+};
+
 const normalizeTemplateKey = (key) => String(key)
   .trim()
   .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
@@ -472,9 +505,10 @@ export const buildDocumentHtml = (template, variables) => {
 export default {
   TEMPLATE_VARIABLES,
   buildTemplateVariables,
+  buildTemplateVariablesAsync,
   buildSecondDriverSection,
-  buildSignaturesRowHtml,
   buildSecondDriverSignatureSection,
+  buildSignaturesRowHtml,
   renderTemplate,
   buildDocumentHtml,
 };

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import {
   buildDocumentHtml,
   buildTemplateVariables,
+  buildTemplateVariablesAsync,
   renderTemplate,
 } from './templateEngine.js';
 import { publicUploadUrl } from './pdfDocuments.js';
@@ -134,7 +135,7 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
   }
 
   const readyTemplate = await embedTemplateAssetUrls(template, { includeCompanyStamp });
-  const variables = buildTemplateVariables(booking, {
+  const variables = await buildTemplateVariablesAsync(booking, {
     contractNumber,
     owner,
     template: readyTemplate,
@@ -170,7 +171,7 @@ export const generateDocumentFromTemplate = async ({ template, booking, owner, d
   }
 
   const readyTemplate = await embedTemplateAssetUrls(template, { includeCompanyStamp });
-  const variables = buildTemplateVariables(booking, {
+  const variables = await buildTemplateVariablesAsync(booking, {
     owner,
     template: readyTemplate,
     includeCompanyStamp,
@@ -198,7 +199,7 @@ export const generateDocumentFromTemplate = async ({ template, booking, owner, d
   };
 };
 
-export { renderTemplate, buildTemplateVariables, buildDocumentHtml };
+export { renderTemplate, buildTemplateVariables, buildTemplateVariablesAsync, buildDocumentHtml };
 
 export default {
   generateContractPdf,
