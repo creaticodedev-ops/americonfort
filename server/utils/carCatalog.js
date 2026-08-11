@@ -1,5 +1,9 @@
 import Car from '../models/Car.js';
 import Booking from '../models/Booking.js';
+import {
+  getBookableOwnerIds,
+  isOwnerPubliclyBookable,
+} from '../services/agencyService.js';
 
 /**
  * Fields required by the public website (CarCard, Cars filters, CarDetails)
@@ -28,9 +32,10 @@ export const PUBLIC_CATALOG_FIELDS = [
 ].join(' ');
 
 /**
- * Public catalog / search / details / booking assignment filter.
+ * Public catalog / search / details / booking assignment filter (car fields only).
+ * Always combine with `buildPublicVisibleCarFilter()` so suspended/pending/expired
+ * agencies are excluded from the website.
  * `visibleOnWebsite: { $ne: false }` keeps legacy documents (missing field) visible.
- * Never auto-mutated by maintenance/ops — separate from isAvaliable/status.
  */
 export const PUBLIC_VISIBLE_CAR_FILTER = {
   isAvaliable: true,
@@ -39,12 +44,26 @@ export const PUBLIC_VISIBLE_CAR_FILTER = {
   visibleOnWebsite: { $ne: false },
 };
 
-export const isPubliclyVisibleCar = (car) => {
+/** Car-level + owner bookable gate for Mongo queries. */
+export const buildPublicVisibleCarFilter = async (extra = {}) => {
+  const ownerIds = await getBookableOwnerIds();
+  if (!ownerIds.length) {
+    return { ...PUBLIC_VISIBLE_CAR_FILTER, ...extra, _id: { $exists: false } };
+  }
+  return {
+    ...PUBLIC_VISIBLE_CAR_FILTER,
+    ...extra,
+    owner: { $in: ownerIds },
+  };
+};
+
+export const isPubliclyVisibleCar = (car, owner = null) => {
   if (!car) return false;
   if (!car.isAvaliable) return false;
   if (!car.owner) return false;
   if (car.status === 'maintenance') return false;
   if (car.visibleOnWebsite === false) return false;
+  if (owner && !isOwnerPubliclyBookable(owner)) return false;
   return true;
 };
 /** Fields needed server-side to price/assign a public booking (not all returned to client). */
@@ -179,6 +198,10 @@ export const resolveAvailableCarUnit = async ({
   preferredCarId = null,
   excludeBookingId = null,
 }) => {
+  const bookableOwners = await getBookableOwnerIds();
+  const ownerAllowed = bookableOwners.some((id) => String(id) === String(ownerId));
+  if (!ownerAllowed) return null;
+
   const baseQuery = {
     owner: ownerId,
     brand,
@@ -213,6 +236,7 @@ export default {
   PUBLIC_CATALOG_FIELDS,
   PUBLIC_BOOKING_CAR_FIELDS,
   PUBLIC_VISIBLE_CAR_FILTER,
+  buildPublicVisibleCarFilter,
   isPubliclyVisibleCar,
   toPlainCar,
   toPublicCatalogCar,

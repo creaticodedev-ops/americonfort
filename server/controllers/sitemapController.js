@@ -1,5 +1,5 @@
 import Car from '../models/Car.js';
-import { PUBLIC_VISIBLE_CAR_FILTER } from '../utils/carCatalog.js';
+import { buildPublicVisibleCarFilter } from '../utils/carCatalog.js';
 
 /** Canonical public host for all sitemap locs (Phase 1 SEO). */
 const CANONICAL_SITE = 'https://www.americonfort.com';
@@ -48,7 +48,8 @@ const escapeXml = (value) =>
 export const getPublicSitemap = async (_req, res) => {
   try {
     const base = siteBase();
-    const cars = await Car.find(PUBLIC_VISIBLE_CAR_FILTER)
+    const publicFilter = await buildPublicVisibleCarFilter();
+    const cars = await Car.find(publicFilter)
       .select('_id updatedAt brand model')
       .sort({ updatedAt: -1 })
       .lean();

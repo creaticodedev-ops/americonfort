@@ -174,7 +174,7 @@ const SidebarNav = ({
 )
 
 const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
-  const { user, axios, fetchUser, hasPermission } = useAppContext()
+  const { user, axios, fetchUser, hasPermission, hasFeature } = useAppContext()
   const { t } = useI18n()
   const location = useLocation()
   const [image, setImage] = useState('')
@@ -183,10 +183,10 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
   const previewUrl = useMemo(() => (image ? URL.createObjectURL(image) : ''), [image])
 
   const groups = useMemo(
-    () => getGroupedOwnerNav(hasPermission),
-    // permissions live on user; recompute when the account changes
+    () => getGroupedOwnerNav(hasPermission, hasFeature),
+    // permissions + entitlements live on user; recompute when the account changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hasPermission, user],
+    [hasPermission, hasFeature, user],
   )
 
   const activeGroupId = useMemo(

@@ -49,6 +49,9 @@ const Settings = lazy(() => import('./pages/owner/Settings'))
 const SuperAdminLogin = lazy(() => import('./pages/superadmin/Login'))
 const SuperAdminLayout = lazy(() => import('./pages/superadmin/Layout'))
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/Dashboard'))
+const SuperAdminAgencies = lazy(() => import('./pages/superadmin/Agencies'))
+const SuperAdminAgencyDetail = lazy(() => import('./pages/superadmin/AgencyDetail'))
+const SuperAdminPlans = lazy(() => import('./pages/superadmin/Plans'))
 const SuperAdminAdmins = lazy(() => import('./pages/superadmin/Admins'))
 const SuperAdminAdminDetail = lazy(() => import('./pages/superadmin/AdminDetail'))
 const SuperAdminActivity = lazy(() => import('./pages/superadmin/Activity'))
@@ -122,6 +125,9 @@ const App = () => {
               <Route path="/superadmin/login" element={<SuperAdminLogin />} />
               <Route path="/superadmin" element={<SuperAdminLayout />}>
                 <Route index element={<SuperAdminDashboard />} />
+                <Route path="agencies" element={<SuperAdminAgencies />} />
+                <Route path="agencies/:id" element={<SuperAdminAgencyDetail />} />
+                <Route path="plans" element={<SuperAdminPlans />} />
                 <Route path="admins" element={<SuperAdminAdmins />} />
                 <Route path="admins/:id" element={<SuperAdminAdminDetail />} />
                 <Route path="activity" element={<SuperAdminActivity />} />

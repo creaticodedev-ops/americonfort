@@ -4,6 +4,7 @@ import {toast} from 'react-hot-toast'
 import { useLocation, useNavigate } from "react-router-dom";
 import { getErrorMessage } from '../utils/apiError';
 import { resolveOwnerPermissions, ownerHasPermission } from '../utils/ownerPermissions';
+import { hasFeature as ownerHasFeature } from '../utils/entitlements';
 
 import { resolveApiBaseUrl } from '../utils/apiBase';
 
@@ -151,6 +152,10 @@ export const AppProvider = ({ children })=>{
       return ownerHasPermission(user, permission)
     }, [user])
 
+    const hasFeature = useCallback((featureKey) => {
+      return ownerHasFeature(user, featureKey)
+    }, [user])
+
     useEffect(()=>{
         const interceptor = axios.interceptors.response.use(
           (response) => response,
@@ -171,6 +176,11 @@ export const AppProvider = ({ children })=>{
               const next = error.response?.data?.license
               if (next) setLicense(next)
               else setLicense((prev) => ({ ...(prev || {}), licenseStatus: 'expired', allowed: false, daysRemaining: 0 }))
+              return Promise.reject(error)
+            }
+
+            if (status === 403 && (code === 'FEATURE_NOT_IN_PLAN' || code === 'PLAN_LIMIT_REACHED')) {
+              toast.error(error.response?.data?.message || 'Not available on your current plan')
               return Promise.reject(error)
             }
 
@@ -227,10 +237,10 @@ export const AppProvider = ({ children })=>{
         token, setToken, isOwner, setIsOwner, authReady, fetchUser, showLogin, setShowLogin, logout, fetchCars, cars, setCars, carsLoading,
         pickupDate, setPickupDate, returnDate, setReturnDate,
         pickupLocations, fetchPickupLocations,
-        license, setLicense, licenseLocked, applyLicense, hasPermission,
+        license, setLicense, licenseLocked, applyLicense, hasPermission, hasFeature,
     }), [
       navigate, currency, user, token, isOwner, authReady, fetchUser, showLogin, logout, fetchCars, cars, carsLoading,
-      pickupDate, returnDate, pickupLocations, fetchPickupLocations, license, licenseLocked, applyLicense, hasPermission,
+      pickupDate, returnDate, pickupLocations, fetchPickupLocations, license, licenseLocked, applyLicense, hasPermission, hasFeature,
     ])
 
     return (

@@ -3,7 +3,13 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import Car from "../models/Car.js";
 import mongoose from 'mongoose';
-import { groupCarsForCatalog, PUBLIC_CATALOG_FIELDS, PUBLIC_VISIBLE_CAR_FILTER, toPublicCatalogCar } from '../utils/carCatalog.js';
+import {
+  buildPublicVisibleCarFilter,
+  groupCarsForCatalog,
+  PUBLIC_CATALOG_FIELDS,
+  toPublicCatalogCar,
+} from '../utils/carCatalog.js';
+import { isOwnerPubliclyBookable } from '../services/agencyService.js';
 import {
   syncLicenseStatus,
   serializeLicense,
@@ -13,6 +19,10 @@ import { syncOwnerPermissions, resolveOwnerPermissions } from '../utils/ownerPer
 import { normalizeEmail, findUserByEmail } from '../utils/emailUtils.js';
 import { BRAND_NAME } from '../utils/brand.js';
 import { toPublicBookingSettings, resolveBookingSettings } from '../services/bookingRules.js';
+import {
+  serializeEntitlements,
+  syncOwnerPlan,
+} from '../services/entitlementService.js';
 
 const generateToken = (user) => {
     const payload = { _id: user._id.toString(), tv: user.tokenVersion || 0 };
@@ -50,10 +60,13 @@ export const loginUser = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Admin access only' });
         }
         if (user.accountStatus && user.accountStatus !== 'active') {
+            const pending = user.accountStatus === 'pending';
             return res.status(403).json({
                 success: false,
-                code: 'ACCOUNT_LOCKED',
-                message: `This admin account has been suspended or disabled. Contact ${BRAND_NAME}.`,
+                code: pending ? 'ACCOUNT_PENDING' : 'ACCOUNT_LOCKED',
+                message: pending
+                    ? `This agency account is pending activation. Contact ${BRAND_NAME}.`
+                    : `This admin account has been suspended or disabled. Contact ${BRAND_NAME}.`,
             });
         }
 
@@ -67,15 +80,18 @@ export const loginUser = async (req, res) => {
 
         user.lastLoginAt = new Date();
         await syncOwnerPermissions(user);
+        await syncOwnerPlan(user);
         await user.save();
 
         const token = generateToken(user);
         const license = serializeLicense(user);
+        const entitlements = serializeEntitlements(user);
 
         res.json({
             success: true,
             token,
             license,
+            entitlements,
             // Login always succeeds for valid admins so the Trial Expired screen can show
         });
     } catch (error) {
@@ -98,16 +114,21 @@ export const getUserData = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Admin access only' });
         }
         if (user.accountStatus && user.accountStatus !== 'active') {
+            const pending = user.accountStatus === 'pending';
             return res.status(403).json({
                 success: false,
-                code: 'ACCOUNT_LOCKED',
-                message: 'This admin account has been suspended or disabled.',
+                code: pending ? 'ACCOUNT_PENDING' : 'ACCOUNT_LOCKED',
+                message: pending
+                    ? 'This agency account is pending activation.'
+                    : 'This admin account has been suspended or disabled.',
             });
         }
 
         await syncLicenseStatus(user);
         await syncOwnerPermissions(user);
+        await syncOwnerPlan(user);
         const license = serializeLicense(user);
+        const entitlements = serializeEntitlements(user);
 
         // Strip password already done by protect; return user + explicit license snapshot
         const safeUser = user.toObject ? user.toObject() : { ...user };
@@ -120,8 +141,10 @@ export const getUserData = async (req, res) => {
             user: {
                 ...safeUser,
                 license,
+                entitlements,
             },
             license,
+            entitlements,
         });
     } catch (error) {
         console.error(error.message);
@@ -131,7 +154,8 @@ export const getUserData = async (req, res) => {
 
 export const getCars = async (req, res) => {
     try {
-        const cars = await Car.find(PUBLIC_VISIBLE_CAR_FILTER)
+        const filter = await buildPublicVisibleCarFilter();
+        const cars = await Car.find(filter)
             .select(PUBLIC_CATALOG_FIELDS)
             .sort({ createdAt: -1 })
             .lean();
@@ -149,10 +173,8 @@ export const getCarById = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid car ID' });
         }
 
-        const car = await Car.findOne({
-            _id: id,
-            ...PUBLIC_VISIBLE_CAR_FILTER,
-        })
+        const filter = await buildPublicVisibleCarFilter({ _id: id });
+        const car = await Car.findOne(filter)
             .select(PUBLIC_CATALOG_FIELDS)
             .lean();
         if (!car) {
@@ -161,7 +183,12 @@ export const getCarById = async (req, res) => {
 
         let bookingSettings = toPublicBookingSettings({});
         try {
-            const owner = await User.findById(car.owner).select('bookingSettings').lean();
+            const owner = await User.findById(car.owner)
+              .select('bookingSettings role accountStatus licenseStatus trialEndsAt')
+              .lean();
+            if (!isOwnerPubliclyBookable(owner)) {
+              return res.status(404).json({ success: false, message: 'Car not found' });
+            }
             bookingSettings = toPublicBookingSettings(resolveBookingSettings(owner));
         } catch (settingsError) {
             console.error('Public booking settings load failed:', settingsError.message);

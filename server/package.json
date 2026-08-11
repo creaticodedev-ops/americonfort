@@ -12,6 +12,8 @@
     "build": "npm run install:chrome",
     "seed:admin": "node scripts/seedAdmin.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
+    "seed:plans": "node scripts/seedPlans.js",
+    "test:plans": "node scripts/verify-plans-phase2.mjs",
     "license": "node scripts/manageLicense.js",
     "license:status": "node scripts/manageLicense.js status",
     "license:activate": "node scripts/manageLicense.js activate",
@@ -23,7 +25,8 @@
     "test:booking-routes": "node scripts/audit-booking-workflow-routes.mjs && node scripts/test-ensure-link-route.mjs",
     "test:puppeteer": "node scripts/verify-puppeteer-launch.mjs",
     "test:template-assets": "node scripts/verify-template-assets-pdf.mjs",
-    "test:contract-pdf": "node scripts/verify-contract-pdf-fix.mjs"
+    "test:contract-pdf": "node scripts/verify-contract-pdf-form.mjs",
+    "test:agencies": "node scripts/verify-agencies-phase1.mjs"
   },
   "keywords": [],
   "author": "",

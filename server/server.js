@@ -48,6 +48,14 @@ if (process.env.TRUST_PROXY === "true" || process.env.NODE_ENV === "production")
 
 await connectDB();
 
+// Phase 2 — ensure default Full Access plan exists (idempotent; safe for legacy agencies)
+try {
+  const { ensureDefaultPlans } = await import('./services/entitlementService.js');
+  await ensureDefaultPlans();
+} catch (err) {
+  console.warn('[plans] default plan seed skipped:', err.message);
+}
+
 const allowedOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(",").map((o) => o.trim()).filter(Boolean)
   : ["https://americonfort.com","https://www.americonfort.com","http://localhost:5173", "http://localhost:3000"];

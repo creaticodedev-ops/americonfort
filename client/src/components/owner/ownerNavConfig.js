@@ -59,7 +59,7 @@ export const isOwnerNavPathActive = (pathname, path) => {
   return related.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
-export const getGroupedOwnerNav = (hasPermission) =>
+export const getGroupedOwnerNav = (hasPermission, hasFeature = () => true) =>
   OWNER_NAV_GROUPS.map((group) => ({
     id: group.id,
     labelKey: group.labelKey,
@@ -68,8 +68,10 @@ export const getGroupedOwnerNav = (hasPermission) =>
       .filter((link) => {
         if (!link) return false
         // null/undefined permission = always show for authenticated owners
-        if (link.permission == null) return true
-        return hasPermission(link.permission)
+        if (link.permission != null && !hasPermission(link.permission)) return false
+        // Plan entitlement (UI only — API still enforces)
+        if (link.feature != null && !hasFeature(link.feature)) return false
+        return true
       }),
   })).filter((group) => group.items.length > 0)
 

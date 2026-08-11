@@ -19,6 +19,10 @@ import {
   normalizeLocations,
 } from "../utils/carLocations.js";
 import { logAudit } from "../utils/adminOps.js";
+import {
+  checkPlanLimit,
+  PLAN_LIMIT_REACHED,
+} from "../services/entitlementService.js";
 
 const uploadToImageKit = async (imageFile, folder, width = '1280') => {
   if (!imagekit) {
@@ -109,6 +113,18 @@ export const addCar = async (req, res) => {
   let imageFile = req.file;
   try {
     const { _id } = req.user;
+
+    const vehicleQuota = await checkPlanLimit(req.user, 'maxVehicles');
+    if (!vehicleQuota.allowed) {
+      return res.status(403).json({
+        success: false,
+        code: PLAN_LIMIT_REACHED,
+        limit: 'maxVehicles',
+        current: vehicleQuota.current,
+        max: vehicleQuota.limit,
+        message: `Vehicle limit reached for this plan (${vehicleQuota.current}/${vehicleQuota.limit}).`,
+      });
+    }
 
     if (!imageFile) {
       return res.status(400).json({ success: false, message: 'Car image is required' });

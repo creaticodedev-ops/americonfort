@@ -5,7 +5,7 @@
 import 'dotenv/config'
 import mongoose from 'mongoose'
 import Car from '../models/Car.js'
-import { PUBLIC_VISIBLE_CAR_FILTER } from '../utils/carCatalog.js'
+import { buildPublicVisibleCarFilter } from '../utils/carCatalog.js'
 
 const CANONICAL = 'https://www.americonfort.com'
 const requiredPaths = [
@@ -28,7 +28,7 @@ const run = async () => {
   }
 
   await mongoose.connect(process.env.MONGODB_URI)
-  const visible = await Car.find(PUBLIC_VISIBLE_CAR_FILTER).select('_id visibleOnWebsite').lean()
+  const visible = await Car.find(await buildPublicVisibleCarFilter()).select('_id visibleOnWebsite').lean()
   const hidden = await Car.find({ visibleOnWebsite: false }).select('_id').lean()
 
   console.log(`[seo-sitemap] visible cars: ${visible.length}, hidden: ${hidden.length}`)

@@ -2,6 +2,7 @@ import express from "express";
 import { protect } from "../middleware/auth.js";
 import { requireOwner } from "../middleware/ownerAuth.js";
 import { requirePermission } from "../middleware/requirePermission.js";
+import { requireFeature } from "../middleware/requireFeature.js";
 import upload, { handleMulterError } from "../middleware/multer.js";
 import {
   addCar,
@@ -51,29 +52,35 @@ import {
 } from "../controllers/settingsController.js";
 
 const ownerRouter = express.Router();
-const gate = (perm) => [protect, requireOwner, requirePermission(perm)];
+/** perm = staff RBAC; feature = SaaS plan entitlement (backend authority). */
+const gate = (perm, feature) => [
+  protect,
+  requireOwner,
+  ...(feature ? [requireFeature(feature)] : []),
+  requirePermission(perm),
+];
 
-ownerRouter.post("/add-car", ...gate('fleet'), upload.single("image"), handleMulterError, addCar);
-ownerRouter.get("/cars", ...gate('fleet'), getOwnerCars);
-ownerRouter.get("/cars/:id", ...gate('fleet'), getOwnerCarById);
-ownerRouter.get("/cars/:id/stats", ...gate('fleet'), getVehicleStats);
-ownerRouter.get("/vehicles/:id", ...gate('fleet'), getOwnerCarById);
-ownerRouter.get("/vehicles/:id/stats", ...gate('fleet'), getVehicleStats);
-ownerRouter.post("/update-car", ...gate('fleet'), upload.single("image"), handleMulterError, updateCar);
-ownerRouter.post("/toggle-car", ...gate('fleet'), toggleCarAvailability);
-ownerRouter.post("/toggle-car-visibility", ...gate('fleet'), toggleCarWebsiteVisibility);
-ownerRouter.post("/delete-car", ...gate('fleet'), deleteCar);
+ownerRouter.post("/add-car", ...gate('fleet', 'fleet'), upload.single("image"), handleMulterError, addCar);
+ownerRouter.get("/cars", ...gate('fleet', 'fleet'), getOwnerCars);
+ownerRouter.get("/cars/:id", ...gate('fleet', 'fleet'), getOwnerCarById);
+ownerRouter.get("/cars/:id/stats", ...gate('fleet', 'fleet'), getVehicleStats);
+ownerRouter.get("/vehicles/:id", ...gate('fleet', 'fleet'), getOwnerCarById);
+ownerRouter.get("/vehicles/:id/stats", ...gate('fleet', 'fleet'), getVehicleStats);
+ownerRouter.post("/update-car", ...gate('fleet', 'fleet'), upload.single("image"), handleMulterError, updateCar);
+ownerRouter.post("/toggle-car", ...gate('fleet', 'fleet'), toggleCarAvailability);
+ownerRouter.post("/toggle-car-visibility", ...gate('fleet', 'fleet'), toggleCarWebsiteVisibility);
+ownerRouter.post("/delete-car", ...gate('fleet', 'fleet'), deleteCar);
 
 ownerRouter.get('/dashboard', ...gate('dashboard'), getDashboardData);
 ownerRouter.get('/ops-dashboard', ...gate('dashboard'), getOpsDashboard);
-ownerRouter.get('/analytics', ...gate('analytics'), getRevenueAnalytics);
+ownerRouter.get('/analytics', ...gate('analytics', 'analytics'), getRevenueAnalytics);
 ownerRouter.get('/overview', ...gate('dashboard'), getAdminOverview);
-ownerRouter.get('/customers', ...gate('customers'), getCustomers);
-ownerRouter.get('/crm/customers', ...gate('customers'), getCrmCustomers);
-ownerRouter.get('/crm/customers/:email', ...gate('customers'), getCrmCustomerDetail);
-ownerRouter.post('/crm/rate', ...gate('customers'), rateCustomer);
-ownerRouter.post('/crm/note', ...gate('customers'), addCustomerNote);
-ownerRouter.post('/crm/status', ...gate('customers'), updateCustomerStatus);
+ownerRouter.get('/customers', ...gate('customers', 'customers'), getCustomers);
+ownerRouter.get('/crm/customers', ...gate('customers', 'customers'), getCrmCustomers);
+ownerRouter.get('/crm/customers/:email', ...gate('customers', 'customers'), getCrmCustomerDetail);
+ownerRouter.post('/crm/rate', ...gate('customers', 'customers'), rateCustomer);
+ownerRouter.post('/crm/note', ...gate('customers', 'customers'), addCustomerNote);
+ownerRouter.post('/crm/status', ...gate('customers', 'customers'), updateCustomerStatus);
 ownerRouter.get('/maintenance', ...gate('maintenance'), getFleetMaintenance);
 ownerRouter.post('/maintenance/update', ...gate('maintenance'), updateCarMaintenance);
 ownerRouter.get('/maintenance/records', ...gate('maintenance'), listMaintenanceRecords);
@@ -87,8 +94,8 @@ ownerRouter.post('/notifications/read', protect, requireOwner, markNotificationR
 ownerRouter.get('/audit-logs', ...gate('audit'), getAuditLogs);
 ownerRouter.get('/search', protect, requireOwner, globalSearch);
 ownerRouter.get('/reports/export', ...gate('reports'), exportReport);
-ownerRouter.get('/settings/whatsapp', protect, requireOwner, getWhatsAppSettings);
-ownerRouter.put('/settings/whatsapp', protect, requireOwner, updateWhatsAppSettings);
+ownerRouter.get('/settings/whatsapp', protect, requireOwner, requireFeature('whatsapp'), getWhatsAppSettings);
+ownerRouter.put('/settings/whatsapp', protect, requireOwner, requireFeature('whatsapp'), updateWhatsAppSettings);
 ownerRouter.get('/settings/booking', protect, requireOwner, getBookingSettings);
 ownerRouter.put('/settings/booking', protect, requireOwner, updateBookingSettings);
 ownerRouter.get('/settings/documents', protect, requireOwner, getDocumentSettings);

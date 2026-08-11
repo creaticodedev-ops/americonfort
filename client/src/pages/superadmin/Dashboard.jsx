@@ -50,12 +50,12 @@ const SuperAdminDashboard = () => {
       <div>
         <h1 className="font-display text-3xl sm:text-4xl text-white">Platform overview</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Manage every agency admin, license, and audit trail from one place.
+          Manage every agency, license, and audit trail from one place.
         </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Stat label="Admin accounts" value={o.totalAdmins} />
+        <Stat label="Agencies" value={o.totalAdmins} />
         <Stat label="Active accounts" value={o.activeAdmins} />
         <Stat label="On trial" value={o.trialAdmins} hint={`${o.licensedAdmins || 0} licensed`} />
         <Stat label="Expired / locked" value={(o.expiredAdmins || 0) + (o.suspendedAdmins || 0)} />
@@ -69,16 +69,16 @@ const SuperAdminDashboard = () => {
 
       <div className="flex flex-wrap gap-3">
         <Link
-          to="/superadmin/admins"
+          to="/superadmin/agencies"
           className="bg-cyan-700 hover:bg-cyan-600 text-white text-sm px-4 py-2.5 transition-colors"
         >
-          Manage admins
+          Manage agencies
         </Link>
         <Link
-          to="/superadmin/admins?create=1"
+          to="/superadmin/agencies?create=1"
           className="border border-white/15 hover:border-white/30 text-sm px-4 py-2.5 text-slate-200 transition-colors"
         >
-          Create admin
+          Create agency
         </Link>
         <Link
           to="/superadmin/audit"
@@ -90,8 +90,8 @@ const SuperAdminDashboard = () => {
 
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm uppercase tracking-wider text-slate-400">Recent admins</h2>
-          <Link to="/superadmin/admins" className="text-xs text-cyan-500 hover:text-cyan-400">
+          <h2 className="text-sm uppercase tracking-wider text-slate-400">Recent agencies</h2>
+          <Link to="/superadmin/agencies" className="text-xs text-cyan-500 hover:text-cyan-400">
             View all
           </Link>
         </div>
@@ -124,7 +124,7 @@ const SuperAdminDashboard = () => {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link to={`/superadmin/admins/${admin._id}`} className="text-cyan-500 hover:text-cyan-400 text-xs">
+                    <Link to={`/superadmin/agencies/${admin._id}`} className="text-cyan-500 hover:text-cyan-400 text-xs">
                       Manage
                     </Link>
                   </td>
@@ -133,7 +133,7 @@ const SuperAdminDashboard = () => {
               {!data?.recentAdmins?.length && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                    No admin accounts yet. Create one to get started.
+                    No agencies yet. Create one to get started.
                   </td>
                 </tr>
               )}

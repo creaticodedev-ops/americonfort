@@ -32,10 +32,18 @@ import {
   groupCarsForCatalog,
   PUBLIC_BOOKING_CAR_FIELDS,
   PUBLIC_CATALOG_FIELDS,
-  PUBLIC_VISIBLE_CAR_FILTER,
+  buildPublicVisibleCarFilter,
   isPubliclyVisibleCar,
   resolveAvailableCarUnit,
 } from "../utils/carCatalog.js";
+import { isOwnerPubliclyBookable } from "../services/agencyService.js";
+import {
+  checkPlanLimit,
+  hasFeature,
+  PLAN_LIMIT_REACHED,
+  FEATURE_NOT_IN_PLAN,
+  syncOwnerPlan,
+} from "../services/entitlementService.js";
 import { channelQuery } from "../utils/bookingChannel.js";
 import {
   resolveBookingSettings,
@@ -231,12 +239,9 @@ export const checkAvailabilityOfCar = async (req, res) => {
       return res.status(400).json({ success: false, message: dates.message });
     }
 
-    const carQuery = {
-      ...PUBLIC_VISIBLE_CAR_FILTER,
-    };
-    if (location) {
-      Object.assign(carQuery, locationAvailabilityFilter(location));
-    }
+    const carQuery = await buildPublicVisibleCarFilter(
+      location ? locationAvailabilityFilter(location) : {},
+    );
 
     const cars = await Car.find(carQuery).select(PUBLIC_CATALOG_FIELDS).lean();
     const busy = await findBusyCarIds(
@@ -301,6 +306,32 @@ export const createBooking = async (req, res) => {
     const carData = await Car.findById(carId).select(PUBLIC_BOOKING_CAR_FIELDS).lean();
     if (!carData || !isPubliclyVisibleCar(carData)) {
       return res.status(404).json({ success: false, message: 'Car is not available for booking' });
+    }
+
+    const ownerUser = await User.findById(carData.owner)
+      .select('role accountStatus licenseStatus trialEndsAt trialStartedAt bookingSettings plan planSnapshot');
+    if (!ownerUser || !isOwnerPubliclyBookable(ownerUser)) {
+      return res.status(404).json({ success: false, message: 'Car is not available for booking' });
+    }
+
+    await syncOwnerPlan(ownerUser);
+    if (!hasFeature(ownerUser, 'online_reservations')) {
+      return res.status(403).json({
+        success: false,
+        code: FEATURE_NOT_IN_PLAN,
+        feature: 'online_reservations',
+        message: 'Online reservations are not enabled for this agency plan',
+      });
+    }
+
+    const reservationQuota = await checkPlanLimit(ownerUser, 'maxReservations');
+    if (!reservationQuota.allowed) {
+      return res.status(403).json({
+        success: false,
+        code: PLAN_LIMIT_REACHED,
+        limit: 'maxReservations',
+        message: 'Reservation limit reached for this agency plan',
+      });
     }
 
     const bookingSettings = await loadOwnerBookingSettings(carData.owner);
@@ -502,6 +533,19 @@ export const createBooking = async (req, res) => {
 export const createWalkInBooking = async (req, res) => {
   try {
     const ownerId = req.user._id;
+
+    const reservationQuota = await checkPlanLimit(req.user, 'maxReservations');
+    if (!reservationQuota.allowed) {
+      return res.status(403).json({
+        success: false,
+        code: PLAN_LIMIT_REACHED,
+        limit: 'maxReservations',
+        current: reservationQuota.current,
+        max: reservationQuota.limit,
+        message: `Reservation limit reached for this plan (${reservationQuota.current}/${reservationQuota.limit}).`,
+      });
+    }
+
     const {
       car: carId,
       pickupDate,

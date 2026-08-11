@@ -16,6 +16,7 @@ import { ensureCompletionLink } from "../controllers/bookingCompletionController
 import { protect } from "../middleware/auth.js";
 import { requireOwner } from "../middleware/ownerAuth.js";
 import { requirePermission } from "../middleware/requirePermission.js";
+import { requireFeature } from "../middleware/requireFeature.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 
 import upload, { handleMulterError } from "../middleware/multer.js";
@@ -25,8 +26,8 @@ import {
 } from "../controllers/bookingDocumentController.js";
 
 const bookingRouter = express.Router();
-const bookingsGate = [protect, requireOwner, requirePermission('bookings')];
-const calendarGate = [protect, requireOwner, requirePermission('calendar')];
+const bookingsGate = [protect, requireOwner, requireFeature('bookings'), requirePermission('bookings')];
+const calendarGate = [protect, requireOwner, requireFeature('calendar'), requirePermission('calendar')];
 
 bookingRouter.post('/check-availability', rateLimit({ windowMs: 60_000, max: 30 }), checkAvailabilityOfCar);
 bookingRouter.post('/create', rateLimit({ windowMs: 60_000, max: 10, message: 'Too many booking attempts' }), createBooking);

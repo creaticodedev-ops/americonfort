@@ -5,6 +5,8 @@ import { BRAND_NAME } from '../../constants/brand'
 
 const links = [
   { to: '/superadmin', end: true, label: 'Overview' },
+  { to: '/superadmin/agencies', label: 'Agencies' },
+  { to: '/superadmin/plans', label: 'Plans' },
   { to: '/superadmin/admins', label: 'Admins' },
   { to: '/superadmin/activity', label: 'Activity' },
   { to: '/superadmin/audit', label: 'Audit logs' },

@@ -6,9 +6,11 @@
  */
 import {
   PUBLIC_VISIBLE_CAR_FILTER,
+  buildPublicVisibleCarFilter,
   isPubliclyVisibleCar,
   groupCarsForCatalog,
 } from '../utils/carCatalog.js';
+import { invalidateBookableOwnerCache } from '../services/agencyService.js';
 
 const assert = (cond, msg) => {
   if (!cond) {
@@ -111,7 +113,11 @@ const owner = await User.create({
   email: `vis-owner-${stamp}@test.local`,
   password: 'x'.repeat(60),
   role: 'owner',
+  accountStatus: 'active',
+  licenseStatus: 'active',
+  licensedAt: new Date(),
 });
+invalidateBookableOwnerCache();
 
 const visible = await Car.create({
   owner: owner._id,
@@ -145,7 +151,7 @@ const hidden = await Car.create({
   visibleOnWebsite: false,
 });
 
-const publicList = await Car.find(PUBLIC_VISIBLE_CAR_FILTER)
+const publicList = await Car.find(await buildPublicVisibleCarFilter())
   .select('_id model visibleOnWebsite isAvaliable')
   .lean();
 
@@ -157,6 +163,22 @@ assert(
   !publicList.some((c) => String(c._id) === String(hidden._id)),
   'hidden car excluded from public filter query',
 );
+
+// Suspended agencies must leave the public catalog
+owner.accountStatus = 'suspended';
+await owner.save();
+invalidateBookableOwnerCache();
+const afterSuspend = await Car.find(await buildPublicVisibleCarFilter())
+  .select('_id')
+  .lean();
+assert(
+  !afterSuspend.some((c) => String(c._id) === String(visible._id)),
+  'suspended owner cars excluded from public catalog',
+);
+
+owner.accountStatus = 'active';
+await owner.save();
+invalidateBookableOwnerCache();
 
 // Hiding must not mutate availability/pricing
 hidden.visibleOnWebsite = true;

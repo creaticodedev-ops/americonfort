@@ -31,6 +31,22 @@ const userSchema = new mongoose.Schema({
     agencyName: { type: String, default: '' },
 
     /**
+     * SaaS agency profile (Phase 1 — Super Admin Agencies Management).
+     * The owner User document remains the agency root for data isolation.
+     */
+    agencyProfile: {
+      legalName: { type: String, default: '' },
+      phone: { type: String, default: '' },
+      whatsapp: { type: String, default: '' },
+      address: { type: String, default: '' },
+      city: { type: String, default: '' },
+      country: { type: String, default: 'Morocco' },
+      logo: { type: String, default: '' },
+      /** Reserved for future multi-tenant routing; stored only for now */
+      primaryDomain: { type: String, default: '' },
+    },
+
+    /**
      * WhatsApp dial numbers used for guest reservation + booking confirmation wa.me links.
      * Stored without +; normalized to digits (e.g. 212665330116). Empty → env fallback.
      */
@@ -119,12 +135,13 @@ const userSchema = new mongoose.Schema({
     /**
      * Account gate (independent of license trial).
      * active    → can log in (subject to license for owners)
+     * pending   → onboarding / not yet activated (no login)
      * suspended → temporary lock
-     * disabled  → permanent lock
+     * disabled  → permanent lock (legacy; treated as suspended in Agencies UI)
      */
     accountStatus: {
         type: String,
-        enum: ['active', 'suspended', 'disabled'],
+        enum: ['active', 'pending', 'suspended', 'disabled'],
         default: 'active',
     },
 
@@ -152,6 +169,26 @@ const userSchema = new mongoose.Schema({
 
     lastLoginAt: { type: Date },
     notes: { type: String, default: '' },
+
+    /**
+     * SaaS plan assignment (Phase 2).
+     * `plan` is the source Plan document; `planSnapshot` is denormalized for hot-path checks
+     * so every request does not need a Plan populate. Missing plan → entitlementService
+     * grants legacy full access then lazily assigns the default plan.
+     */
+    plan: { type: mongoose.Schema.Types.ObjectId, ref: 'Plan', default: null, index: true },
+    planSnapshot: {
+      code: { type: String, default: '' },
+      name: { type: String, default: '' },
+      features: { type: [String], default: [] },
+      limits: {
+        maxVehicles: { type: Number, default: 0 },
+        maxUsers: { type: Number, default: 0 },
+        maxReservations: { type: Number, default: 0 },
+      },
+      isDefault: { type: Boolean, default: false },
+      assignedAt: { type: Date },
+    },
 
     /** Bumped on password reset / lock to invalidate existing JWTs */
     tokenVersion: { type: Number, default: 0 },

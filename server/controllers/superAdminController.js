@@ -19,6 +19,7 @@ import {
 } from '../services/licenseService.js';
 import { escapeRegex } from '../utils/helpers.js';
 import { normalizeEmail, findUserByEmail } from '../utils/emailUtils.js';
+import { invalidateBookableOwnerCache } from '../services/agencyService.js';
 
 const generateToken = (user) =>
   jwt.sign(
@@ -352,6 +353,7 @@ export const setAccountStatus = async (req, res) => {
       admin.tokenVersion = (admin.tokenVersion || 0) + 1;
     }
     await admin.save();
+    invalidateBookableOwnerCache();
     await audit(
       req.user,
       admin,
@@ -451,6 +453,7 @@ export const deleteAdmin = async (req, res) => {
       admin.accountStatus = 'disabled';
       admin.licenseStatus = 'expired';
       await admin.save();
+      invalidateBookableOwnerCache();
       await audit(
         req.user,
         admin,
@@ -467,6 +470,7 @@ export const deleteAdmin = async (req, res) => {
     }
 
     await User.deleteOne({ _id: admin._id });
+    invalidateBookableOwnerCache();
     await audit(req.user, { _id: admin._id }, 'superadmin.admin.delete', `Deleted admin ${email}`);
 
     res.json({ success: true, message: 'Admin account deleted', softDeleted: false });
@@ -505,6 +509,8 @@ export const manageLicense = async (req, res) => {
           message: 'Invalid action. Use activate | trial | extend | expire',
         });
     }
+
+    invalidateBookableOwnerCache();
 
     await audit(
       req.user,
