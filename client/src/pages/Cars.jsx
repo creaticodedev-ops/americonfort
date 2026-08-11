@@ -13,7 +13,7 @@ import { VEHICLE_CATEGORIES, groupCarsByCategory } from '../utils/vehicleCategor
 import { getCarLocations } from '../utils/carLocations'
 import { AIRPORT_LANDING_PATH } from '../constants/site'
 import { buildBreadcrumbList, buildOrganization } from '../seo/structuredData'
-import { trackViewItemList } from '../utils/ga'
+import { trackSearchCars, trackViewItemList } from '../utils/ga'
 
 const Cars = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -65,6 +65,13 @@ const Cars = () => {
       })
       if (data.success) {
         setFilteredCars(data.availableCars)
+        trackSearchCars({
+          pickupCity: pickupLocation || undefined,
+          resultsCount: data.availableCars?.length ?? 0,
+          pickupDate: urlPickupDate || undefined,
+          returnDate: urlReturnDate || undefined,
+          source: 'availability_search',
+        })
         if (data.availableCars.length === 0) {
           toast.error(t('cars.noCars'))
         }
@@ -108,6 +115,12 @@ const Cars = () => {
         index,
       })),
     })
+    if (!isSearchData) {
+      trackSearchCars({
+        resultsCount: filteredCars.length,
+        source: 'fleet',
+      })
+    }
   }, [filteredCars, isSearchData, input])
 
   const sections = useMemo(() => {

@@ -15,8 +15,8 @@ import { isPhoneValid } from '../utils/phoneValidation'
 import { buildGuestReservationWaUrl } from '../utils/whatsapp'
 import {
   trackBeginCheckout,
-  trackBookingSubmit,
-  trackViewItem,
+  trackBookingSuccess,
+  trackViewCar,
   trackWhatsAppClick,
 } from '../utils/ga'
 import {
@@ -94,14 +94,29 @@ const CarDetails = () => {
 
   useEffect(() => {
     if (!car?._id) return
-    trackViewItem({
-      itemId: car._id,
-      itemName: `${car.brand || ''} ${car.model || ''}`.trim(),
-      itemCategory: car.category,
-      price: car.pricePerDay,
+    const cities = getCarLocations(car)
+    trackViewCar({
+      carId: car._id,
+      carCategory: car.category,
+      value: car.pricePerDay,
       currency: String(currency || 'MAD').replace(/\s/g, '') || 'MAD',
+      pickupCity: cities[0] || undefined,
     })
-  }, [car?._id])
+  }, [car?._id, currency])
+
+  // Entering the reservation panel = start of checkout (once per car; not a conversion).
+  useEffect(() => {
+    if (!car?._id) return
+    const cities = getCarLocations(car)
+    trackBeginCheckout({
+      carId: car._id,
+      carCategory: car.category,
+      value: car.pricePerDay,
+      currency: String(currency || 'MAD').replace(/\s/g, '') || 'MAD',
+      pickupCity: cities[0] || undefined,
+      bookingSource: 'website',
+    })
+  }, [car?._id, currency])
 
   useEffect(() => {
     if (pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) {
@@ -167,14 +182,17 @@ const CarDetails = () => {
     }
 
     const currencyCode = String(currency || 'MAD').replace(/\s/g, '') || 'MAD'
-    const itemName = `${car?.brand || ''} ${car?.model || ''}`.trim()
-    trackBeginCheckout({
-      itemId: id,
-      itemName,
-      value: priceBreakdown?.total,
-      currency: currencyCode,
-      channel,
-    })
+    const pickupCity = pickupLoc?.city || getCarLocations(car)[0] || undefined
+
+    // Car-details WhatsApp CTA click (intent) — not a booking conversion.
+    if (channel === 'whatsapp') {
+      trackWhatsAppClick({
+        ctaLocation: 'car_detail',
+        carId: id,
+        carCategory: car?.category,
+        bookingSource: 'website',
+      })
+    }
 
     setSubmitting(true)
     try {
@@ -208,16 +226,24 @@ const CarDetails = () => {
           channel: data.channel || channel,
           notes: form.notes,
         }
-        trackBookingSubmit({
-          reservationId: data.reservationId,
+        // Primary conversion path — only after backend success (no PII params).
+        trackBookingSuccess({
+          bookingId: data.reservationId,
           value: data.price,
           currency: currencyCode,
+          carId: id,
+          carCategory: car?.category,
+          pickupCity,
+          bookingSource: data.channel || channel || 'website',
           channel: data.channel || channel,
-          itemId: id,
-          itemName,
         })
         if (channel === 'whatsapp') {
-          trackWhatsAppClick({ location: 'booking_submit' })
+          trackWhatsAppClick({
+            ctaLocation: 'booking',
+            carId: id,
+            carCategory: car?.category,
+            bookingSource: data.channel || channel || 'website',
+          })
           const url = data.whatsappUrl || buildGuestReservationWaUrl(confirmation, {
             currency: currency.trim(),
             dial: data.whatsappDial,

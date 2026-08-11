@@ -3,8 +3,14 @@ import { Link } from 'react-router-dom'
 import Seo from '../components/Seo'
 import PublicPage from '../components/PublicPage'
 import { AIRPORT_LANDING_PATH, BUSINESS } from '../constants/site'
+import { BRAND_NAME } from '../constants/brand'
 import { buildAutoRental, buildBreadcrumbList, buildOrganization } from '../seo/structuredData'
-import { trackContactClick } from '../utils/ga'
+import { buildWaMeUrl, getEnvAgencyWhatsAppDial } from '../utils/whatsapp'
+import {
+  trackContactSubmit,
+  trackPhoneClick,
+  trackWhatsAppClick,
+} from '../utils/ga'
 
 const crumbs = [
   { name: 'Home', path: '/' },
@@ -16,6 +22,12 @@ const Contact = () => {
     () => [buildOrganization(), buildAutoRental(), buildBreadcrumbList(crumbs)],
     [],
   )
+
+  const whatsappUrl = useMemo(() => {
+    const dial = getEnvAgencyWhatsAppDial()
+    const message = `Hello ${BRAND_NAME}, I would like assistance with a car rental.`
+    return buildWaMeUrl(message, dial)
+  }, [])
 
   return (
     <>
@@ -42,7 +54,7 @@ const Contact = () => {
             <a
               className="text-primary underline"
               href={`tel:${BUSINESS.telephone}`}
-              onClick={() => trackContactClick({ method: 'phone', location: 'contact_page' })}
+              onClick={() => trackPhoneClick({ ctaLocation: 'contact' })}
             >
               {BUSINESS.telephoneDisplay}
             </a>
@@ -52,11 +64,25 @@ const Contact = () => {
             <a
               className="text-primary underline"
               href={`mailto:${BUSINESS.email}`}
-              onClick={() => trackContactClick({ method: 'email', location: 'contact_page' })}
+              onClick={() => trackContactSubmit({ ctaLocation: 'contact', method: 'email' })}
             >
               {BUSINESS.email}
             </a>
           </li>
+          {whatsappUrl ? (
+            <li>
+              <strong className="text-ink font-medium">WhatsApp:</strong>{' '}
+              <a
+                className="text-primary underline"
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackWhatsAppClick({ ctaLocation: 'contact' })}
+              >
+                Message us on WhatsApp
+              </a>
+            </li>
+          ) : null}
         </ul>
         <p>
           Prefer to start online?{' '}

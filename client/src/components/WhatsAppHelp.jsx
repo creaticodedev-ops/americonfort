@@ -75,7 +75,7 @@ const WhatsAppHelp = () => {
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackWhatsAppClick({ location: 'home_whatsapp_help' })}
+                onClick={() => trackWhatsAppClick({ ctaLocation: 'homepage' })}
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 className="inline-flex items-center justify-center gap-2.5 h-12 px-6 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium tracking-wide transition-colors"

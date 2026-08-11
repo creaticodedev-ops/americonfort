@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { BRAND_NAME } from '../constants/brand'
 import { FACEBOOK_URL, INSTAGRAM_URL, TWITTER_URL } from '../constants/social'
 import { AIRPORT_LANDING_PATH, BUSINESS } from '../constants/site'
+import { trackContactSubmit, trackPhoneClick } from '../utils/ga'
 
 const Footer = () => {
   const { t } = useI18n()
@@ -89,12 +90,20 @@ const Footer = () => {
               <li>{BUSINESS.streetAddress}</li>
               <li>{BUSINESS.addressLocality}, Maroc</li>
               <li>
-                <a className="hover:text-gray-700 transition" href={`tel:${BUSINESS.telephone}`}>
+                <a
+                  className="hover:text-gray-700 transition"
+                  href={`tel:${BUSINESS.telephone}`}
+                  onClick={() => trackPhoneClick({ ctaLocation: 'footer' })}
+                >
                   {BUSINESS.telephoneDisplay}
                 </a>
               </li>
               <li>
-                <a className="hover:text-gray-700 transition" href={`mailto:${BUSINESS.email}`}>
+                <a
+                  className="hover:text-gray-700 transition"
+                  href={`mailto:${BUSINESS.email}`}
+                  onClick={() => trackContactSubmit({ ctaLocation: 'footer', method: 'email' })}
+                >
                   {BUSINESS.email}
                 </a>
               </li>
