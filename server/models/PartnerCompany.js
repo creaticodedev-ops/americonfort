@@ -26,6 +26,23 @@ const partnerCompanySchema = new mongoose.Schema(
       default: 'active',
       index: true,
     },
+    /**
+     * Partner-specific discount (not global).
+     * Applied only when a booking is linked to this PartnerCompany.
+     * Feeds pricingEngine discounts[] — never a separate pricing system.
+     */
+    discount: {
+      enabled: { type: Boolean, default: false },
+      type: {
+        type: String,
+        enum: ['percentage', 'fixed_per_day', 'fixed'],
+        default: 'percentage',
+      },
+      value: { type: Number, default: 0, min: 0 },
+      startDate: { type: Date, default: null },
+      endDate: { type: Date, default: null },
+      notes: { type: String, default: '' },
+    },
     notes: { type: String, default: '' },
     createdBy: { type: ObjectId, ref: 'User', default: null },
     updatedBy: { type: ObjectId, ref: 'User', default: null },

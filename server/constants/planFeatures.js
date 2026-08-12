@@ -29,6 +29,7 @@ export const PLAN_FEATURES = Object.freeze([
   'partners',
   'signature_requests',
   'contract_extensions',
+  'employees',
 ]);
 
 /** Human labels for Super Admin / owner UI (keys stay the source of truth). */
@@ -55,6 +56,7 @@ export const PLAN_FEATURE_META = Object.freeze({
   partners: { label: 'Partners', description: 'Samsars and partner companies' },
   signature_requests: { label: 'Signature requests', description: 'Customer contract signature workflow' },
   contract_extensions: { label: 'Contract extensions', description: 'Extend rental periods with pricing' },
+  employees: { label: 'Employees', description: 'Agency employee directory (personnel records, not logins)' },
 });
 
 /** 0 = unlimited for every numeric limit. */

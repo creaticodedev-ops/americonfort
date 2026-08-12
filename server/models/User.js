@@ -19,6 +19,7 @@ export const OWNER_PERMISSIONS = [
   'partners',
   'signature_requests',
   'contract_extensions',
+  'employees',
 ];
 
 const userSchema = new mongoose.Schema({

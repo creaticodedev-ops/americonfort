@@ -31,10 +31,13 @@ export const I18nProvider = ({ children }) => {
     setLanguageState(lang)
     localStorage.setItem('language', lang)
     document.documentElement.lang = lang
+    // RTL reserved for Arabic when added; current langs are LTR
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
   }
 
   useEffect(() => {
     document.documentElement.lang = language
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
   }, [language])
 
   useEffect(() => {

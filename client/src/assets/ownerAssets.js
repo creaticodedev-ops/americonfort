@@ -61,6 +61,7 @@ export const ownerMenuLinks = [
   { nameKey: 'admin.menu.chauffeurs', path: '/owner/chauffeurs', icon: publicAssets.users_icon, coloredIcon: publicAssets.users_icon, permission: 'chauffeurs', feature: 'chauffeurs' },
   { nameKey: 'admin.menu.samsars', path: '/owner/samsars', icon: publicAssets.users_icon, coloredIcon: publicAssets.users_icon, permission: 'partners', feature: 'partners' },
   { nameKey: 'admin.menu.partnerCompanies', path: '/owner/partner-companies', icon: listIcon, coloredIcon: listIconColored, permission: 'partners', feature: 'partners' },
+  { nameKey: 'admin.menu.employees', path: '/owner/employees', icon: publicAssets.users_icon, coloredIcon: publicAssets.users_icon, permission: 'employees', feature: 'employees' },
   { nameKey: 'admin.menu.reports', path: '/owner/reports', icon: listIcon, coloredIcon: listIconColored, permission: 'reports', feature: 'reports' },
   { nameKey: 'admin.menu.contracts', path: '/owner/contracts', icon: listIcon, coloredIcon: listIconColored, permission: 'contracts', feature: 'contracts' },
   { nameKey: 'admin.menu.invoices', path: '/owner/invoices', icon: listIcon, coloredIcon: listIconColored, permission: 'contracts', feature: 'invoices' },

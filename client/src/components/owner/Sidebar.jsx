@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
@@ -6,16 +6,20 @@ import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { Icon, navIconForPath } from './ui/adminIcons'
 import {
-  OWNER_SIDEBAR_COLLAPSED_KEY,
+  OWNER_NAV_GROUP_EXPANDED_KEY,
   getGroupedOwnerNav,
+  findActiveOwnerNavGroupId,
   isOwnerNavPathActive,
 } from './ownerNavConfig'
 
-const readCollapsed = () => {
+const readExpandedMap = () => {
   try {
-    return localStorage.getItem(OWNER_SIDEBAR_COLLAPSED_KEY) === '1'
+    const raw = localStorage.getItem(OWNER_NAV_GROUP_EXPANDED_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
-    return false
+    return {}
   }
 }
 
@@ -27,36 +31,90 @@ const SidebarNav = ({
   t,
 }) => {
   const location = useLocation()
+  const activeGroupId = findActiveOwnerNavGroupId(location.pathname, groups)
+  const [expanded, setExpanded] = useState(() => {
+    const stored = readExpandedMap()
+    if (activeGroupId && stored[activeGroupId] === undefined) {
+      return { ...stored, [activeGroupId]: true }
+    }
+    return Object.keys(stored).length ? stored : { main: true, operations: true }
+  })
+
+  useEffect(() => {
+    if (!activeGroupId) return
+    setExpanded((prev) => {
+      if (prev[activeGroupId]) return prev
+      const next = { ...prev, [activeGroupId]: true }
+      try {
+        localStorage.setItem(OWNER_NAV_GROUP_EXPANDED_KEY, JSON.stringify(next))
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }, [activeGroupId])
+
+  const toggleGroup = (id) => {
+    setExpanded((prev) => {
+      const next = { ...prev, [id]: !prev[id] }
+      try {
+        localStorage.setItem(OWNER_NAV_GROUP_EXPANDED_KEY, JSON.stringify(next))
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }
 
   return (
     <nav className="flex-1 overflow-y-auto overscroll-contain py-2" aria-label={t('admin.menu.navigation')}>
-      {groups.map((group) => (
-        <div key={group.id} className="mb-2">
-          <p className="admin-nav-group-label">{t(group.labelKey)}</p>
-          <ul className="space-y-0.5">
-            {group.items.map((link) => {
-              const active = isOwnerNavPathActive(location.pathname, link.path)
-              const label = t(link.nameKey)
-              return (
-                <li key={link.path}>
-                  <NavLink
-                    to={link.path}
-                    end={link.path === '/owner'}
-                    title={collapsed ? label : undefined}
-                    aria-current={active ? 'page' : undefined}
-                    tabIndex={interactive ? 0 : -1}
-                    onClick={onNavigate}
-                    className={`admin-nav-link ${active ? 'is-active' : ''}`}
-                  >
-                    <Icon name={navIconForPath(link.path)} className="h-[18px] w-[18px] shrink-0" />
-                    <span className="admin-nav-label truncate">{label}</span>
-                  </NavLink>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ))}
+      {groups.map((group) => {
+        const isOpen = collapsed ? true : expanded[group.id] !== false
+        return (
+          <div key={group.id} className="mb-1">
+            {!collapsed ? (
+              <button
+                type="button"
+                className="admin-nav-group-label w-full flex items-center justify-between gap-2 text-start cursor-pointer hover:text-[var(--admin-fg)]"
+                onClick={() => toggleGroup(group.id)}
+                aria-expanded={isOpen}
+              >
+                <span>{t(group.labelKey)}</span>
+                <Icon
+                  name="chevron"
+                  className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                />
+              </button>
+            ) : (
+              <p className="sr-only">{t(group.labelKey)}</p>
+            )}
+            {isOpen && (
+              <ul className="space-y-0.5">
+                {group.items.map((link) => {
+                  const active = isOwnerNavPathActive(location.pathname, link.path)
+                  const label = t(link.nameKey)
+                  return (
+                    <li key={link.path}>
+                      <NavLink
+                        to={link.path}
+                        end={link.path === '/owner'}
+                        title={collapsed ? label : undefined}
+                        aria-current={active ? 'page' : undefined}
+                        tabIndex={interactive ? 0 : -1}
+                        onClick={onNavigate}
+                        className={`admin-nav-link ${active ? 'is-active' : ''}`}
+                      >
+                        <Icon name={navIconForPath(link.path)} className="h-[18px] w-[18px] shrink-0" />
+                        <span className="admin-nav-label truncate">{label}</span>
+                      </NavLink>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )
+      })}
     </nav>
   )
 }
@@ -162,10 +220,12 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
             className="admin-nav-link w-[calc(100%-0.8rem)]"
             onClick={onToggleCollapsed}
             aria-pressed={collapsed}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? t('admin.shell.expandSidebar') : t('admin.shell.collapseSidebar')}
           >
             <Icon name="panel" className="h-[18px] w-[18px]" />
-            <span className="admin-nav-label">{collapsed ? 'Expand' : 'Collapse'}</span>
+            <span className="admin-nav-label">
+              {collapsed ? t('admin.shell.expand') : t('admin.shell.collapse')}
+            </span>
           </button>
         </div>
       </aside>
@@ -187,8 +247,8 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
           role="dialog"
           aria-modal="true"
           aria-label={t('admin.menu.navigation')}
-          className={`admin-sidebar-drawer absolute inset-y-0 left-0 flex w-[min(18.5rem,88vw)] flex-col bg-[var(--admin-sidebar-bg)] shadow-[var(--admin-shadow-lg)] border-r border-[var(--admin-sidebar-border)] transition-transform duration-200 ease-out ${
-            mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          className={`admin-sidebar-drawer absolute inset-y-0 start-0 flex w-[min(18.5rem,88vw)] flex-col bg-[var(--admin-sidebar-bg)] shadow-[var(--admin-shadow-lg)] border-e border-[var(--admin-sidebar-border)] transition-transform duration-200 ease-out ${
+            mobileOpen ? 'translate-x-0' : 'ltr:-translate-x-full rtl:translate-x-full'
           }`}
         >
           <div className="flex items-center justify-between gap-2 border-b border-[var(--admin-border)] px-3 py-3 shrink-0">
@@ -205,7 +265,9 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="px-3 py-3 border-b border-[var(--admin-border)]">
               <p className="text-sm font-semibold truncate">{user?.name || 'Admin'}</p>
-              <p className="text-[11px] text-[var(--admin-fg-muted)] truncate">Americonfort</p>
+              <p className="text-[11px] text-[var(--admin-fg-muted)] truncate">
+                {user?.agencyName || 'Americonfort'}
+              </p>
             </div>
             <SidebarNav
               groups={groups}

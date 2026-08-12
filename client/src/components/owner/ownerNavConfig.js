@@ -1,28 +1,30 @@
 import { ownerMenuLinks } from '../../assets/ownerAssets'
 
 /**
- * Premium Admin navigation — groups map to existing routes only (no duplicates).
- * MAIN / OPERATIONS / FINANCE / DOCUMENTS / INSIGHTS / SETTINGS
+ * Workflow-based Admin IA — existing routes only (no duplicates).
+ * MAIN / OPERATIONS / FINANCE / DOCUMENTS / MANAGEMENT / SETTINGS
  */
 export const OWNER_NAV_GROUPS = [
   {
     id: 'main',
     labelKey: 'admin.menu.groups.main',
-    paths: ['/owner', '/owner/manage-bookings', '/owner/walk-in', '/owner/manage-cars'],
+    paths: ['/owner'],
   },
   {
     id: 'operations',
     labelKey: 'admin.menu.groups.operations',
     paths: [
+      '/owner/manage-bookings',
+      '/owner/calendar',
+      '/owner/manage-cars',
       '/owner/chauffeurs',
       '/owner/samsars',
       '/owner/partner-companies',
-      '/owner/calendar',
+      '/owner/employees',
       '/owner/customers',
-      '/owner/maintenance',
       '/owner/locations',
-      '/owner/add-car',
       '/owner/vehicle-stats',
+      '/owner/add-car',
     ],
   },
   {
@@ -40,16 +42,22 @@ export const OWNER_NAV_GROUPS = [
     id: 'documents',
     labelKey: 'admin.menu.groups.documents',
     paths: [
-      '/owner/signature-requests',
       '/owner/contracts',
+      '/owner/signature-requests',
       '/owner/invoices',
       '/owner/templates',
     ],
   },
   {
-    id: 'insights',
-    labelKey: 'admin.menu.groups.insights',
-    paths: ['/owner/analytics', '/owner/reports', '/owner/audit'],
+    id: 'management',
+    labelKey: 'admin.menu.groups.management',
+    paths: [
+      '/owner/walk-in',
+      '/owner/maintenance',
+      '/owner/reports',
+      '/owner/analytics',
+      '/owner/audit',
+    ],
   },
   {
     id: 'settings',
@@ -113,5 +121,16 @@ export const getOwnerPageMeta = (pathname, t) => {
   return { title: t('admin.menu.dashboard'), description: null }
 }
 
-export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v3'
+/** Quick-create targets for contextual admin actions */
+export const OWNER_QUICK_ACTIONS = [
+  { labelKey: 'admin.quick.newReservation', path: '/owner/walk-in', permission: 'bookings', feature: 'bookings' },
+  { labelKey: 'admin.quick.newVehicle', path: '/owner/add-car', permission: 'fleet', feature: 'fleet' },
+  { labelKey: 'admin.quick.newChauffeur', path: '/owner/chauffeurs', permission: 'chauffeurs', feature: 'chauffeurs' },
+  { labelKey: 'admin.quick.newSamsar', path: '/owner/samsars', permission: 'partners', feature: 'partners' },
+  { labelKey: 'admin.quick.newPartner', path: '/owner/partner-companies', permission: 'partners', feature: 'partners' },
+  { labelKey: 'admin.quick.newEmployee', path: '/owner/employees', permission: 'employees', feature: 'employees' },
+]
+
+export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v4'
 export const OWNER_SIDEBAR_COLLAPSED_KEY = 'americonfort.owner.sidebarCollapsed.v1'
+export const OWNER_NAV_GROUP_EXPANDED_KEY = 'americonfort.owner.navGroupExpanded.v1'

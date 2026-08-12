@@ -6,6 +6,7 @@ import {
   escapeRegex,
   isValidEmail,
   parseDateRange,
+  calcRentalDays,
 } from "../utils/helpers.js";
 import { upsertGuestFromBooking, refreshGuestStats } from "../services/guestCrm.js";
 import { createNotification, logAudit } from "../utils/adminOps.js";
@@ -1429,7 +1430,11 @@ export const assignBookingRelations = async (req, res) => {
       }
     }
 
+    let partnerDoc = null;
+    let partnerChanged = false;
+
     if (Object.prototype.hasOwnProperty.call(req.body, 'partnerCompanyId')) {
+      partnerChanged = true;
       if (partnerCompanyId === null || partnerCompanyId === '' || partnerCompanyId === undefined) {
         booking.partnerCompany = null;
         changes.push('partnerCompany cleared');
@@ -1447,6 +1452,7 @@ export const assignBookingRelations = async (req, res) => {
           return res.status(404).json({ success: false, message: 'Partner company not found' });
         }
         booking.partnerCompany = partner._id;
+        partnerDoc = partner;
         changes.push(`partner=${partner.companyName}`);
       }
     }
@@ -1456,6 +1462,51 @@ export const assignBookingRelations = async (req, res) => {
         success: false,
         message: 'Provide samsarId, chauffeurId, and/or partnerCompanyId (null to clear)',
       });
+    }
+
+    // Reprice when partner assignment changes so partner discounts apply via pricingEngine
+    if (partnerChanged) {
+      const { computePartnerDiscountLine, mergePartnerDiscount } = await import(
+        '../services/partnerDiscount.js'
+      );
+      const Car = (await import('../models/Car.js')).default;
+      const car = booking.car?._id
+        ? booking.car
+        : await Car.findById(booking.car).select('pricePerDay');
+      const pricePerDay = car?.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+      const pickupFee = booking.priceBreakdown?.pickupDeliveryFee ?? 0;
+      const dropoffFee = booking.priceBreakdown?.dropoffDeliveryFee ?? 0;
+      const days = calcRentalDays(booking.pickupDate, booking.returnDate);
+      const rentalPrice = Math.round((Number(pricePerDay) || 0) * days * 100) / 100;
+      const existing = (booking.priceBreakdown?.discounts || []).filter(
+        (d) => d?.code !== 'partner_discount',
+      );
+      if (!partnerDoc && booking.partnerCompany) {
+        const { default: PartnerCompany } = await import('../models/PartnerCompany.js');
+        partnerDoc = await PartnerCompany.findOne({
+          _id: booking.partnerCompany,
+          owner: ownerId,
+        });
+      }
+      const partnerLine = computePartnerDiscountLine({
+        partner: partnerDoc,
+        days,
+        rentalPrice,
+        atDate: booking.pickupDate || new Date(),
+      });
+      const discounts = mergePartnerDiscount(existing, partnerLine);
+      const priceBreakdown = calculateBookingPrice({
+        pricePerDay,
+        pickupDate: booking.pickupDate,
+        returnDate: booking.returnDate,
+        pickupDeliveryFee: pickupFee,
+        dropoffDeliveryFee: dropoffFee,
+        discounts,
+      });
+      booking.priceBreakdown = priceBreakdown;
+      booking.price = priceBreakdown.total;
+      if (partnerLine) changes.push(`partner_discount=${partnerLine.amount}`);
+      else if (booking.partnerCompany == null) changes.push('partner_discount cleared');
     }
 
     await booking.save();
@@ -1472,7 +1523,7 @@ export const assignBookingRelations = async (req, res) => {
       .populate('car', OWNER_BOOKING_CAR_FIELDS)
       .populate('samsar', 'fullName phone status')
       .populate('chauffeur', 'fullName phone status')
-      .populate('partnerCompany', 'companyName contactPerson status');
+      .populate('partnerCompany', 'companyName contactPerson status discount');
 
     res.json({ success: true, message: 'Assignment updated', booking: populated });
   } catch (error) {

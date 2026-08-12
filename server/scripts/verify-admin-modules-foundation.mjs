@@ -16,6 +16,7 @@ const requiredPerms = [
   'partners',
   'signature_requests',
   'contract_extensions',
+  'employees',
 ]
 for (const p of requiredPerms) {
   assert.ok(OWNER_PERMISSIONS.includes(p), `missing permission ${p}`)

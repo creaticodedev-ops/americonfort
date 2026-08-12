@@ -9,6 +9,7 @@ import {
   Skeleton,
 } from '../../../components/owner/ui'
 import { useAppContext } from '../../../context/AppContext'
+import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
 
 const PERIODS = [
@@ -21,6 +22,7 @@ const PERIODS = [
 
 const AccountingOverview = () => {
   const { axios, currency } = useAppContext()
+  const { t } = useI18n()
   const cur = `${String(currency || 'MAD').trim()} `
   const [period, setPeriod] = useState('month')
   const [from, setFrom] = useState('')
@@ -114,6 +116,18 @@ const AccountingOverview = () => {
               hint="Bottom line for the period"
             />
           </div>
+
+          {Number(k.partnerDiscountApplied) > 0 && (
+            <div className="mb-4 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)] px-4 py-3 text-sm">
+              <p className="font-medium text-[var(--admin-fg)]">
+                {t('admin.accounting.partnerDiscountApplied')}:{' '}
+                <span className="tabular-nums">{money(k.partnerDiscountApplied)}</span>
+              </p>
+              <p className="text-xs text-[var(--admin-fg-muted)] mt-1">
+                {t('admin.accounting.partnerDiscountHint')}
+              </p>
+            </div>
+          )}
 
           <div className="admin-formula mb-6">
             <div className="admin-formula-row">

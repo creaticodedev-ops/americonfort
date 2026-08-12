@@ -1,37 +1,76 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useAppContext } from '../../context/AppContext'
+import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
+import { AdminModal } from './ui'
+
+const fmt = (d) => {
+  if (!d) return '—'
+  try {
+    return new Date(d).toLocaleString()
+  } catch {
+    return '—'
+  }
+}
+
+const fmtShort = (d) => {
+  if (!d) return '—'
+  try {
+    return new Date(d).toLocaleDateString()
+  } catch {
+    return '—'
+  }
+}
 
 /**
- * Contract extension modal — preview then confirm via dedicated API
- * (never uses generic updateBooking).
+ * Stepped Extend Contract wizard — uses booking-extensions preview/confirm APIs only.
  */
 const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
   const { axios, currency, hasPermission } = useAppContext()
+  const { t } = useI18n()
   const cur = (currency || 'MAD ').trim()
+
+  const [step, setStep] = useState(1)
   const [newReturnDate, setNewReturnDate] = useState('')
   const [reason, setReason] = useState('')
   const [notes, setNotes] = useState('')
   const [preview, setPreview] = useState(null)
+  const [conflict, setConflict] = useState(null)
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
+  const currentDays = useMemo(() => {
+    if (!booking?.pickupDate || !booking?.returnDate) return null
+    const ms = new Date(booking.returnDate) - new Date(booking.pickupDate)
+    return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)))
+  }, [booking])
+
+  const minReturn = booking?.returnDate
+    ? new Date(new Date(booking.returnDate).getTime() + 60_000).toISOString().slice(0, 16)
+    : ''
+
   if (!hasPermission('contract_extensions')) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-          <p className="text-sm text-gray-600">You do not have permission to extend contracts.</p>
-          <button type="button" className="mt-4 text-sm text-primary" onClick={onClose}>Close</button>
+      <AdminModal open onClose={onClose} title={t('admin.extend.title')} size="md">
+        <p className="text-sm text-[var(--admin-fg-secondary)]">{t('admin.extend.noPermission')}</p>
+        <div className="mt-4 flex justify-end">
+          <button type="button" className="admin-btn admin-btn--secondary" onClick={onClose}>
+            {t('admin.common.close')}
+          </button>
         </div>
-      </div>
+      </AdminModal>
     )
   }
 
   const runPreview = async () => {
-    if (!newReturnDate) return toast.error('Choose a new return date/time')
+    if (!newReturnDate) {
+      toast.error(t('admin.extend.chooseReturn'))
+      return
+    }
     setLoading(true)
     setPreview(null)
+    setConflict(null)
     try {
       const { data } = await axios.post('/api/owner/booking-extensions/preview', {
         bookingId: booking._id,
@@ -39,8 +78,17 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
       })
       if (!data.success) throw new Error(data.message)
       setPreview(data.preview)
+      setStep(4)
     } catch (e) {
-      toast.error(getErrorMessage(e))
+      const status = e?.response?.status
+      const code = e?.response?.data?.code
+      const message = getErrorMessage(e)
+      if (status === 409 || code === 'AVAILABILITY_CONFLICT') {
+        setConflict(message || t('admin.extend.unavailable'))
+        setStep(4)
+      } else {
+        toast.error(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -48,7 +96,6 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
 
   const confirm = async () => {
     if (!preview) return
-    if (!window.confirm('Confirm this contract extension? A history record will be created.')) return
     setConfirming(true)
     try {
       const { data } = await axios.post('/api/owner/booking-extensions/confirm', {
@@ -58,7 +105,7 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
         notes,
       })
       if (!data.success) throw new Error(data.message)
-      toast.success('Contract extended')
+      toast.success(t('admin.extend.success'))
       onExtended?.(data)
       onClose()
     } catch (e) {
@@ -68,63 +115,218 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
     }
   }
 
-  const minReturn = booking.returnDate
-    ? new Date(new Date(booking.returnDate).getTime() + 60_000).toISOString().slice(0, 16)
-    : ''
+  const steps = [
+    t('admin.extend.stepCurrent'),
+    t('admin.extend.stepNewReturn'),
+    t('admin.extend.stepPricing'),
+    t('admin.extend.stepConfirm'),
+  ]
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">Extend contract</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          {booking.reservationId} · current return {booking.returnDate ? new Date(booking.returnDate).toLocaleString() : '—'}
-        </p>
+    <AdminModal
+      open
+      onClose={onClose}
+      title={t('admin.extend.title')}
+      size="lg"
+      footer={
+        <>
+          <button type="button" className="admin-btn admin-btn--secondary" onClick={onClose}>
+            {t('admin.common.cancel')}
+          </button>
+          {step > 1 && step < 4 && (
+            <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setStep((s) => s - 1)}>
+              {t('admin.common.back')}
+            </button>
+          )}
+          {step === 1 && (
+            <button type="button" className="admin-btn admin-btn--primary" onClick={() => setStep(2)}>
+              {t('admin.common.continue')}
+            </button>
+          )}
+          {step === 2 && (
+            <button
+              type="button"
+              className="admin-btn admin-btn--primary"
+              disabled={!newReturnDate}
+              onClick={() => setStep(3)}
+            >
+              {t('admin.common.continue')}
+            </button>
+          )}
+          {step === 3 && (
+            <button type="button" className="admin-btn admin-btn--primary" disabled={loading} onClick={runPreview}>
+              {loading ? t('admin.extend.calculating') : t('admin.extend.checkAvailability')}
+            </button>
+          )}
+          {step === 4 && preview && !conflict && (
+            <button
+              type="button"
+              className="admin-btn admin-btn--primary"
+              disabled={confirming}
+              onClick={confirm}
+            >
+              {confirming ? t('admin.extend.confirming') : t('admin.extend.confirmExtension')}
+            </button>
+          )}
+        </>
+      }
+    >
+      <div className="flex flex-wrap gap-2 mb-4">
+        {steps.map((label, idx) => {
+          const n = idx + 1
+          const active = step === n
+          const done = step > n
+          return (
+            <span
+              key={label}
+              className={`text-[11px] px-2.5 py-1 rounded-md border ${
+                active
+                  ? 'border-[var(--admin-accent)] text-[var(--admin-accent)] bg-[var(--admin-accent-soft)]'
+                  : done
+                    ? 'border-[var(--admin-border)] text-[var(--admin-fg-secondary)]'
+                    : 'border-transparent text-[var(--admin-fg-muted)]'
+              }`}
+            >
+              {n}. {label}
+            </span>
+          )
+        })}
+      </div>
 
-        <div className="mt-4 space-y-3">
-          <label className="block text-xs font-medium text-gray-600">New return date/time</label>
+      <p className="text-xs text-[var(--admin-fg-muted)] mb-3">
+        {booking.reservationId}
+      </p>
+
+      {step === 1 && (
+        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)] p-4 space-y-2 text-sm">
+          <h3 className="font-semibold text-[var(--admin-fg)]">{t('admin.extend.currentRental')}</h3>
+          <p>
+            <span className="text-[var(--admin-fg-muted)]">{t('admin.extend.currentPickup')}: </span>
+            {fmt(booking.pickupDate)}
+          </p>
+          <p>
+            <span className="text-[var(--admin-fg-muted)]">{t('admin.extend.currentReturn')}: </span>
+            {fmt(booking.returnDate)}
+          </p>
+          <p>
+            <span className="text-[var(--admin-fg-muted)]">{t('admin.extend.currentDuration')}: </span>
+            {currentDays != null ? t('admin.extend.daysCount', { count: currentDays }) : '—'}
+          </p>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-3">
+          <label className="block text-xs font-medium text-[var(--admin-fg-secondary)]">
+            {t('admin.extend.newReturn')}
+          </label>
           <input
             type="datetime-local"
-            className="w-full h-10 px-3 rounded-lg border border-borderColor text-sm"
+            className="w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
             min={minReturn}
             value={newReturnDate}
-            onChange={(e) => { setNewReturnDate(e.target.value); setPreview(null) }}
+            onChange={(e) => {
+              setNewReturnDate(e.target.value)
+              setPreview(null)
+              setConflict(null)
+            }}
           />
           <input
-            className="w-full h-10 px-3 rounded-lg border border-borderColor text-sm"
-            placeholder="Reason (optional)"
+            className="w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
+            placeholder={t('admin.extend.reason')}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
           <textarea
-            className="w-full min-h-[70px] px-3 py-2 rounded-lg border border-borderColor text-sm"
-            placeholder="Notes (optional)"
+            className="w-full min-h-[70px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
+            placeholder={t('admin.extend.notes')}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
+      )}
 
-        {preview && (
-          <div className="mt-4 rounded-xl bg-gray-50 border border-borderColor p-4 text-sm space-y-1">
-            <p>Original period: {new Date(preview.originalPickupDate).toLocaleString()} → {new Date(preview.previousReturnDate).toLocaleString()}</p>
-            <p>Extension to: {new Date(preview.newReturnDate).toLocaleString()}</p>
-            <p>Additional days: <strong>{preview.additionalDays}</strong></p>
-            <p>Additional amount: <strong>{cur}{preview.additionalAmount}</strong></p>
-            <p>Previous total: {cur}{preview.previousTotal}</p>
-            <p>New total: <strong>{cur}{preview.newTotal}</strong></p>
-          </div>
-        )}
+      {step === 3 && (
+        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)] p-4 text-sm space-y-2">
+          <p>{t('admin.extend.pricingHint')}</p>
+          <p className="text-[var(--admin-fg-muted)]">
+            {t('admin.extend.newReturn')}: <strong className="text-[var(--admin-fg)]">{fmt(newReturnDate)}</strong>
+          </p>
+        </div>
+      )}
 
-        <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <button type="button" className="h-10 px-4 rounded-lg border text-sm" onClick={onClose}>Cancel</button>
-          <button type="button" disabled={loading} className="h-10 px-4 rounded-lg border border-primary text-primary text-sm" onClick={runPreview}>
-            {loading ? 'Calculating…' : 'Preview'}
-          </button>
-          <button type="button" disabled={!preview || confirming} className="h-10 px-4 rounded-lg bg-primary text-white text-sm disabled:opacity-40" onClick={confirm}>
-            {confirming ? 'Confirming…' : 'Confirm extension'}
+      {step === 4 && conflict && (
+        <div className="rounded-[var(--admin-radius)] border border-[color-mix(in_srgb,var(--admin-danger)_35%,transparent)] bg-[var(--admin-danger-soft)] p-4 text-sm text-[var(--admin-danger)]">
+          <p className="font-semibold">{t('admin.extend.unavailableTitle')}</p>
+          <p className="mt-1">{conflict}</p>
+          <button
+            type="button"
+            className="mt-3 admin-btn admin-btn--secondary"
+            onClick={() => {
+              setConflict(null)
+              setStep(2)
+            }}
+          >
+            {t('admin.extend.changeReturn')}
           </button>
         </div>
-      </div>
-    </div>
+      )}
+
+      {step === 4 && preview && !conflict && (
+        <div className="space-y-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] p-3">
+              <p className="text-xs font-semibold text-[var(--admin-fg-muted)] mb-1">
+                {t('admin.extend.currentContract')}
+              </p>
+              <p className="font-medium">
+                {fmtShort(preview.originalPickupDate)} → {fmtShort(preview.previousReturnDate)}
+              </p>
+            </div>
+            <div className="rounded-[var(--admin-radius)] border border-[var(--admin-accent)] bg-[var(--admin-accent-soft)] p-3">
+              <p className="text-xs font-semibold text-[var(--admin-accent)] mb-1">
+                {t('admin.extend.newContract')}
+              </p>
+              <p className="font-medium">
+                {fmtShort(preview.originalPickupDate)} → {fmtShort(preview.newReturnDate)}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)] p-4 space-y-1.5">
+            <p>
+              {t('admin.extend.originalDuration')}:{' '}
+              <strong>{t('admin.extend.daysCount', { count: preview.previousDays })}</strong>
+            </p>
+            <p>
+              {t('admin.extend.additionalDuration')}:{' '}
+              <strong>{t('admin.extend.daysCount', { count: preview.additionalDays })}</strong>
+            </p>
+            <p>
+              {t('admin.extend.originalPrice')}:{' '}
+              <strong>
+                {cur}
+                {preview.previousTotal}
+              </strong>
+            </p>
+            <p>
+              {t('admin.extend.additionalAmount')}:{' '}
+              <strong>
+                {cur}
+                {preview.additionalAmount}
+              </strong>
+            </p>
+            <p className="pt-1 border-t border-[var(--admin-border)]">
+              {t('admin.extend.newTotal')}:{' '}
+              <strong className="text-base">
+                {cur}
+                {preview.newTotal}
+              </strong>
+            </p>
+          </div>
+        </div>
+      )}
+    </AdminModal>
   )
 }
 

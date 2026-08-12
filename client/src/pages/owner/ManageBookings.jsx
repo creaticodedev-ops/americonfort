@@ -873,9 +873,26 @@ const ManageBookings = () => {
                         ? t('admin.bookings.free')
                         : `${currency}${selectedBooking.priceBreakdown.dropoffDeliveryFee}`}
                     </DetailRow>
-                    {(selectedBooking.priceBreakdown.discountTotal || 0) > 0 && (
-                      <DetailRow label={t('admin.bookings.discounts')}>−{currency}{selectedBooking.priceBreakdown.discountTotal}</DetailRow>
-                    )}
+                    {(selectedBooking.priceBreakdown.discounts || []).length > 0
+                      ? (selectedBooking.priceBreakdown.discounts || []).map((d, idx) => (
+                          <DetailRow
+                            key={`disc-${idx}`}
+                            label={
+                              d.code === 'partner_discount'
+                                ? d.label || t('admin.bookings.partnerDiscount')
+                                : d.label || t('admin.bookings.discounts')
+                            }
+                          >
+                            −{currency}
+                            {d.amount}
+                          </DetailRow>
+                        ))
+                      : (selectedBooking.priceBreakdown.discountTotal || 0) > 0 && (
+                          <DetailRow label={t('admin.bookings.discounts')}>
+                            −{currency}
+                            {selectedBooking.priceBreakdown.discountTotal}
+                          </DetailRow>
+                        )}
                     <DetailRow label={t('admin.bookings.total')}>
                       <strong>{currency}{selectedBooking.price}</strong>
                     </DetailRow>
@@ -927,9 +944,9 @@ const ManageBookings = () => {
                     </>
                   )}
                   {hasPermission('contract_extensions') && !['cancelled', 'completed'].includes(selectedBooking.status) && (
-                    <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setExtendBooking(selectedBooking)}>
-                      Extend Contract
-                    </button>
+                      <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setExtendBooking(selectedBooking)}>
+                        {t('admin.extend.title')}
+                      </button>
                   )}
                   {hasPermission('signature_requests') && (
                     <button

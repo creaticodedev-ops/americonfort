@@ -11,23 +11,25 @@ import {
   AdminModal,
 } from './ui'
 import { useAppContext } from '../../context/AppContext'
+import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
 
 /**
- * Reusable professional directory for chauffeurs / samsars / partners.
+ * Reusable professional directory for chauffeurs / samsars / partners / employees.
  */
 const OwnerDirectoryPage = ({
   title,
   subtitle,
   endpoint,
   columns,
-  emptyLabel = 'No records yet',
-  emptyDescription = 'Create your first record to start assigning it on reservations.',
+  emptyLabel,
+  emptyDescription,
   buildForm,
   initialForm,
   nameField = 'fullName',
 }) => {
   const { axios } = useAppContext()
+  const { t } = useI18n()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -48,13 +50,13 @@ const OwnerDirectoryPage = ({
       if (data.success) {
         setItems(data.items || [])
         setPagination(data.pagination || { pages: 1, total: 0 })
-      } else toast.error(data.message || 'Failed to load')
+      } else toast.error(data.message || t('admin.common.loadFailed'))
     } catch (e) {
       toast.error(getErrorMessage(e))
     } finally {
       setLoading(false)
     }
-  }, [axios, endpoint, page, search, status])
+  }, [axios, endpoint, page, search, status, t])
 
   useEffect(() => {
     load()
@@ -84,11 +86,11 @@ const OwnerDirectoryPage = ({
       if (modal.mode === 'create') {
         const { data } = await axios.post(endpoint, payload)
         if (!data.success) throw new Error(data.message)
-        toast.success('Created')
+        toast.success(t('admin.common.created'))
       } else {
         const { data } = await axios.patch(`${endpoint}/${modal.id}`, payload)
         if (!data.success) throw new Error(data.message)
-        toast.success('Updated')
+        toast.success(t('admin.common.updated'))
       }
       setModal(null)
       load()
@@ -101,11 +103,16 @@ const OwnerDirectoryPage = ({
 
   const toggleStatus = async (item) => {
     const next = item.status === 'active' ? 'inactive' : 'active'
-    if (!window.confirm(`${next === 'inactive' ? 'Deactivate' : 'Activate'} ${item[nameField] || 'this record'}?`)) return
+    const name = item[nameField] || t('admin.common.thisRecord')
+    const confirmMsg =
+      next === 'inactive'
+        ? t('admin.common.confirmDeactivate', { name })
+        : t('admin.common.confirmActivate', { name })
+    if (!window.confirm(confirmMsg)) return
     try {
       const { data } = await axios.post(`${endpoint}/${item._id}/status`, { status: next })
       if (!data.success) throw new Error(data.message)
-      toast.success(`Marked ${next}`)
+      toast.success(t('admin.common.statusUpdated', { status: next }))
       load()
     } catch (e) {
       toast.error(getErrorMessage(e))
@@ -124,19 +131,19 @@ const OwnerDirectoryPage = ({
     })),
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('admin.common.actions'),
       className: 'whitespace-nowrap',
       render: (item) => (
         <div className="flex items-center gap-2">
           <button type="button" className="text-xs font-medium text-[var(--admin-accent)]" onClick={() => openEdit(item)}>
-            Edit
+            {t('admin.common.edit')}
           </button>
           <button
             type="button"
             className="text-xs font-medium text-[var(--admin-fg-secondary)]"
             onClick={() => toggleStatus(item)}
           >
-            {item.status === 'active' ? 'Deactivate' : 'Activate'}
+            {item.status === 'active' ? t('admin.common.deactivate') : t('admin.common.activate')}
           </button>
         </div>
       ),
@@ -150,7 +157,7 @@ const OwnerDirectoryPage = ({
         description={subtitle}
         actions={
           <button type="button" onClick={openCreate} className="admin-btn admin-btn--primary">
-            Add new
+            {t('admin.common.addNew')}
           </button>
         }
       />
@@ -162,7 +169,7 @@ const OwnerDirectoryPage = ({
             setPage(1)
             setSearch(v)
           }}
-          placeholder="Search…"
+          placeholder={t('admin.common.search')}
         />
         <select
           className="h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]"
@@ -172,9 +179,9 @@ const OwnerDirectoryPage = ({
             setStatus(e.target.value)
           }}
         >
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="all">{t('admin.common.allStatuses')}</option>
+          <option value="active">{t('admin.common.active')}</option>
+          <option value="inactive">{t('admin.common.inactive')}</option>
         </select>
       </FilterBar>
 
@@ -182,11 +189,11 @@ const OwnerDirectoryPage = ({
         columns={tableColumns}
         data={items}
         loading={loading}
-        emptyMessage={emptyLabel}
-        emptyDescription={emptyDescription}
+        emptyMessage={emptyLabel || t('admin.common.empty')}
+        emptyDescription={emptyDescription || t('admin.common.emptyHint')}
         emptyAction={
           <button type="button" className="admin-btn admin-btn--primary" onClick={openCreate}>
-            Add new
+            {t('admin.common.addNew')}
           </button>
         }
       />
@@ -206,14 +213,14 @@ const OwnerDirectoryPage = ({
       <AdminModal
         open={Boolean(modal)}
         onClose={() => setModal(null)}
-        title={modal?.mode === 'create' ? 'Create' : 'Edit'}
+        title={modal?.mode === 'create' ? t('admin.common.create') : t('admin.common.edit')}
         footer={
           <>
             <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setModal(null)}>
-              Cancel
+              {t('admin.common.cancel')}
             </button>
             <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('admin.common.saving') : t('admin.common.save')}
             </button>
           </>
         }

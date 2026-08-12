@@ -8,6 +8,7 @@ import { useAdminTheme } from '../../context/AdminThemeContext'
 import LanguageSwitcher from '../LanguageSwitcher'
 import NotificationBell from './NotificationBell'
 import GlobalSearch from './GlobalSearch'
+import AdminQuickActions from './AdminQuickActions'
 import { Icon } from './ui/adminIcons'
 import { getOwnerPageMeta } from './ownerNavConfig'
 import { useLocation } from 'react-router-dom'
@@ -111,6 +112,7 @@ const NavbarOwner = ({ onOpenNav, navOpen = false, onToggleCollapsed }) => {
           <Icon name={resolved === 'dark' ? 'sun' : 'moon'} className="h-4 w-4" />
         </button>
 
+        {!licenseLocked && <AdminQuickActions />}
         {!licenseLocked && <NotificationBell />}
         <LanguageSwitcher />
 

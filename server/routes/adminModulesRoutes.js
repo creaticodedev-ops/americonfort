@@ -3,7 +3,7 @@ import { protect } from '../middleware/auth.js';
 import { requireOwner } from '../middleware/ownerAuth.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import { requireFeature } from '../middleware/requireFeature.js';
-import { samsarCrud, partnerCrud, chauffeurCrud } from '../controllers/partnerDirectoryController.js';
+import { samsarCrud, partnerCrud, chauffeurCrud, employeeCrud } from '../controllers/partnerDirectoryController.js';
 import {
   accountingOverview,
   listAccountingRevenues,
@@ -58,6 +58,13 @@ router.get('/chauffeurs/:id', ...gate('chauffeurs', 'chauffeurs'), chauffeurCrud
 router.post('/chauffeurs', ...gate('chauffeurs', 'chauffeurs'), chauffeurCrud.create);
 router.patch('/chauffeurs/:id', ...gate('chauffeurs', 'chauffeurs'), chauffeurCrud.update);
 router.post('/chauffeurs/:id/status', ...gate('chauffeurs', 'chauffeurs'), chauffeurCrud.setStatus);
+
+/* Employees — personnel records (not dashboard logins) */
+router.get('/employees', ...gate('employees', 'employees'), employeeCrud.list);
+router.get('/employees/:id', ...gate('employees', 'employees'), employeeCrud.getOne);
+router.post('/employees', ...gate('employees', 'employees'), employeeCrud.create);
+router.patch('/employees/:id', ...gate('employees', 'employees'), employeeCrud.update);
+router.post('/employees/:id/status', ...gate('employees', 'employees'), employeeCrud.setStatus);
 
 /* Signature requests */
 router.get('/signature-requests', ...gate('signature_requests', 'signature_requests'), listSignatures);

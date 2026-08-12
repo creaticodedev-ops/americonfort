@@ -111,6 +111,46 @@ export const aggregateGrossRevenue = async (ownerId, { from, to, carId, bookingI
   };
 };
 
+/**
+ * Sum of partner_discount amounts on bookings in period (display-only; already in Gross).
+ */
+export const aggregatePartnerDiscounts = async (ownerId, { from, to } = {}) => {
+  const match = {
+    owner: toOid(ownerId),
+    status: { $in: REVENUE_STATUSES },
+    ...dateMatch('createdAt', from, to),
+  };
+  const [agg] = await Booking.aggregate([
+    { $match: match },
+    {
+      $project: {
+        partnerDiscount: {
+          $sum: {
+            $map: {
+              input: { $ifNull: ['$priceBreakdown.discounts', []] },
+              as: 'd',
+              in: {
+                $cond: [
+                  { $eq: ['$$d.code', 'partner_discount'] },
+                  { $ifNull: ['$$d.amount', 0] },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        partnerDiscountApplied: { $sum: '$partnerDiscount' },
+      },
+    },
+  ]);
+  return { partnerDiscountApplied: toMoney(agg?.partnerDiscountApplied) };
+};
+
 export const aggregateSamsarPayments = async (ownerId, { from, to } = {}) => {
   const match = {
     owner: toOid(ownerId),
@@ -203,11 +243,12 @@ export const getAccountingOverview = async (ownerId, { period = 'month', from, t
   const range = resolvePeriodRange(period, from, to);
   const opts = { from: range.from, to: range.to };
 
-  const [revenue, samsar, agency, vehicle] = await Promise.all([
+  const [revenue, samsar, agency, vehicle, partnerDiscounts] = await Promise.all([
     aggregateGrossRevenue(ownerId, opts),
     aggregateSamsarPayments(ownerId, opts),
     aggregateAgencyExpenses(ownerId, opts),
     aggregateVehicleExpenses(ownerId, opts),
+    aggregatePartnerDiscounts(ownerId, opts),
   ]);
 
   const grossRevenue = revenue.grossRevenue;
@@ -225,13 +266,15 @@ export const getAccountingOverview = async (ownerId, { period = 'month', from, t
       grossRevenue,
       paidRevenue: revenue.paidRevenue,
       unpaidRevenue: revenue.unpaidRevenue,
+      /** Display-only; already reflected in grossRevenue. Not subtracted again in netResult. */
+      partnerDiscountApplied: partnerDiscounts.partnerDiscountApplied,
       samsarPayments,
       agencyExpenses,
       vehicleExpenses,
       netResult,
       bookingCount: revenue.bookingCount,
     },
-    breakdown: { revenue, samsar, agency, vehicle },
+    breakdown: { revenue, samsar, agency, vehicle, partnerDiscounts },
   };
 };
 

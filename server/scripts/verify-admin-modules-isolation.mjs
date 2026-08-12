@@ -257,7 +257,7 @@ ok(
 }
 
 console.log('\n--- Permissions catalog ---')
-for (const p of ['accounting', 'chauffeurs', 'partners', 'signature_requests', 'contract_extensions']) {
+for (const p of ['accounting', 'chauffeurs', 'partners', 'signature_requests', 'contract_extensions', 'employees']) {
   ok(`permission registered: ${p}`, OWNER_PERMISSIONS.includes(p))
 }
 const staffPerms = resolveOwnerPermissions(staffLimited.permissions)

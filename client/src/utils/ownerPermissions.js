@@ -18,6 +18,7 @@ export const OWNER_PERMISSIONS = [
   'partners',
   'signature_requests',
   'contract_extensions',
+  'employees',
 ];
 
 export const resolveOwnerPermissions = (permissions) => {

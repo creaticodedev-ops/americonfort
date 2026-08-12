@@ -196,7 +196,7 @@ export const navIconForPath = (path) => {
   if (path.includes('analytics') || path.includes('reports') || path.includes('vehicle-stats')) return 'chart'
   if (path.includes('booking') || path.includes('walk-in') || path.includes('calendar')) return 'calendar'
   if (path.includes('car') || path.includes('maintenance') || path.includes('locations')) return 'car'
-  if (path.includes('chauffeur') || path.includes('customer') || path.includes('samsar')) return 'users'
+  if (path.includes('chauffeur') || path.includes('customer') || path.includes('samsar') || path.includes('employee')) return 'users'
   if (path.includes('partner')) return 'building'
   if (path.includes('signature')) return 'signature'
   if (path.includes('contract') || path.includes('invoice') || path.includes('template')) return 'file'

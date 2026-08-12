@@ -49,6 +49,7 @@ const Samsars = lazy(() => import('./pages/owner/Samsars'))
 const PartnerCompanies = lazy(() => import('./pages/owner/PartnerCompanies'))
 const Chauffeurs = lazy(() => import('./pages/owner/Chauffeurs'))
 const SignatureRequests = lazy(() => import('./pages/owner/SignatureRequests'))
+const Employees = lazy(() => import('./pages/owner/Employees'))
 const AccountingOverview = lazy(() => import('./pages/owner/accounting/AccountingOverview'))
 const RevenuesPage = lazy(async () => {
   const m = await import('./pages/owner/accounting/AccountingLists')
@@ -140,6 +141,7 @@ const App = () => {
                 <Route path="chauffeurs" element={withPerm('chauffeurs', Chauffeurs)} />
                 <Route path="samsars" element={withPerm('partners', Samsars)} />
                 <Route path="partner-companies" element={withPerm('partners', PartnerCompanies)} />
+                <Route path="employees" element={withPerm('employees', Employees)} />
                 <Route path="reports" element={withPerm('reports', Reports)} />
                 <Route path="contracts" element={withPerm('contracts', Contracts)} />
                 <Route path="invoices" element={withPerm('contracts', Invoices)} />
