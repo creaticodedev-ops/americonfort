@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import Title from '../../components/owner/Title'
+import { AdminPage, PageHeader, StatCard, SegmentedControl } from '../../components/owner/ui'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -255,49 +255,39 @@ const Maintenance = () => {
   ]
 
   return (
-    <div className="px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 flex-1 pb-12 min-w-0">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <Title title={t('admin.maintenance.title')} subTitle={t('admin.maintenance.subtitle')} />
-        <button
-          type="button"
-          onClick={() => { setRecordForm(emptyRecord); setShowRecord(true) }}
-          className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-dull"
-        >
-          {t('admin.maintenance.scheduleWork')}
-        </button>
-      </div>
+    <AdminPage>
+      <PageHeader
+        title={t('admin.maintenance.title')}
+        description={t('admin.maintenance.subtitle')}
+        actions={
+          <button
+            type="button"
+            onClick={() => { setRecordForm(emptyRecord); setShowRecord(true) }}
+            className="admin-btn admin-btn--primary"
+          >
+            {t('admin.maintenance.scheduleWork')}
+          </button>
+        }
+      />
 
       {summary && (
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {[
-            { label: t('admin.maintenance.totalFleet'), value: summary.total },
-            { label: t('admin.maintenance.available'), value: summary.available, tone: 'text-emerald-600' },
-            { label: t('admin.maintenance.rented'), value: summary.rented, tone: 'text-blue-600' },
-            { label: t('admin.maintenance.inShop'), value: summary.maintenance, tone: 'text-amber-700' },
-            { label: t('admin.maintenance.critical'), value: summary.criticalAlerts, tone: 'text-red-600' },
-            { label: t('admin.maintenance.costs'), value: `${currency}${summary.totalMaintenanceCost || 0}` },
-          ].map((k) => (
-            <div key={k.label} className="rounded-xl border border-borderColor bg-white p-3 min-w-0">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 truncate">{k.label}</p>
-              <p className={`text-lg font-semibold mt-1 ${k.tone || 'text-gray-800'}`}>{k.value}</p>
-            </div>
-          ))}
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <StatCard label={t('admin.maintenance.totalFleet')} value={summary.total} />
+          <StatCard label={t('admin.maintenance.available')} value={summary.available} tone="success" />
+          <StatCard label={t('admin.maintenance.rented')} value={summary.rented} tone="info" />
+          <StatCard label={t('admin.maintenance.inShop')} value={summary.maintenance} tone="warning" />
+          <StatCard label={t('admin.maintenance.critical')} value={summary.criticalAlerts} tone="danger" />
+          <StatCard label={t('admin.maintenance.costs')} value={`${currency}${summary.totalMaintenanceCost || 0}`} />
         </div>
       )}
 
-      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-borderColor">
-        {tabs.map((tb) => (
-          <button
-            key={tb.id}
-            type="button"
-            onClick={() => setTab(tb.id)}
-            className={`px-3 py-2 text-sm whitespace-nowrap border-b-2 -mb-px ${
-              tab === tb.id ? 'border-primary text-primary font-medium' : 'border-transparent text-gray-500'
-            }`}
-          >
-            {tb.label}
-          </button>
-        ))}
+      <div className="mb-4">
+        <SegmentedControl
+          options={tabs.map((tb) => ({ id: tb.id, label: tb.label }))}
+          value={tab}
+          onChange={setTab}
+          ariaLabel="Maintenance tabs"
+        />
       </div>
 
       {tab === 'fleet' && (
@@ -731,7 +721,7 @@ const Maintenance = () => {
           </form>
         </div>
       )}
-    </div>
+    </AdminPage>
   )
 }
 

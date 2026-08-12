@@ -1,10 +1,11 @@
 import React from 'react'
 
 const Pagination = ({ page, totalPages, total, limit, onPageChange }) => {
-  if (totalPages <= 1) return null
+  if (!totalPages || totalPages <= 1) return null
 
-  const start = (page - 1) * limit + 1
-  const end = Math.min(page * limit, total)
+  const hasRange = Number.isFinite(total) && Number.isFinite(limit) && limit > 0
+  const start = hasRange ? (page - 1) * limit + 1 : null
+  const end = hasRange ? Math.min(page * limit, total) : null
 
   const pages = []
   const maxVisible = 5
@@ -14,36 +15,41 @@ const Pagination = ({ page, totalPages, total, limit, onPageChange }) => {
     startPage = Math.max(1, endPage - maxVisible + 1)
   }
 
-  for (let i = startPage; i <= endPage; i++) {
-    pages.push(i)
-  }
+  for (let i = startPage; i <= endPage; i++) pages.push(i)
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm text-gray-500">
-      <p className="text-xs sm:text-sm text-center sm:text-left">Showing {start}–{end} of {total} results</p>
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm text-[var(--admin-fg-muted)]">
+      <p className="text-xs sm:text-sm text-center sm:text-left">
+        {hasRange ? `Showing ${start}–${end} of ${total} results` : `Page ${page} of ${totalPages}`}
+      </p>
       <div className="flex items-center gap-1 flex-wrap justify-center">
         <button
+          type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="px-2.5 sm:px-3 py-1.5 border border-borderColor rounded-md disabled:opacity-40 hover:bg-gray-50 cursor-pointer disabled:cursor-not-allowed"
+          className="admin-btn admin-btn--secondary h-8 px-2.5 disabled:opacity-40"
         >
           Prev
         </button>
-        {pages.map(p => (
+        {pages.map((p) => (
           <button
             key={p}
+            type="button"
             onClick={() => onPageChange(p)}
-            className={`min-w-8 px-2.5 sm:px-3 py-1.5 border rounded-md cursor-pointer ${
-              p === page ? 'bg-primary text-white border-primary' : 'border-borderColor hover:bg-gray-50'
+            className={`min-w-8 h-8 px-2.5 rounded-[var(--admin-radius)] text-sm cursor-pointer border ${
+              p === page
+                ? 'bg-[var(--admin-accent)] text-white border-[var(--admin-accent)]'
+                : 'border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-fg-secondary)] hover:bg-[var(--admin-surface-hover)]'
             }`}
           >
             {p}
           </button>
         ))}
         <button
+          type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="px-2.5 sm:px-3 py-1.5 border border-borderColor rounded-md disabled:opacity-40 hover:bg-gray-50 cursor-pointer disabled:cursor-not-allowed"
+          className="admin-btn admin-btn--secondary h-8 px-2.5 disabled:opacity-40"
         >
           Next
         </button>

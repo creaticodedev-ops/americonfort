@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import Title from '../../components/owner/Title'
+import { AdminPage, PageHeader } from '../../components/owner/ui'
 import DocumentEditor from '../../components/owner/DocumentEditor'
 import DocumentPdfProgress, { buildPdfJobStages } from '../../components/DocumentPdfProgress'
 import { useDocumentPdfJob } from '../../hooks/useDocumentPdfJob'
@@ -58,7 +58,7 @@ const Contracts = () => {
   /** Owner Settings → Agency Stamp default; used when opening Generate */
   const [stampDefault, setStampDefault] = useState(true)
 
-  const inputClass = 'border border-borderColor px-3 py-2 rounded-lg w-full text-sm'
+  const inputClass = 'h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-fg)] px-3 rounded-[var(--admin-radius)] w-full text-sm outline-none focus:shadow-[var(--admin-focus)]'
 
   const renderContractFields = (form, setForm, fieldClass, labelClass) => {
     const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
@@ -476,19 +476,18 @@ const Contracts = () => {
   }
 
   return (
-    <div className="px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 flex-1 pb-12 min-w-0 space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <Title title={t('admin.contracts.title')} subTitle={t('admin.contracts.subtitle')} />
-        <button
-          type="button"
-          onClick={openGenerate}
-          className="px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:opacity-90"
-        >
-          {t('admin.contracts.generate')}
-        </button>
-      </div>
+    <AdminPage className="space-y-6">
+      <PageHeader
+        title={t('admin.contracts.title')}
+        description={t('admin.contracts.subtitle')}
+        actions={
+          <button type="button" onClick={openGenerate} className="admin-btn admin-btn--primary">
+            {t('admin.contracts.generate')}
+          </button>
+        }
+      />
 
-      <form onSubmit={runSearch} className="rounded-2xl border border-borderColor bg-white p-4 space-y-4">
+      <form onSubmit={runSearch} className="rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 space-y-4">
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
           <input
             className={inputClass}
@@ -835,7 +834,7 @@ const Contracts = () => {
           renderFields={renderContractFields}
         />
       )}
-    </div>
+    </AdminPage>
   )
 }
 

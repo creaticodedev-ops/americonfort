@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { assets } from '../../assets/ownerAssets'
-import Title from '../../components/owner/Title'
+import StatusBadge from '../../components/owner/StatusBadge'
+import {
+  AdminPage,
+  PageHeader,
+  StatCard,
+  EmptyState,
+  SkeletonRows,
+  ConfirmDialog,
+} from '../../components/owner/ui'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -9,14 +17,10 @@ import { getErrorMessage } from '../../utils/apiError'
 import { VEHICLE_CATEGORIES } from '../../utils/vehicleCategories'
 import { formatLocationsDisplay } from '../../utils/carLocations'
 
-const statusBadge = (car) => {
-  if (car.status === 'maintenance') {
-    return 'bg-amber-100 text-amber-800'
-  }
-  if (car.isAvaliable) {
-    return 'bg-emerald-100 text-emerald-700'
-  }
-  return 'bg-gray-100 text-gray-600'
+const fleetStatus = (car) => {
+  if (car.status === 'maintenance') return 'maintenance'
+  if (car.isAvaliable) return 'active'
+  return 'inactive'
 }
 
 const statusLabel = (car, t) => {
@@ -26,12 +30,6 @@ const statusLabel = (car, t) => {
 }
 
 const isVisibleOnWebsite = (car) => car.visibleOnWebsite !== false
-
-const visibilityBadge = (car) =>
-  isVisibleOnWebsite(car) ? 'bg-sky-100 text-sky-800' : 'bg-rose-100 text-rose-800'
-
-const visibilityLabel = (car, t) =>
-  isVisibleOnWebsite(car) ? t('admin.fleet.visibleOnWebsite') : t('admin.fleet.hiddenFromWebsite')
 
 const ManageCars = () => {
   const { isOwner, axios, currency } = useAppContext()
@@ -43,6 +41,7 @@ const ManageCars = () => {
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [togglingVisibilityId, setTogglingVisibilityId] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [filters, setFilters] = useState({
     search: '',
     fleetId: '',
@@ -123,8 +122,10 @@ const ManageCars = () => {
     navigate(`/owner/vehicle-stats/${car._id}`)
   }
 
-  const deleteCar = async (carId) => {
-    if (!window.confirm('Remove this physical vehicle from the fleet?')) return
+  const deleteCar = async () => {
+    const carId = confirmDeleteId
+    setConfirmDeleteId(null)
+    if (!carId) return
     try {
       const { data } = await axios.post('/api/owner/delete-car', { carId })
       if (data.success) {
@@ -138,10 +139,11 @@ const ManageCars = () => {
 
   useEffect(() => {
     if (isOwner) fetchOwnerCars()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwner, query])
 
   const inputClass =
-    'border border-borderColor rounded-lg px-3 py-2.5 text-sm w-full min-w-0 outline-none focus:border-primary bg-white'
+    'h-9 border border-[var(--admin-border)] rounded-[var(--admin-radius)] px-3 text-sm w-full min-w-0 outline-none bg-[var(--admin-surface)] text-[var(--admin-fg)] focus:shadow-[var(--admin-focus)]'
 
   const emptyFilters = {
     search: '',
@@ -153,40 +155,30 @@ const ManageCars = () => {
     category: '',
   }
 
-  const CarActions = ({ car, layout = 'row' }) => (
-    <div
-      className={
-        layout === 'stack'
-          ? 'grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2'
-          : 'flex flex-wrap items-center gap-2'
-      }
-    >
-      <button
-        type="button"
-        onClick={() => openVehicleStats(car)}
-        className="text-xs font-medium text-primary hover:underline px-2 py-1 rounded-md bg-primary/5 sm:bg-transparent sm:px-0 sm:py-0"
-      >
+  const snapshot = useMemo(() => {
+    const total = cars.length
+    const available = cars.filter((c) => c.isAvaliable && c.status !== 'maintenance').length
+    const maintenance = cars.filter((c) => c.status === 'maintenance').length
+    const offline = cars.filter((c) => !c.isAvaliable && c.status !== 'maintenance').length
+    return { total, available, maintenance, offline }
+  }, [cars])
+
+  const CarActions = ({ car }) => (
+    <div className="admin-action-rail">
+      <button type="button" className="admin-btn admin-btn--ghost" onClick={() => openVehicleStats(car)}>
         Stats
       </button>
-      <button
-        type="button"
-        onClick={() => navigate(`/owner/edit-car/${car._id}`)}
-        className="text-xs font-medium text-primary hover:underline px-2 py-1 rounded-md bg-primary/5 sm:bg-transparent sm:px-0 sm:py-0"
-      >
+      <button type="button" className="admin-btn admin-btn--ghost" onClick={() => navigate(`/owner/edit-car/${car._id}`)}>
         {t('admin.common.edit')}
       </button>
-      <button
-        type="button"
-        onClick={() => toggleAvailability(car._id)}
-        className="text-xs text-gray-600 hover:underline px-2 py-1 rounded-md bg-gray-50 sm:bg-transparent sm:px-0 sm:py-0"
-      >
+      <button type="button" className="admin-btn admin-btn--ghost" onClick={() => toggleAvailability(car._id)}>
         {t('admin.fleet.toggle')}
       </button>
       <button
         type="button"
         disabled={togglingVisibilityId === car._id}
+        className="admin-btn admin-btn--ghost"
         onClick={() => toggleWebsiteVisibility(car)}
-        className="text-xs text-sky-800 hover:underline px-2 py-1 rounded-md bg-sky-50 sm:bg-transparent sm:px-0 sm:py-0 disabled:opacity-60"
       >
         {togglingVisibilityId === car._id
           ? t('admin.common.loading')
@@ -194,26 +186,43 @@ const ManageCars = () => {
             ? t('admin.fleet.hideFromWebsite')
             : t('admin.fleet.showOnWebsite')}
       </button>
-      <button
-        type="button"
-        onClick={() => deleteCar(car._id)}
-        className="text-xs text-red-600 hover:underline px-2 py-1 rounded-md bg-red-50 sm:bg-transparent sm:px-0 sm:py-0 col-span-2 sm:col-span-1"
-      >
+      <Link to="/owner/maintenance" className="admin-btn admin-btn--ghost">
+        Maintenance
+      </Link>
+      <Link to="/owner/accounting/vehicle-expenses" className="admin-btn admin-btn--ghost">
+        Expenses
+      </Link>
+      <button type="button" className="admin-btn admin-btn--danger" onClick={() => setConfirmDeleteId(car._id)}>
         {t('admin.common.delete')}
       </button>
     </div>
   )
 
   return (
-    <div className="admin-page px-4 pt-6 sm:pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 w-full pb-10 min-w-0 max-w-[1600px]">
-      <Title title={t('admin.fleet.title')} subTitle={t('admin.fleet.subtitle')} />
+    <AdminPage className="max-w-[1600px]">
+      <PageHeader
+        title={t('admin.fleet.title')}
+        description={t('admin.fleet.subtitle')}
+        actions={
+          <Link to="/owner/add-car" className="admin-btn admin-btn--primary">
+            {t('admin.menu.addCar')}
+          </Link>
+        }
+      />
+
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="Total cars" value={snapshot.total} />
+        <StatCard label="Available" value={snapshot.available} tone="success" />
+        <StatCard label="Offline / rented" value={snapshot.offline} tone="info" />
+        <StatCard label="Maintenance" value={snapshot.maintenance} tone="warning" to="/owner/maintenance" />
+      </div>
 
       <form
         onSubmit={(e) => {
           e.preventDefault()
           setApplied({ ...filters })
         }}
-        className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl border border-borderColor bg-white p-4 sm:p-5 shadow-sm"
+        className="mb-4 grid grid-cols-1 gap-2 rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 sm:grid-cols-2 lg:grid-cols-4"
       >
         <input
           className={`${inputClass} lg:col-span-2`}
@@ -221,218 +230,148 @@ const ManageCars = () => {
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
         />
-        <input
-          className={inputClass}
-          placeholder={t('admin.fleet.fleetId')}
-          value={filters.fleetId}
-          onChange={(e) => setFilters({ ...filters, fleetId: e.target.value })}
-        />
-        <input
-          className={inputClass}
-          placeholder={t('admin.fleet.vin')}
-          value={filters.vin}
-          onChange={(e) => setFilters({ ...filters, vin: e.target.value })}
-        />
-        <input
-          className={inputClass}
-          placeholder={t('admin.fleet.plate')}
-          value={filters.plate}
-          onChange={(e) => setFilters({ ...filters, plate: e.target.value })}
-        />
-        <select
-          className={inputClass}
-          value={filters.status}
-          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-        >
+        <input className={inputClass} placeholder={t('admin.fleet.fleetId')} value={filters.fleetId} onChange={(e) => setFilters({ ...filters, fleetId: e.target.value })} />
+        <input className={inputClass} placeholder={t('admin.fleet.vin')} value={filters.vin} onChange={(e) => setFilters({ ...filters, vin: e.target.value })} />
+        <input className={inputClass} placeholder={t('admin.fleet.plate')} value={filters.plate} onChange={(e) => setFilters({ ...filters, plate: e.target.value })} />
+        <select className={inputClass} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
           <option value="">{t('admin.fleet.allStatuses')}</option>
           <option value="available">Available</option>
           <option value="booked">Rented</option>
           <option value="maintenance">In Maintenance</option>
         </select>
-        <select
-          className={inputClass}
-          value={filters.branch}
-          onChange={(e) => setFilters({ ...filters, branch: e.target.value })}
-        >
+        <select className={inputClass} value={filters.branch} onChange={(e) => setFilters({ ...filters, branch: e.target.value })}>
           <option value="">{t('admin.fleet.allBranches')}</option>
           {branches.map((b) => (
-            <option key={b} value={b}>
-              {b}
-            </option>
+            <option key={b} value={b}>{b}</option>
           ))}
         </select>
-        <select
-          className={inputClass}
-          value={filters.category}
-          onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-        >
+        <select className={inputClass} value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}>
           <option value="">{t('admin.fleet.allCategories')}</option>
           {VEHICLE_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
-        <div className="flex flex-col sm:flex-row gap-2 sm:col-span-2 lg:col-span-1">
-          <button
-            type="submit"
-            className="flex-1 px-3 py-2.5 bg-primary text-white text-sm rounded-lg font-medium"
-          >
-            {t('admin.fleet.apply')}
-          </button>
+        <div className="flex gap-2">
+          <button type="submit" className="admin-btn admin-btn--primary flex-1">{t('admin.fleet.apply')}</button>
           <button
             type="button"
+            className="admin-btn admin-btn--secondary"
             onClick={() => {
               setFilters(emptyFilters)
               setApplied(emptyFilters)
             }}
-            className="px-3 py-2.5 border border-borderColor rounded-lg text-sm bg-white"
           >
             {t('admin.fleet.clear')}
           </button>
         </div>
       </form>
 
-      <div className="w-full rounded-xl overflow-hidden border border-borderColor mt-6 bg-white shadow-sm">
+      <div className="admin-table-wrap">
         {loading ? (
-          <p className="p-6 text-gray-400 text-sm">{t('admin.fleet.loading')}</p>
+          <div className="p-4"><SkeletonRows rows={6} /></div>
         ) : cars.length === 0 ? (
-          <p className="p-6 text-gray-400 text-sm">{t('admin.fleet.none')}</p>
+          <EmptyState
+            icon="car"
+            title={t('admin.fleet.none')}
+            description="Add your first vehicle to start taking reservations."
+            action={<Link to="/owner/add-car" className="admin-btn admin-btn--primary">{t('admin.menu.addCar')}</Link>}
+          />
         ) : (
           <>
-            {/* Mobile / tablet cards */}
-            <div className="lg:hidden divide-y divide-borderColor">
+            <div className="divide-y divide-[var(--admin-border)] lg:hidden">
               {cars.map((car) => (
-                <article key={car._id} className="p-4 sm:p-5 space-y-3">
-                  <div className="flex gap-3 min-w-0">
+                <article key={car._id} className="space-y-3 p-4">
+                  <div className="flex gap-3">
                     <img
                       src={car.image || fallbackImage}
-                      onError={(e) => {
-                        e.currentTarget.src = fallbackImage
-                      }}
+                      onError={(e) => { e.currentTarget.src = fallbackImage }}
                       alt={`${car.brand} ${car.model}`}
-                      className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-lg object-cover"
+                      className="h-16 w-16 shrink-0 rounded-[var(--admin-radius)] object-cover"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-xs font-semibold text-primary truncate">
-                        {car.fleetId || '—'}
-                      </p>
-                      <p className="font-semibold text-gray-900 truncate">
-                        {car.brand} {car.model}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {car.year} · {car.seating_capacity} seats · {car.category}
-                      </p>
-                      <span
-                        className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${statusBadge(car)}`}
-                      >
-                        {statusLabel(car, t)}
-                      </span>
-                      <span
-                        className={`inline-block mt-1.5 ml-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${visibilityBadge(car)}`}
-                      >
-                        {visibilityLabel(car, t)}
-                      </span>
+                      <p className="truncate font-mono text-xs font-semibold text-[var(--admin-accent)]">{car.fleetId || '—'}</p>
+                      <p className="truncate font-semibold text-[var(--admin-fg)]">{car.brand} {car.model}</p>
+                      <p className="text-xs text-[var(--admin-fg-muted)]">{car.year} · {car.seating_capacity} seats · {car.category}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <StatusBadge status={fleetStatus(car)} label={statusLabel(car, t)} />
+                        <StatusBadge
+                          status={isVisibleOnWebsite(car) ? 'active' : 'inactive'}
+                          label={isVisibleOnWebsite(car) ? t('admin.fleet.visibleOnWebsite') : t('admin.fleet.hiddenFromWebsite')}
+                        />
+                      </div>
                     </div>
-                    <p className="text-sm font-semibold text-gray-800 shrink-0">
-                      {currency}
-                      {car.pricePerDay}
-                      <span className="text-xs font-normal text-gray-500">{t('admin.fleet.perDay')}</span>
+                    <p className="shrink-0 text-sm font-semibold tabular-nums">
+                      {currency}{car.pricePerDay}
+                      <span className="block text-[10px] font-normal text-[var(--admin-fg-muted)]">{t('admin.fleet.perDay')}</span>
                     </p>
                   </div>
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs text-gray-600">
+                  <dl className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <dt className="text-gray-400">{t('admin.fleet.plate')}</dt>
-                      <dd className="font-medium text-gray-800 truncate">{car.licensePlate || '—'}</dd>
+                      <dt className="text-[var(--admin-fg-muted)]">{t('admin.fleet.plate')}</dt>
+                      <dd className="font-medium">{car.licensePlate || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-gray-400">{t('admin.fleet.vin')}</dt>
-                      <dd className="font-mono truncate">{car.vin || '—'}</dd>
-                    </div>
-                    <div className="col-span-2">
-                      <dt className="text-gray-400">{t('admin.fleet.locationsCol')}</dt>
-                      <dd className="truncate">{formatLocationsDisplay(car)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-400">{t('admin.fleet.mileage')}</dt>
+                      <dt className="text-[var(--admin-fg-muted)]">{t('admin.fleet.mileage')}</dt>
                       <dd>{car.mileage || 0} km</dd>
                     </div>
+                    <div className="col-span-2">
+                      <dt className="text-[var(--admin-fg-muted)]">{t('admin.fleet.locationsCol')}</dt>
+                      <dd className="truncate">{formatLocationsDisplay(car)}</dd>
+                    </div>
                   </dl>
-                  <CarActions car={car} layout="stack" />
+                  <CarActions car={car} />
                 </article>
               ))}
             </div>
 
-            {/* Desktop table */}
-            <div className="hidden lg:block table-scroll">
-              <table className="w-full border-collapse text-left text-sm text-gray-600 min-w-[960px]">
-                <thead className="text-gray-500 bg-gray-50 sticky top-0 z-[1]">
+            <div className="table-scroll hidden max-h-[min(70vh,44rem)] overflow-auto lg:block">
+              <table className="admin-table min-w-[960px]">
+                <thead>
                   <tr>
-                    <th className="p-3 font-medium whitespace-nowrap">{t('admin.fleet.fleetId')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.car')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.vin')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.plate')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.locationsCol')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.mileage')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.category')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.price')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.status')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.website')}</th>
-                    <th className="p-3 font-medium">{t('admin.fleet.actions')}</th>
+                    <th>{t('admin.fleet.fleetId')}</th>
+                    <th>{t('admin.fleet.car')}</th>
+                    <th>{t('admin.fleet.plate')}</th>
+                    <th>{t('admin.fleet.locationsCol')}</th>
+                    <th>{t('admin.fleet.price')}</th>
+                    <th>{t('admin.fleet.status')}</th>
+                    <th>{t('admin.fleet.website')}</th>
+                    <th>{t('admin.fleet.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cars.map((car) => (
-                    <tr key={car._id} className="border-t border-borderColor hover:bg-gray-50/60">
-                      <td className="p-3 font-mono text-xs text-primary font-semibold whitespace-nowrap">
-                        {car.fleetId || '—'}
-                      </td>
-                      <td className="p-3 min-w-[200px]">
+                    <tr key={car._id}>
+                      <td className="whitespace-nowrap font-mono text-xs font-semibold text-[var(--admin-accent)]">{car.fleetId || '—'}</td>
+                      <td>
                         <div className="flex items-center gap-3">
                           <img
                             src={car.image || fallbackImage}
-                            onError={(e) => {
-                              e.currentTarget.src = fallbackImage
-                            }}
-                            alt={`${car.brand} ${car.model}`}
-                            className="h-12 w-12 shrink-0 rounded-md object-cover"
+                            onError={(e) => { e.currentTarget.src = fallbackImage }}
+                            alt=""
+                            className="h-11 w-11 shrink-0 rounded-[var(--admin-radius)] object-cover"
                           />
                           <div className="min-w-0">
-                            <p className="font-medium truncate">
-                              {car.brand} {car.model}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {car.year} · {car.seating_capacity} seats
-                            </p>
+                            <p className="truncate font-medium">{car.brand} {car.model}</p>
+                            <p className="text-xs text-[var(--admin-fg-muted)]">{car.year} · {car.category} · {car.mileage || 0} km</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-3 font-mono text-xs max-w-[120px] truncate">{car.vin || '—'}</td>
-                      <td className="p-3 font-medium whitespace-nowrap">{car.licensePlate || '—'}</td>
-                      <td className="p-3 max-w-[160px]">
-                        <p className="text-sm truncate">{formatLocationsDisplay(car)}</p>
-                        {car.branch ? <p className="text-xs text-gray-400 truncate">{car.branch}</p> : null}
+                      <td className="whitespace-nowrap font-medium">{car.licensePlate || '—'}</td>
+                      <td className="max-w-[160px]">
+                        <p className="truncate text-sm">{formatLocationsDisplay(car)}</p>
+                        {car.branch ? <p className="truncate text-xs text-[var(--admin-fg-muted)]">{car.branch}</p> : null}
                       </td>
-                      <td className="p-3 whitespace-nowrap">{car.mileage || 0} km</td>
-                      <td className="p-3">{car.category}</td>
-                      <td className="p-3 whitespace-nowrap">
-                        {currency}
-                        {car.pricePerDay}
-                        {t('admin.fleet.perDay')}
+                      <td className="whitespace-nowrap tabular-nums">
+                        {currency}{car.pricePerDay}{t('admin.fleet.perDay')}
                       </td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs ${statusBadge(car)}`}>
-                          {statusLabel(car, t)}
-                        </span>
+                      <td><StatusBadge status={fleetStatus(car)} label={statusLabel(car, t)} /></td>
+                      <td>
+                        <StatusBadge
+                          status={isVisibleOnWebsite(car) ? 'active' : 'inactive'}
+                          label={isVisibleOnWebsite(car) ? t('admin.fleet.visibleOnWebsite') : t('admin.fleet.hiddenFromWebsite')}
+                        />
                       </td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${visibilityBadge(car)}`}>
-                          {visibilityLabel(car, t)}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <CarActions car={car} />
-                      </td>
+                      <td><CarActions car={car} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -441,7 +380,17 @@ const ManageCars = () => {
           </>
         )}
       </div>
-    </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmDeleteId)}
+        title="Remove vehicle"
+        message="Remove this physical vehicle from the fleet? This cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={deleteCar}
+      />
+    </AdminPage>
   )
 }
 

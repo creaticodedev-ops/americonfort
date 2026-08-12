@@ -1,12 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Title from '../../components/owner/Title';
 import ChannelBadge from '../../components/owner/ChannelBadge';
+import StatusBadge from '../../components/owner/StatusBadge';
+import {
+  AdminPage,
+  PageHeader,
+  SegmentedControl,
+  EmptyState,
+  Skeleton,
+  AdminModal,
+} from '../../components/owner/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../../utils/apiError';
+import { Link } from 'react-router-dom';
 
-const views = ['month', 'week', 'day'];
+const views = [
+  { id: 'month', labelKey: 'admin.calendar.month' },
+  { id: 'week', labelKey: 'admin.calendar.week' },
+  { id: 'day', labelKey: 'admin.calendar.day' },
+];
 
 const BookingCalendar = () => {
   const { axios } = useAppContext();
@@ -25,7 +38,6 @@ const BookingCalendar = () => {
     const fetchCalendar = async () => {
       setLoading(true);
       try {
-        // Fetch current + adjacent months for week/day spanning
         const months = view === 'month' ? [month] : [month === 1 ? 12 : month - 1, month, month === 12 ? 1 : month + 1];
         const yearsFor = months.map((m, i) => {
           if (view === 'month') return year;
@@ -100,157 +112,172 @@ const BookingCalendar = () => {
       ? `Week of ${weekDays[0].toLocaleDateString()}`
       : cursor.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  const statusColor = (status) => {
-    if (status === 'confirmed') return 'bg-green-100 text-green-700';
-    if (status === 'active') return 'bg-blue-100 text-blue-700';
-    if (status === 'pending') return 'bg-amber-100 text-amber-700';
-    if (status === 'completed') return 'bg-purple-100 text-purple-700';
-    return 'bg-gray-100 text-gray-600';
-  };
+  const viewOptions = views.map((v) => ({ id: v.id, label: t(v.labelKey) }));
 
   return (
-    <div className='px-4 py-8 md:px-8 lg:px-10 xl:px-12 md:py-10 flex-1 pb-10'>
-      <Title title={t('admin.calendar.title')} subTitle={t('admin.calendar.subtitle')} />
+    <AdminPage>
+      <PageHeader
+        title={t('admin.calendar.title')}
+        description={t('admin.calendar.subtitle')}
+        actions={
+          <Link to="/owner/manage-bookings" className="admin-btn admin-btn--secondary">
+            {t('admin.menu.reservations')}
+          </Link>
+        }
+      />
 
-      <div className='mt-6 rounded-xl border border-borderColor bg-white p-4 min-w-0'>
-        <div className="flex flex-col gap-3 mb-4 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button type="button" onClick={() => shift(-1)} className="px-3 py-1.5 border rounded-lg cursor-pointer text-sm">{t('admin.calendar.prev')}</button>
-            <button type="button" onClick={() => setCursor(new Date())} className="px-3 py-1.5 border rounded-lg cursor-pointer text-sm">{t('admin.calendar.today')}</button>
-            <button type="button" onClick={() => shift(1)} className="px-3 py-1.5 border rounded-lg cursor-pointer text-sm">{t('admin.calendar.next')}</button>
+      <div className="admin-panel min-w-0">
+        <div className="admin-panel-header flex-col gap-3 sm:flex-row">
+          <div className="admin-action-rail">
+            <button type="button" onClick={() => shift(-1)} className="admin-btn admin-btn--secondary">{t('admin.calendar.prev')}</button>
+            <button type="button" onClick={() => setCursor(new Date())} className="admin-btn admin-btn--secondary">{t('admin.calendar.today')}</button>
+            <button type="button" onClick={() => shift(1)} className="admin-btn admin-btn--secondary">{t('admin.calendar.next')}</button>
           </div>
-          <h2 className="font-semibold text-gray-800 text-base lg:text-lg text-center min-w-0">{headerLabel}</h2>
-          <div className="flex gap-1 bg-gray-50 p-1 rounded-lg self-center lg:justify-self-end overflow-x-auto">
-            {views.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                className={`px-3 py-1.5 text-sm rounded-md capitalize cursor-pointer whitespace-nowrap ${view === v ? 'bg-white shadow text-primary font-medium' : 'text-gray-500'}`}
-              >
-                {t(`admin.calendar.${v}`)}
-              </button>
-            ))}
-          </div>
+          <h2 className="admin-panel-title text-center flex-1">{headerLabel}</h2>
+          <SegmentedControl options={viewOptions} value={view} onChange={setView} ariaLabel="Calendar view" />
         </div>
 
-        {loading ? (
-          <p className="text-gray-400 text-sm py-8 text-center">{t('admin.calendar.loading')}</p>
-        ) : view === 'month' ? (
-          <div className="max-lg:overflow-x-auto">
-            <div className="max-lg:min-w-[560px]">
-            <div className="grid grid-cols-7 gap-1 text-xs text-gray-500 mb-2">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                <div key={d} className="text-center py-1 font-medium">{d}</div>
-              ))}
+        <div className="admin-panel-body">
+          {loading ? (
+            <Skeleton className="h-64 w-full rounded-[var(--admin-radius-lg)]" />
+          ) : view === 'month' ? (
+            <div className="max-lg:overflow-x-auto">
+              <div className="max-lg:min-w-[560px]">
+                <div className="mb-2 grid grid-cols-7 gap-1 text-xs text-[var(--admin-fg-muted)]">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                    <div key={d} className="py-1 text-center font-medium">{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: firstDay }).map((_, i) => (
+                    <div key={`empty-${i}`} className="min-h-16 rounded-[var(--admin-radius)] bg-[var(--admin-surface-2)] md:min-h-20" />
+                  ))}
+                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                    const date = new Date(year, month - 1, day);
+                    const dayBookings = bookingsOnDay(date);
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    return (
+                      <button
+                        type="button"
+                        key={day}
+                        className={`min-h-16 rounded-[var(--admin-radius)] border p-1.5 text-left text-sm transition hover:border-[color-mix(in_srgb,var(--admin-accent)_40%,var(--admin-border))] md:min-h-20 ${
+                          isToday
+                            ? 'border-[var(--admin-accent)] bg-[var(--admin-accent-soft)]'
+                            : 'border-[var(--admin-border)] bg-[var(--admin-surface)]'
+                        }`}
+                        onClick={() => { setCursor(date); setView('day'); }}
+                      >
+                        <p className="text-sm font-medium text-[var(--admin-fg)]">{day}</p>
+                        {dayBookings.slice(0, 2).map((b) => (
+                          <span
+                            key={b._id}
+                            role="presentation"
+                            className="mt-1 block truncate rounded px-1 text-[10px] leading-tight"
+                            onClick={(e) => { e.stopPropagation(); setSelected(b); }}
+                          >
+                            <StatusBadge status={b.status} label={`${b.car?.brand || ''} ${b.car?.model || ''}`.trim() || b.status} />
+                          </span>
+                        ))}
+                        {dayBookings.length > 2 && (
+                          <p className="text-[10px] text-[var(--admin-fg-muted)]">+{dayBookings.length - 2} more</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-7 gap-1">
-              {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-16 md:min-h-20 rounded-md bg-gray-50" />
-              ))}
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                const date = new Date(year, month - 1, day);
+          ) : view === 'week' ? (
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+              {weekDays.map((date) => {
                 const dayBookings = bookingsOnDay(date);
                 const isToday = date.toDateString() === new Date().toDateString();
                 return (
                   <div
-                    key={day}
-                    className={`min-h-16 md:min-h-20 rounded-md border p-1.5 text-sm cursor-pointer hover:border-primary/40 ${isToday ? 'border-primary bg-primary/5' : 'border-gray-100'}`}
-                    onClick={() => { setCursor(date); setView('day'); }}
+                    key={date.toISOString()}
+                    className={`min-h-40 rounded-[var(--admin-radius-lg)] border p-2 ${
+                      isToday
+                        ? 'border-[var(--admin-accent)] bg-[var(--admin-accent-soft)]'
+                        : 'border-[var(--admin-border)] bg-[var(--admin-surface)]'
+                    }`}
                   >
-                    <p className="font-medium text-gray-700 text-sm">{day}</p>
-                    {dayBookings.slice(0, 2).map((b) => (
-                      <p
-                        key={b._id}
-                        className={`mt-1 text-[10px] leading-tight truncate rounded px-1 ${statusColor(b.status)}`}
-                        title={b.reservationId}
-                        onClick={(e) => { e.stopPropagation(); setSelected(b); }}
-                      >
-                        {b.car?.brand} {b.car?.model}
-                      </p>
-                    ))}
-                    {dayBookings.length > 2 && (
-                      <p className="text-[10px] text-gray-400">+{dayBookings.length - 2} more</p>
-                    )}
+                    <button type="button" onClick={() => { setCursor(date); setView('day'); }} className="w-full cursor-pointer text-left">
+                      <p className="text-xs text-[var(--admin-fg-muted)]">{date.toLocaleDateString(undefined, { weekday: 'short' })}</p>
+                      <p className="font-semibold text-[var(--admin-fg)]">{date.getDate()}</p>
+                    </button>
+                    <div className="mt-2 space-y-1">
+                      {dayBookings.map((b) => (
+                        <button
+                          key={b._id}
+                          type="button"
+                          onClick={() => setSelected(b)}
+                          className="w-full cursor-pointer truncate rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)] px-1.5 py-1 text-left text-[10px]"
+                        >
+                          {b.customerName || b.reservationId}
+                        </button>
+                      ))}
+                      {!dayBookings.length && <p className="text-[10px] text-[var(--admin-fg-muted)]">—</p>}
+                    </div>
                   </div>
                 );
               })}
             </div>
-            </div>
-          </div>
-        ) : view === 'week' ? (
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
-            {weekDays.map((date) => {
-              const dayBookings = bookingsOnDay(date);
-              const isToday = date.toDateString() === new Date().toDateString();
-              return (
-                <div key={date.toISOString()} className={`rounded-lg border p-2 min-h-40 ${isToday ? 'border-primary bg-primary/5' : 'border-gray-100'}`}>
-                  <button type="button" onClick={() => { setCursor(date); setView('day'); }} className="text-left w-full cursor-pointer">
-                    <p className="text-xs text-gray-500">{date.toLocaleDateString(undefined, { weekday: 'short' })}</p>
-                    <p className="font-semibold text-gray-800">{date.getDate()}</p>
-                  </button>
-                  <div className="mt-2 space-y-1">
-                    {dayBookings.map((b) => (
-                      <button
-                        key={b._id}
-                        type="button"
-                        onClick={() => setSelected(b)}
-                        className={`w-full text-left text-[10px] rounded px-1.5 py-1 truncate cursor-pointer ${statusColor(b.status)}`}
-                      >
-                        {b.customerName || b.reservationId}
-                      </button>
-                    ))}
-                    {!dayBookings.length && <p className="text-[10px] text-gray-300">—</p>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div>
+          ) : (
             <div className="space-y-2">
-              {bookingsOnDay(cursor).length === 0 && (
-                <p className="text-sm text-gray-400 py-8 text-center">{t('admin.calendar.noDay')}</p>
+              {bookingsOnDay(cursor).length === 0 ? (
+                <EmptyState icon="calendar" title={t('admin.calendar.noDay')} />
+              ) : (
+                bookingsOnDay(cursor).map((b) => (
+                  <button
+                    key={b._id}
+                    type="button"
+                    onClick={() => setSelected(b)}
+                    className="w-full cursor-pointer rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 text-left hover:bg-[var(--admin-surface-hover)]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-[var(--admin-fg)]">{b.reservationId || t('admin.bookings.reservation')}</p>
+                      <StatusBadge status={b.status} />
+                    </div>
+                    <p className="mt-1 text-sm text-[var(--admin-fg-secondary)]">{b.customerName} · {b.car?.brand} {b.car?.model}</p>
+                    <p className="mt-1 text-xs text-[var(--admin-fg-muted)]">
+                      {new Date(b.pickupDate).toLocaleString()} → {new Date(b.returnDate).toLocaleString()}
+                    </p>
+                  </button>
+                ))
               )}
-              {bookingsOnDay(cursor).map((b) => (
-                <button
-                  key={b._id}
-                  type="button"
-                  onClick={() => setSelected(b)}
-                  className="w-full text-left rounded-lg border border-borderColor p-3 hover:bg-gray-50 cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-gray-800">{b.reservationId || t('admin.bookings.reservation')}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColor(b.status)}`}>{b.status}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">{b.customerName} · {b.car?.brand} {b.car?.model}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(b.pickupDate).toLocaleString()} → {new Date(b.returnDate).toLocaleString()}
-                  </p>
-                </button>
-              ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {selected && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-gray-800">{selected.reservationId}</h3>
-            <ChannelBadge channel={selected.channel || 'online'} className="mt-2" />
-            <div className="mt-3 space-y-1 text-sm text-gray-600">
-              <p><span className="font-medium">{t('admin.bookings.customer')}:</span> {selected.customerName}</p>
-              <p><span className="font-medium">{t('admin.bookings.vehicle')}:</span> {selected.car?.brand} {selected.car?.model}</p>
-              <p><span className="font-medium">Pickup:</span> {new Date(selected.pickupDate).toLocaleString()}</p>
-              <p><span className="font-medium">Return:</span> {new Date(selected.returnDate).toLocaleString()}</p>
-              <p><span className="font-medium">{t('admin.bookings.status')}:</span> <span className="capitalize">{selected.status}</span></p>
-            </div>
-            <button type="button" onClick={() => setSelected(null)} className="mt-4 px-4 py-2 border rounded-lg text-sm cursor-pointer">{t('admin.calendar.close')}</button>
+      <AdminModal
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected?.reservationId || 'Reservation'}
+        size="sm"
+        footer={
+          <>
+            <Link to="/owner/manage-bookings" className="admin-btn admin-btn--secondary" onClick={() => setSelected(null)}>
+              Open reservations
+            </Link>
+            <button type="button" className="admin-btn admin-btn--primary" onClick={() => setSelected(null)}>
+              {t('admin.calendar.close')}
+            </button>
+          </>
+        }
+      >
+        {selected && (
+          <div className="space-y-2 text-sm text-[var(--admin-fg-secondary)]">
+            <ChannelBadge channel={selected.channel || 'online'} />
+            <p><span className="font-medium text-[var(--admin-fg)]">{t('admin.bookings.customer')}:</span> {selected.customerName}</p>
+            <p><span className="font-medium text-[var(--admin-fg)]">{t('admin.bookings.vehicle')}:</span> {selected.car?.brand} {selected.car?.model}</p>
+            <p><span className="font-medium text-[var(--admin-fg)]">Pickup:</span> {new Date(selected.pickupDate).toLocaleString()}</p>
+            <p><span className="font-medium text-[var(--admin-fg)]">Return:</span> {new Date(selected.returnDate).toLocaleString()}</p>
+            <StatusBadge status={selected.status} />
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </AdminModal>
+    </AdminPage>
   );
 };
 

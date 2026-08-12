@@ -1,29 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import Title from './Title'
+import StatusBadge from './StatusBadge'
+import DataTable from './DataTable'
+import Pagination from './Pagination'
+import {
+  AdminPage,
+  PageHeader,
+  FilterBar,
+  SearchInput,
+  AdminModal,
+} from './ui'
 import { useAppContext } from '../../context/AppContext'
 import { getErrorMessage } from '../../utils/apiError'
 
-const StatusBadge = ({ status }) => {
-  const map = {
-    active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    inactive: 'bg-gray-100 text-gray-600 border-gray-200',
-    pending: 'bg-amber-50 text-amber-800 border-amber-200',
-    paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    cancelled: 'bg-red-50 text-red-700 border-red-200',
-    signed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    expired: 'bg-orange-50 text-orange-800 border-orange-200',
-    none: 'bg-gray-50 text-gray-500 border-gray-200',
-  }
-  return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs border ${map[status] || map.none}`}>
-      {status || '—'}
-    </span>
-  )
-}
-
 /**
- * Lightweight reusable CRUD list for partner/chauffeur directories.
+ * Reusable professional directory for chauffeurs / samsars / partners.
  */
 const OwnerDirectoryPage = ({
   title,
@@ -31,6 +22,7 @@ const OwnerDirectoryPage = ({
   endpoint,
   columns,
   emptyLabel = 'No records yet',
+  emptyDescription = 'Create your first record to start assigning it on reservations.',
   buildForm,
   initialForm,
   nameField = 'fullName',
@@ -42,7 +34,7 @@ const OwnerDirectoryPage = ({
   const [status, setStatus] = useState('all')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({ pages: 1, total: 0 })
-  const [modal, setModal] = useState(null) // create | edit
+  const [modal, setModal] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
 
@@ -64,7 +56,9 @@ const OwnerDirectoryPage = ({
     }
   }, [axios, endpoint, page, search, status])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   const openCreate = () => {
     setForm(initialForm)
@@ -118,96 +112,115 @@ const OwnerDirectoryPage = ({
     }
   }
 
-  return (
-    <div className="px-4 pt-6 md:px-8 lg:px-10 xl:px-12 pb-16 flex-1 min-w-0">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-        <Title title={title} subTitle={subtitle} />
-        <button type="button" onClick={openCreate} className="h-10 px-4 rounded-lg bg-primary text-white text-sm hover:bg-primary-dull">
-          Add new
-        </button>
-      </div>
+  const tableColumns = [
+    ...columns.map((c) => ({
+      key: c.key,
+      label: c.label,
+      render: c.render
+        ? (row) => c.render(row)
+        : c.key === 'status'
+          ? (row) => <StatusBadge status={row.status} />
+          : undefined,
+    })),
+    {
+      key: 'actions',
+      label: 'Actions',
+      className: 'whitespace-nowrap',
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <button type="button" className="text-xs font-medium text-[var(--admin-accent)]" onClick={() => openEdit(item)}>
+            Edit
+          </button>
+          <button
+            type="button"
+            className="text-xs font-medium text-[var(--admin-fg-secondary)]"
+            onClick={() => toggleStatus(item)}
+          >
+            {item.status === 'active' ? 'Deactivate' : 'Activate'}
+          </button>
+        </div>
+      ),
+    },
+  ]
 
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input
-          className="h-10 px-3 rounded-lg border border-borderColor text-sm flex-1"
-          placeholder="Search…"
+  return (
+    <AdminPage>
+      <PageHeader
+        title={title}
+        description={subtitle}
+        actions={
+          <button type="button" onClick={openCreate} className="admin-btn admin-btn--primary">
+            Add new
+          </button>
+        }
+      />
+
+      <FilterBar>
+        <SearchInput
           value={search}
-          onChange={(e) => { setPage(1); setSearch(e.target.value) }}
+          onChange={(v) => {
+            setPage(1)
+            setSearch(v)
+          }}
+          placeholder="Search…"
         />
         <select
-          className="h-10 px-3 rounded-lg border border-borderColor text-sm"
+          className="h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]"
           value={status}
-          onChange={(e) => { setPage(1); setStatus(e.target.value) }}
+          onChange={(e) => {
+            setPage(1)
+            setStatus(e.target.value)
+          }}
         >
           <option value="all">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-      </div>
+      </FilterBar>
 
-      <div className="rounded-xl border border-borderColor bg-white overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-sm text-gray-500">Loading…</div>
-        ) : items.length === 0 ? (
-          <div className="p-10 text-center text-sm text-gray-500">{emptyLabel}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500">
-                <tr>
-                  {columns.map((c) => (
-                    <th key={c.key} className="px-4 py-3 font-medium">{c.label}</th>
-                  ))}
-                  <th className="px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item._id} className="border-t border-borderColor">
-                    {columns.map((c) => (
-                      <td key={c.key} className="px-4 py-3 align-top">
-                        {c.render ? c.render(item) : (item[c.key] ?? '—')}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <button type="button" className="text-primary text-xs mr-3" onClick={() => openEdit(item)}>Edit</button>
-                      <button type="button" className="text-gray-600 text-xs" onClick={() => toggleStatus(item)}>
-                        {item.status === 'active' ? 'Deactivate' : 'Activate'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <DataTable
+        columns={tableColumns}
+        data={items}
+        loading={loading}
+        emptyMessage={emptyLabel}
+        emptyDescription={emptyDescription}
+        emptyAction={
+          <button type="button" className="admin-btn admin-btn--primary" onClick={openCreate}>
+            Add new
+          </button>
+        }
+      />
 
       {pagination.pages > 1 && (
-        <div className="mt-4 flex items-center gap-2">
-          <button type="button" disabled={page <= 1} className="px-3 py-1 border rounded text-sm disabled:opacity-40" onClick={() => setPage((p) => p - 1)}>Prev</button>
-          <span className="text-xs text-gray-500">Page {page} / {pagination.pages}</span>
-          <button type="button" disabled={page >= pagination.pages} className="px-3 py-1 border rounded text-sm disabled:opacity-40" onClick={() => setPage((p) => p + 1)}>Next</button>
+        <div className="mt-4">
+          <Pagination
+            page={page}
+            totalPages={pagination.pages}
+            total={pagination.total}
+            limit={20}
+            onPageChange={setPage}
+          />
         </div>
       )}
 
-      {modal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 shadow-xl">
-            <h2 className="text-lg font-semibold mb-4">{modal.mode === 'create' ? 'Create' : 'Edit'}</h2>
-            <div className="space-y-3">
-              {buildForm(form, setForm)}
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" className="px-4 h-10 rounded-lg border text-sm" onClick={() => setModal(null)}>Cancel</button>
-              <button type="button" disabled={saving} className="px-4 h-10 rounded-lg bg-primary text-white text-sm disabled:opacity-50" onClick={save}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <AdminModal
+        open={Boolean(modal)}
+        onClose={() => setModal(null)}
+        title={modal?.mode === 'create' ? 'Create' : 'Edit'}
+        footer={
+          <>
+            <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setModal(null)}>
+              Cancel
+            </button>
+            <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">{buildForm(form, setForm)}</div>
+      </AdminModal>
+    </AdminPage>
   )
 }
 

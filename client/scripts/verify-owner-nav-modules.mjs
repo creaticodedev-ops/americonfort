@@ -64,9 +64,11 @@ for (const perm of [
   ok(`client OWNER_PERMISSIONS includes ${perm}`, perms.includes(`'${perm}'`))
 }
 
-ok('partners nav group exists', nav.includes("id: 'partners'"))
-ok('accounting nav group exists', nav.includes("id: 'accounting'"))
-ok('nav storage key bumped', nav.includes('navGroups.v2'))
+ok('main nav group exists', nav.includes("id: 'main'"))
+ok('operations nav group exists', nav.includes("id: 'operations'"))
+ok('finance nav group exists', nav.includes("id: 'finance'"))
+ok('nav storage key bumped', nav.includes('navGroups.v3'))
+ok('sidebar collapse key present', nav.includes('sidebarCollapsed'))
 
 if (failed) {
   console.error(`\n${failed} check(s) failed`)

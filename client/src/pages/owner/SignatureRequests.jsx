@@ -1,9 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import Title from '../../components/owner/Title'
-import { StatusBadge } from '../../components/owner/OwnerDirectoryPage'
+import StatusBadge from '../../components/owner/StatusBadge'
+import DataTable from '../../components/owner/DataTable'
+import {
+  AdminPage,
+  PageHeader,
+  FilterBar,
+  SearchInput,
+  SegmentedControl,
+} from '../../components/owner/ui'
 import { useAppContext } from '../../context/AppContext'
 import { getErrorMessage } from '../../utils/apiError'
+
+const STATUS_OPTS = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'signed', label: 'Signed' },
+  { id: 'expired', label: 'Expired' },
+  { id: 'cancelled', label: 'Cancelled' },
+]
 
 const SignatureRequests = () => {
   const { axios, hasPermission } = useAppContext()
@@ -28,7 +44,9 @@ const SignatureRequests = () => {
     }
   }, [axios, status, search])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   const copyLink = async (url) => {
     if (!url) return toast.error('No link available')
@@ -53,73 +71,135 @@ const SignatureRequests = () => {
   }
 
   if (!hasPermission('signature_requests')) {
-    return <div className="p-8 text-sm text-gray-500">No access</div>
+    return (
+      <AdminPage>
+        <PageHeader title="Signature Requests" />
+        <p className="text-sm text-[var(--admin-fg-muted)]">You do not have access to this module.</p>
+      </AdminPage>
+    )
   }
 
+  const pendingCount = items.filter((r) => r.status === 'pending').length
+
+  const columns = [
+    {
+      key: 'reservation',
+      label: 'Reservation',
+      render: (row) => (
+        <div>
+          <p className="font-medium">{row.reservationId || '—'}</p>
+          <Link
+            to={`/owner/manage-bookings`}
+            className="text-[11px] text-[var(--admin-accent)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Open reservations
+          </Link>
+        </div>
+      ),
+    },
+    { key: 'customerName', label: 'Customer', render: (row) => row.customerName || '—' },
+    {
+      key: 'vehicle',
+      label: 'Vehicle',
+      render: (row) => (row.car ? `${row.car.brand} ${row.car.model}` : '—'),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      className: 'whitespace-nowrap',
+      render: (row) => (
+        <div className="flex flex-wrap gap-2">
+          {(row.status === 'none' || row.status === 'expired' || row.status === 'cancelled') && (
+            <button
+              type="button"
+              className="text-xs font-medium text-[var(--admin-accent)]"
+              onClick={() => act('generate', row.bookingId, 'Link generated')}
+            >
+              Generate
+            </button>
+          )}
+          {row.status === 'pending' && (
+            <>
+              <button
+                type="button"
+                className="text-xs font-medium text-[var(--admin-accent)]"
+                onClick={() => copyLink(row.shareableCompletionUrl)}
+              >
+                Copy link
+              </button>
+              <button
+                type="button"
+                className="text-xs font-medium text-[var(--admin-accent)]"
+                onClick={() => act('resend', row.bookingId, 'Link resent')}
+              >
+                Resend
+              </button>
+              <button
+                type="button"
+                className="text-xs font-medium text-[var(--admin-danger)]"
+                onClick={() => {
+                  if (window.confirm('Cancel this signature request?')) {
+                    act('cancel', row.bookingId, 'Cancelled')
+                  }
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          )}
+          {row.status === 'signed' && (
+            <span className="text-xs text-[var(--admin-success)] font-medium">Signed</span>
+          )}
+        </div>
+      ),
+    },
+  ]
+
   return (
-    <div className="px-4 pt-6 md:px-8 lg:px-10 xl:px-12 pb-16 flex-1 min-w-0">
-      <Title title="Signature Requests" subTitle="Operational queue for customer contract signature links (reuses the existing completion workflow)." />
+    <AdminPage>
+      <PageHeader
+        title="Signature Requests"
+        description="Document signature queue. Pending requests need attention before pickup."
+        breadcrumbs={[
+          { label: 'Documents', to: '/owner/signature-requests' },
+          { label: 'Signatures' },
+        ]}
+        actions={
+          pendingCount > 0 ? (
+            <span className="admin-badge admin-badge--pending">{pendingCount} pending</span>
+          ) : null
+        }
+      />
 
-      <div className="mt-6 flex flex-col sm:flex-row gap-2 mb-4">
-        <input className="h-10 px-3 rounded-lg border border-borderColor text-sm flex-1" placeholder="Search reservation / customer" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="h-10 px-3 rounded-lg border border-borderColor text-sm" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="all">All</option>
-          <option value="pending">Pending</option>
-          <option value="signed">Signed</option>
-          <option value="expired">Expired</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      </div>
+      <FilterBar>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search reservation / customer"
+        />
+        <SegmentedControl options={STATUS_OPTS} value={status} onChange={setStatus} ariaLabel="Signature status" />
+      </FilterBar>
 
-      <div className="rounded-xl border border-borderColor bg-white overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-sm text-gray-500">Loading…</div>
-        ) : items.length === 0 ? (
-          <div className="p-10 text-center text-sm text-gray-500">No signature requests yet. Generate a link from a reservation.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Reservation</th>
-                  <th className="px-4 py-3 font-medium">Customer</th>
-                  <th className="px-4 py-3 font-medium">Vehicle</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <tr key={row.bookingId} className="border-t border-borderColor">
-                    <td className="px-4 py-3 font-medium">{row.reservationId || '—'}</td>
-                    <td className="px-4 py-3">{row.customerName || '—'}</td>
-                    <td className="px-4 py-3">{row.car ? `${row.car.brand} ${row.car.model}` : '—'}</td>
-                    <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
-                    <td className="px-4 py-3 space-x-2 whitespace-nowrap">
-                      {(row.status === 'none' || row.status === 'expired' || row.status === 'cancelled') && (
-                        <button type="button" className="text-primary text-xs" onClick={() => act('generate', row.bookingId, 'Link generated')}>Generate</button>
-                      )}
-                      {row.status === 'pending' && (
-                        <>
-                          <button type="button" className="text-primary text-xs" onClick={() => copyLink(row.shareableCompletionUrl)}>Copy</button>
-                          <button type="button" className="text-primary text-xs" onClick={() => act('resend', row.bookingId, 'Link resent')}>Resend</button>
-                          <button type="button" className="text-red-600 text-xs" onClick={() => {
-                            if (window.confirm('Cancel this signature request?')) act('cancel', row.bookingId, 'Cancelled')
-                          }}>Cancel</button>
-                        </>
-                      )}
-                      {row.status === 'signed' && row.shareableCompletionUrl && (
-                        <span className="text-xs text-emerald-700">Signed</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        loading={loading}
+        emptyMessage="No signature requests yet"
+        emptyDescription="Generate a signature link from a reservation to start the completion workflow."
+        emptyIcon="signature"
+        emptyAction={
+          <Link to="/owner/manage-bookings" className="admin-btn admin-btn--primary">
+            Go to reservations
+          </Link>
+        }
+      />
+    </AdminPage>
   )
 }
 

@@ -1,21 +1,25 @@
 import React from 'react'
 
-const statusStyles = {
-  pending: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-green-100 text-green-600',
-  active: 'bg-blue-100 text-blue-600',
-  completed: 'bg-purple-100 text-purple-600',
-  cancelled: 'bg-red-100 text-red-600',
-  paid: 'bg-green-100 text-green-600',
-  failed: 'bg-red-100 text-red-600',
-  refunded: 'bg-gray-100 text-gray-600',
+const toneFromStatus = (status) => {
+  const s = String(status || '').toLowerCase()
+  if (['pending'].includes(s)) return 'pending'
+  if (['confirmed', 'paid', 'active', 'signed', 'success'].includes(s)) return s === 'confirmed' || s === 'paid' || s === 'signed' ? s : 'active'
+  if (['ready_for_pickup'].includes(s)) return 'ready_for_pickup'
+  if (['completed'].includes(s)) return 'completed'
+  if (['cancelled', 'failed', 'danger'].includes(s)) return s === 'cancelled' || s === 'failed' ? s : 'danger'
+  if (['expired', 'inactive', 'none', 'refunded', 'maintenance'].includes(s)) return s === 'maintenance' ? 'pending' : s
+  return 'none'
 }
 
-const StatusBadge = ({ status, className = '' }) => {
-  const style = statusStyles[status?.toLowerCase()] || 'bg-gray-100 text-gray-600'
+/**
+ * Status badge with dot indicator — never color-only (includes text label).
+ */
+const StatusBadge = ({ status, label, className = '' }) => {
+  const tone = toneFromStatus(status)
+  const text = label || status || '—'
   return (
-    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${style} ${className}`}>
-      {status}
+    <span className={`admin-badge admin-badge--${tone} ${className}`}>
+      {text}
     </span>
   )
 }

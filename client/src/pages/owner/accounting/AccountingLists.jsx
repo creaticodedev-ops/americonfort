@@ -1,11 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import Title from '../../../components/owner/Title'
-import { StatusBadge } from '../../../components/owner/OwnerDirectoryPage'
+import StatusBadge from '../../../components/owner/StatusBadge'
+import DataTable from '../../../components/owner/DataTable'
+import Pagination from '../../../components/owner/Pagination'
+import {
+  AdminPage,
+  PageHeader,
+  FilterBar,
+  AdminModal,
+} from '../../../components/owner/ui'
 import { useAppContext } from '../../../context/AppContext'
 import { getErrorMessage } from '../../../utils/apiError'
 
-const field = 'h-10 px-3 rounded-lg border border-borderColor text-sm'
+const field =
+  'h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
 
 /** Shared accounting list shell */
 const AccountingListPage = ({
@@ -26,7 +34,7 @@ const AccountingListPage = ({
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState({ pages: 1 })
+  const [pagination, setPagination] = useState({ pages: 1, total: 0 })
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
@@ -40,7 +48,7 @@ const AccountingListPage = ({
       const { data } = await axios.get(`${listUrl}?${params}`)
       if (data.success) {
         setItems(data.items || [])
-        setPagination(data.pagination || { pages: 1 })
+        setPagination(data.pagination || { pages: 1, total: 0 })
         setTotals(data.totals || null)
       } else toast.error(data.message || 'Failed')
     } catch (e) {
@@ -50,7 +58,9 @@ const AccountingListPage = ({
     }
   }, [axios, listUrl, page, from, to])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   const save = async () => {
     setSaving(true)
@@ -68,78 +78,112 @@ const AccountingListPage = ({
     }
   }
 
-  return (
-    <div className="px-4 pt-6 md:px-8 lg:px-10 xl:px-12 pb-16 flex-1 min-w-0">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-        <Title title={title} subTitle={subtitle} />
-        {createUrl && (
-          <button type="button" className="h-10 px-4 rounded-lg bg-primary text-white text-sm" onClick={() => setModal(true)}>
-            Add
-          </button>
-        )}
-      </div>
+  const tableColumns = columns.map((c) => ({
+    key: c.key,
+    label: c.label,
+    render: c.render ? (row) => c.render(row, cur) : undefined,
+  }))
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        <input type="date" className={field} value={from} onChange={(e) => { setPage(1); setFrom(e.target.value) }} title={dateFieldLabel} />
-        <input type="date" className={field} value={to} onChange={(e) => { setPage(1); setTo(e.target.value) }} />
-      </div>
+  return (
+    <AdminPage>
+      <PageHeader
+        title={title}
+        description={subtitle}
+        breadcrumbs={[
+          { label: 'Finance', to: '/owner/accounting' },
+          { label: title },
+        ]}
+        actions={
+          createUrl ? (
+            <button type="button" className="admin-btn admin-btn--primary" onClick={() => setModal(true)}>
+              Add
+            </button>
+          ) : null
+        }
+      />
+
+      <FilterBar>
+        <input
+          type="date"
+          className={field}
+          value={from}
+          onChange={(e) => {
+            setPage(1)
+            setFrom(e.target.value)
+          }}
+          title={dateFieldLabel}
+          aria-label="From date"
+        />
+        <input
+          type="date"
+          className={field}
+          value={to}
+          onChange={(e) => {
+            setPage(1)
+            setTo(e.target.value)
+          }}
+          aria-label="To date"
+        />
+      </FilterBar>
 
       {totals && (
-        <p className="text-sm text-gray-600 mb-3">
-          Total: <strong>{cur}{Number(totals.grossRevenue ?? totals.total ?? 0).toLocaleString()}</strong>
-          {totals.paidRevenue != null && <> · Paid: {cur}{Number(totals.paidRevenue).toLocaleString()}</>}
-          {totals.unpaidRevenue != null && <> · Unpaid: {cur}{Number(totals.unpaidRevenue).toLocaleString()}</>}
+        <p className="text-sm text-[var(--admin-fg-secondary)] mb-3">
+          Total:{' '}
+          <strong className="text-[var(--admin-fg)] tabular-nums">
+            {cur}
+            {Number(totals.grossRevenue ?? totals.total ?? 0).toLocaleString()}
+          </strong>
+          {totals.paidRevenue != null && (
+            <>
+              {' '}
+              · Paid: {cur}
+              {Number(totals.paidRevenue).toLocaleString()}
+            </>
+          )}
+          {totals.unpaidRevenue != null && (
+            <>
+              {' '}
+              · Unpaid: {cur}
+              {Number(totals.unpaidRevenue).toLocaleString()}
+            </>
+          )}
         </p>
       )}
 
-      <div className="rounded-xl border border-borderColor bg-white overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-sm text-gray-500">Loading…</div>
-        ) : items.length === 0 ? (
-          <div className="p-10 text-center text-sm text-gray-500">No records for this period.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500">
-                <tr>
-                  {columns.map((c) => <th key={c.key} className="px-4 py-3 font-medium">{c.label}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item._id} className="border-t border-borderColor">
-                    {columns.map((c) => (
-                      <td key={c.key} className="px-4 py-3">{c.render ? c.render(item, cur) : (item[c.key] ?? '—')}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <DataTable
+        columns={tableColumns}
+        data={items}
+        loading={loading}
+        emptyMessage="No records for this period"
+        emptyDescription="Adjust the date range or add a new entry."
+      />
 
-      {pagination.pages > 1 && (
-        <div className="mt-4 flex gap-2 items-center">
-          <button type="button" className="px-3 py-1 border rounded text-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</button>
-          <span className="text-xs text-gray-500">{page}/{pagination.pages}</span>
-          <button type="button" className="px-3 py-1 border rounded text-sm" disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)}>Next</button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={pagination.pages}
+        total={pagination.total || items.length}
+        limit={20}
+        onPageChange={setPage}
+      />
 
-      {modal && buildCreateForm && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold mb-4">Add record</h2>
-            <div className="space-y-3">{buildCreateForm(form, setForm)}</div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" className="px-4 h-10 border rounded-lg text-sm" onClick={() => setModal(false)}>Cancel</button>
-              <button type="button" disabled={saving} className="px-4 h-10 bg-primary text-white rounded-lg text-sm" onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <AdminModal
+        open={Boolean(modal && buildCreateForm)}
+        onClose={() => setModal(false)}
+        title="Add record"
+        footer={
+          <>
+            <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setModal(false)}>
+              Cancel
+            </button>
+            <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">{buildCreateForm?.(form, setForm)}</div>
+      </AdminModal>
+    </AdminPage>
   )
 }
 

@@ -1,7 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
-import Title from '../../../components/owner/Title'
+import {
+  AdminPage,
+  PageHeader,
+  StatCard,
+  SegmentedControl,
+  Skeleton,
+} from '../../../components/owner/ui'
 import { useAppContext } from '../../../context/AppContext'
 import { getErrorMessage } from '../../../utils/apiError'
 
@@ -12,15 +18,6 @@ const PERIODS = [
   { id: 'year', label: 'This Year' },
   { id: 'custom', label: 'Custom' },
 ]
-
-const Kpi = ({ label, value, currency, emphasize, muted }) => (
-  <div className={`rounded-2xl border p-4 sm:p-5 ${emphasize ? 'border-primary/40 bg-primary/5' : 'border-borderColor bg-white'}`}>
-    <p className="text-[11px] uppercase tracking-[0.12em] text-gray-500">{label}</p>
-    <p className={`mt-2 text-2xl sm:text-3xl font-semibold tabular-nums ${muted ? 'text-gray-600' : 'text-gray-900'}`}>
-      {currency}{Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-    </p>
-  </div>
-)
 
 const AccountingOverview = () => {
   const { axios, currency } = useAppContext()
@@ -49,80 +46,105 @@ const AccountingOverview = () => {
     }
   }, [axios, period, from, to])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   const k = overview?.kpis || {}
-  const rangeLabel = overview?.from && overview?.to
-    ? `${new Date(overview.from).toLocaleDateString()} – ${new Date(overview.to).toLocaleDateString()}`
-    : ''
+  const money = (n) =>
+    `${cur}${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  const rangeLabel =
+    overview?.from && overview?.to
+      ? `${new Date(overview.from).toLocaleDateString()} – ${new Date(overview.to).toLocaleDateString()}`
+      : ''
 
   return (
-    <div className="px-4 pt-6 md:px-8 lg:px-10 xl:px-12 pb-16 flex-1 min-w-0">
-      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
-        <Title
-          title="Accounting"
-          subTitle="Rental financial overview for your agency. Revenue is calculated from bookings — never edited manually."
-        />
-        <div className="flex flex-wrap gap-2">
-          {PERIODS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPeriod(p.id)}
-              className={`h-9 px-3 rounded-lg text-xs font-medium border transition ${
-                period === p.id
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-white border-borderColor text-gray-700 hover:border-primary/40'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <AdminPage>
+      <PageHeader
+        title="Accounting"
+        description="Agency financial overview. Gross revenue is derived from bookings — never edited manually."
+        breadcrumbs={[
+          { label: 'Finance', to: '/owner/accounting' },
+          { label: 'Overview' },
+        ]}
+        actions={<SegmentedControl options={PERIODS} value={period} onChange={setPeriod} />}
+      />
 
       {period === 'custom' && (
         <div className="flex flex-wrap gap-2 mb-4 items-center">
-          <input type="date" className="h-10 px-3 rounded-lg border text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <span className="text-xs text-gray-400">to</span>
-          <input type="date" className="h-10 px-3 rounded-lg border text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
+          <input
+            type="date"
+            className="h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+          <span className="text-xs text-[var(--admin-fg-muted)]">to</span>
+          <input
+            type="date"
+            className="h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
         </div>
       )}
 
       {rangeLabel && (
-        <p className="text-xs text-gray-500 mb-4">Period: {rangeLabel} · {overview?.breakdown?.revenue?.bookingCount || 0} revenue bookings</p>
+        <p className="text-xs text-[var(--admin-fg-muted)] mb-4">
+          Period: {rangeLabel} · {overview?.breakdown?.revenue?.bookingCount || 0} revenue bookings
+        </p>
       )}
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl border border-borderColor bg-gray-50 animate-pulse" />
+            <Skeleton key={i} className="h-28 rounded-[var(--admin-radius-lg)]" />
           ))}
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-4">
-            <Kpi label="Gross Revenue" value={k.grossRevenue} currency={cur} />
-            <Kpi label="Samsar Payments" value={k.samsarPayments} currency={cur} muted />
-            <Kpi label="Agency Expenses" value={k.agencyExpenses} currency={cur} muted />
-            <Kpi label="Vehicle Expenses" value={k.vehicleExpenses} currency={cur} muted />
-            <Kpi label="Net Result" value={k.netResult} currency={cur} emphasize />
+            <StatCard label="Gross Revenue" value={money(k.grossRevenue)} tone="success" />
+            <StatCard label="Samsar Payments" value={money(k.samsarPayments)} hint="Commissions paid" />
+            <StatCard label="Agency Expenses" value={money(k.agencyExpenses)} />
+            <StatCard label="Vehicle Expenses" value={money(k.vehicleExpenses)} />
+            <StatCard
+              label="Net Result"
+              value={money(k.netResult)}
+              tone={Number(k.netResult) >= 0 ? 'success' : 'danger'}
+              hint="Bottom line for the period"
+            />
           </div>
 
-          <div className="rounded-2xl border border-borderColor bg-white px-4 py-3 mb-8 text-sm text-gray-600">
-            <span className="font-medium text-gray-800">Net Result</span>
-            {' = '}
-            Gross Revenue
-            {' − '}
-            Samsar Payments
-            {' − '}
-            Agency Expenses
-            {' − '}
-            Vehicle Expenses
-            <span className="block mt-1 text-xs text-gray-400">
-              Paid revenue {cur}{Number(k.paidRevenue || 0).toLocaleString()} · Unpaid {cur}{Number(k.unpaidRevenue || 0).toLocaleString()}
-              {' · '}Cancelled bookings are excluded from gross revenue
-            </span>
+          <div className="admin-formula mb-6">
+            <div className="admin-formula-row">
+              <span>Gross Revenue</span>
+              <span className="tabular-nums text-[var(--admin-fg)]">{money(k.grossRevenue)}</span>
+            </div>
+            <div className="admin-formula-row">
+              <span>
+                <span className="admin-formula-op">−</span>Samsar Payments
+              </span>
+              <span className="tabular-nums">{money(k.samsarPayments)}</span>
+            </div>
+            <div className="admin-formula-row">
+              <span>
+                <span className="admin-formula-op">−</span>Agency Expenses
+              </span>
+              <span className="tabular-nums">{money(k.agencyExpenses)}</span>
+            </div>
+            <div className="admin-formula-row">
+              <span>
+                <span className="admin-formula-op">−</span>Vehicle Expenses
+              </span>
+              <span className="tabular-nums">{money(k.vehicleExpenses)}</span>
+            </div>
+            <div className="admin-formula-row is-total">
+              <span>= Net Result</span>
+              <span className="tabular-nums">{money(k.netResult)}</span>
+            </div>
+            <p className="text-[11px] text-[var(--admin-fg-muted)] mt-2">
+              Paid revenue {money(k.paidRevenue)} · Unpaid {money(k.unpaidRevenue)} · Cancelled bookings excluded
+            </p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -132,19 +154,16 @@ const AccountingOverview = () => {
               ['Agency Expenses', 'Charges agences', '/owner/accounting/agency-expenses'],
               ['Vehicle Expenses', 'Charges voitures', '/owner/accounting/vehicle-expenses'],
             ].map(([label, hint, toPath]) => (
-              <Link
-                key={toPath}
-                to={toPath}
-                className="rounded-2xl border border-borderColor bg-white p-4 hover:border-primary/40 hover:shadow-sm transition"
-              >
-                <p className="font-medium text-gray-900">{label}</p>
-                <p className="text-xs text-gray-500 mt-1">{hint}</p>
+              <Link key={toPath} to={toPath} className="admin-stat admin-stat--interactive no-underline">
+                <p className="admin-stat-label">{label}</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--admin-fg)]">{hint}</p>
+                <p className="mt-auto pt-3 text-xs font-medium text-[var(--admin-accent)]">Open →</p>
               </Link>
             ))}
           </div>
         </>
       )}
-    </div>
+    </AdminPage>
   )
 }
 

@@ -22,6 +22,10 @@ export const adminEn = {
     navigation: 'Navigation',
     groups: {
       overview: 'Overview',
+      main: 'Main',
+      operations: 'Operations',
+      finance: 'Finance',
+      insights: 'Insights',
       bookings: 'Reservations',
       fleet: 'Fleet',
       partners: 'Partners',
@@ -924,6 +928,10 @@ export const adminFr = {
     navigation: 'Navigation',
     groups: {
       overview: 'Vue d’ensemble',
+      main: 'Principal',
+      operations: 'Opérations',
+      finance: 'Finance',
+      insights: 'Analyses',
       bookings: 'Réservations',
       fleet: 'Flotte',
       partners: 'Partenaires',
@@ -1823,6 +1831,10 @@ export const adminEs = {
     navigation: 'Navegación',
     groups: {
       overview: 'Resumen',
+      main: 'Principal',
+      operations: 'Operaciones',
+      finance: 'Finanzas',
+      insights: 'Informes',
       bookings: 'Reservas',
       fleet: 'Flota',
       partners: 'Socios',

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import Title from '../../components/owner/Title'
+import { AdminPage, PageHeader } from '../../components/owner/ui'
 import DocumentEditor from '../../components/owner/DocumentEditor'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
@@ -359,40 +359,39 @@ const Invoices = () => {
   }
 
   return (
-    <div className="px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 flex-1 pb-12 min-w-0 space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <Title title={t('admin.invoices.title')} subTitle={t('admin.invoices.subtitle')} />
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-xl border border-borderColor bg-white px-4 py-3 text-sm text-gray-600">
-            <div>{t('admin.invoices.totalCount', { count: totals.count })}</div>
-            <div>{t('admin.invoices.totalAmount', { amount: `${currency}${totals.totalAmount.toFixed(2)}` })}</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dull"
-          >
-            {t('admin.invoices.create')}
-          </button>
-        </div>
-      </div>
+    <AdminPage className="space-y-6">
+      <PageHeader
+        title={t('admin.invoices.title')}
+        description={t('admin.invoices.subtitle')}
+        actions={
+          <>
+            <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-xs text-[var(--admin-fg-secondary)]">
+              <div>{t('admin.invoices.totalCount', { count: totals.count })}</div>
+              <div>{t('admin.invoices.totalAmount', { amount: `${currency}${totals.totalAmount.toFixed(2)}` })}</div>
+            </div>
+            <button type="button" onClick={() => setShowCreateModal(true)} className="admin-btn admin-btn--primary">
+              {t('admin.invoices.create')}
+            </button>
+          </>
+        }
+      />
 
-      <form onSubmit={handleSubmit} className="rounded-2xl border border-borderColor bg-white p-4 space-y-4">
+      <form onSubmit={handleSubmit} className="rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 space-y-4">
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
           <input
-            className="border border-borderColor px-3 py-2 rounded-lg w-full text-sm"
+            className="h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 rounded-[var(--admin-radius)] w-full text-sm"
             value={filters.search}
             onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
             placeholder={t('admin.invoices.searchPlaceholder')}
           />
           <input
-            className="border border-borderColor px-3 py-2 rounded-lg w-full text-sm"
+            className="h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 rounded-[var(--admin-radius)] w-full text-sm"
             value={filters.customerName}
             onChange={(e) => setFilters((prev) => ({ ...prev, customerName: e.target.value }))}
             placeholder={t('admin.invoices.customerNamePlaceholder')}
           />
           <input
-            className="border border-borderColor px-3 py-2 rounded-lg w-full text-sm"
+            className="h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 rounded-[var(--admin-radius)] w-full text-sm"
             value={filters.cin}
             onChange={(e) => setFilters((prev) => ({ ...prev, cin: e.target.value }))}
             placeholder={t('admin.invoices.cinPlaceholder')}
@@ -658,7 +657,7 @@ const Invoices = () => {
           </div>
         </div>
       )}
-    </div>
+    </AdminPage>
   )
 }
 

@@ -3,7 +3,8 @@ import toast from 'react-hot-toast'
 import { useAppContext } from '../../context/AppContext'
 import { getErrorMessage } from '../../utils/apiError'
 
-const selectClass = 'w-full border border-borderColor rounded-lg px-2 py-1.5 text-xs bg-white'
+const selectClass =
+  'w-full h-9 border border-[var(--admin-border)] rounded-[var(--admin-radius)] px-2 text-xs bg-[var(--admin-surface)] text-[var(--admin-fg)]'
 
 /**
  * Assign Samsar / Chauffeur / Partner Company on a reservation (inline in details).
@@ -60,20 +61,20 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
   }
 
   if (!canBookings) return null
-  if (!canPartners && !canChauffeurs) return null
+  if (!canPartners && !canChauffeurs) {
+    return <p className="text-xs text-[var(--admin-fg-muted)]">No assignment permissions.</p>
+  }
 
   const samsarId = booking.samsar?._id || booking.samsar || ''
   const chauffeurId = booking.chauffeur?._id || booking.chauffeur || ''
   const partnerId = booking.partnerCompany?._id || booking.partnerCompany || ''
 
   return (
-    <div className="mt-4 rounded-lg border border-borderColor bg-gray-50 px-3 py-3 space-y-3">
-      <p className="font-medium text-gray-800 text-xs">Assignments</p>
-
+    <div className="space-y-3">
       {canPartners && (
         <div>
-          <label className="text-[11px] text-gray-500">Assign Samsar</label>
-          <div className="flex gap-2 mt-1">
+          <label className="text-[11px] text-[var(--admin-fg-muted)]">Assign Samsar</label>
+          <div className="mt-1">
             <select
               className={selectClass}
               disabled={saving === 'samsar'}
@@ -86,16 +87,13 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
               ))}
             </select>
           </div>
-          {booking.samsar?.fullName && (
-            <p className="text-[11px] text-gray-500 mt-1">Current: {booking.samsar.fullName}</p>
-          )}
         </div>
       )}
 
       {canChauffeurs && (
         <div>
-          <label className="text-[11px] text-gray-500">Assign Chauffeur</label>
-          <div className="flex gap-2 mt-1">
+          <label className="text-[11px] text-[var(--admin-fg-muted)]">Assign Chauffeur</label>
+          <div className="mt-1">
             <select
               className={selectClass}
               disabled={saving === 'chauffeur'}
@@ -108,16 +106,13 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
               ))}
             </select>
           </div>
-          {booking.chauffeur?.fullName && (
-            <p className="text-[11px] text-gray-500 mt-1">Current: {booking.chauffeur.fullName}</p>
-          )}
         </div>
       )}
 
       {canPartners && (
         <div>
-          <label className="text-[11px] text-gray-500">Assign Partner Company</label>
-          <div className="flex gap-2 mt-1">
+          <label className="text-[11px] text-[var(--admin-fg-muted)]">Assign Partner Company</label>
+          <div className="mt-1">
             <select
               className={selectClass}
               disabled={saving === 'partner'}
@@ -130,9 +125,6 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
               ))}
             </select>
           </div>
-          {booking.partnerCompany?.companyName && (
-            <p className="text-[11px] text-gray-500 mt-1">Current: {booking.partnerCompany.companyName}</p>
-          )}
         </div>
       )}
     </div>

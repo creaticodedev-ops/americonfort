@@ -1,52 +1,33 @@
 import { ownerMenuLinks } from '../../assets/ownerAssets'
 
 /**
- * Admin navigation architecture — groups existing ownerMenuLinks without
- * changing paths, permissions, or icons. Scalable: add a path to a group
- * (or a new group) when modules grow.
+ * Premium Admin navigation — groups map to existing routes only (no duplicates).
+ * MAIN / OPERATIONS / FINANCE / DOCUMENTS / INSIGHTS / SETTINGS
  */
 export const OWNER_NAV_GROUPS = [
   {
-    id: 'overview',
-    labelKey: 'admin.menu.groups.overview',
-    paths: ['/owner', '/owner/analytics'],
+    id: 'main',
+    labelKey: 'admin.menu.groups.main',
+    paths: ['/owner', '/owner/manage-bookings', '/owner/walk-in', '/owner/manage-cars'],
   },
   {
-    id: 'bookings',
-    labelKey: 'admin.menu.groups.bookings',
+    id: 'operations',
+    labelKey: 'admin.menu.groups.operations',
     paths: [
-      '/owner/manage-bookings',
-      '/owner/walk-in',
+      '/owner/chauffeurs',
+      '/owner/samsars',
+      '/owner/partner-companies',
       '/owner/calendar',
       '/owner/customers',
-      '/owner/signature-requests',
-    ],
-  },
-  {
-    id: 'fleet',
-    labelKey: 'admin.menu.groups.fleet',
-    paths: [
-      '/owner/add-car',
-      '/owner/manage-cars',
-      '/owner/vehicle-stats',
       '/owner/maintenance',
       '/owner/locations',
-      '/owner/chauffeurs',
+      '/owner/add-car',
+      '/owner/vehicle-stats',
     ],
   },
   {
-    id: 'partners',
-    labelKey: 'admin.menu.groups.partners',
-    paths: ['/owner/samsars', '/owner/partner-companies'],
-  },
-  {
-    id: 'documents',
-    labelKey: 'admin.menu.groups.documents',
-    paths: ['/owner/contracts', '/owner/invoices', '/owner/templates'],
-  },
-  {
-    id: 'accounting',
-    labelKey: 'admin.menu.groups.accounting',
+    id: 'finance',
+    labelKey: 'admin.menu.groups.finance',
     paths: [
       '/owner/accounting',
       '/owner/accounting/revenues',
@@ -56,9 +37,19 @@ export const OWNER_NAV_GROUPS = [
     ],
   },
   {
-    id: 'reporting',
-    labelKey: 'admin.menu.groups.reporting',
-    paths: ['/owner/reports', '/owner/audit'],
+    id: 'documents',
+    labelKey: 'admin.menu.groups.documents',
+    paths: [
+      '/owner/signature-requests',
+      '/owner/contracts',
+      '/owner/invoices',
+      '/owner/templates',
+    ],
+  },
+  {
+    id: 'insights',
+    labelKey: 'admin.menu.groups.insights',
+    paths: ['/owner/analytics', '/owner/reports', '/owner/audit'],
   },
   {
     id: 'settings',
@@ -69,10 +60,10 @@ export const OWNER_NAV_GROUPS = [
 
 const linkByPath = Object.fromEntries(ownerMenuLinks.map((link) => [link.path, link]))
 
-/** Extra path prefixes that should highlight a related menu item */
 const RELATED_ACTIVE = {
   '/owner/manage-cars': ['/owner/edit-car'],
   '/owner/vehicle-stats': ['/owner/vehicle-stats'],
+  '/owner/settings': ['/owner/settings'],
 }
 
 export const isOwnerNavPathActive = (pathname, path) => {
@@ -90,9 +81,7 @@ export const getGroupedOwnerNav = (hasPermission, hasFeature = () => true) =>
       .map((path) => linkByPath[path])
       .filter((link) => {
         if (!link) return false
-        // null/undefined permission = always show for authenticated owners
         if (link.permission != null && !hasPermission(link.permission)) return false
-        // Plan entitlement (UI only — API still enforces)
         if (link.feature != null && !hasFeature(link.feature)) return false
         return true
       }),
@@ -107,4 +96,22 @@ export const findActiveOwnerNavGroupId = (pathname, groups) => {
   return null
 }
 
-export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v2'
+export const getOwnerPageMeta = (pathname, t) => {
+  const exact = ownerMenuLinks.find((l) => l.path === pathname)
+  if (exact) {
+    return {
+      title: t(exact.nameKey),
+      description: null,
+    }
+  }
+  const fuzzy = ownerMenuLinks.find(
+    (l) => l.path !== '/owner' && (pathname === l.path || pathname.startsWith(`${l.path}/`)),
+  )
+  if (fuzzy) return { title: t(fuzzy.nameKey), description: null }
+  if (pathname.startsWith('/owner/edit-car')) return { title: t('admin.menu.fleet'), description: null }
+  if (pathname.startsWith('/owner/settings')) return { title: t('admin.menu.settings'), description: null }
+  return { title: t('admin.menu.dashboard'), description: null }
+}
+
+export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v3'
+export const OWNER_SIDEBAR_COLLAPSED_KEY = 'americonfort.owner.sidebarCollapsed.v1'

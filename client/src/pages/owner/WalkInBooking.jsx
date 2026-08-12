@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import Title from '../../components/owner/Title'
+import { AdminPage, PageHeader } from '../../components/owner/ui'
 import ChannelBadge from '../../components/owner/ChannelBadge'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
@@ -55,21 +55,21 @@ const emptyForm = {
 
 const Field = ({ label, required, hint, children, className = '' }) => (
   <div className={className}>
-    <label className="mb-1.5 block text-xs font-medium text-gray-600">
-      {label}{required ? <span className="text-primary"> *</span> : null}
+    <label className="mb-1.5 block text-[11px] font-medium text-[var(--admin-fg-muted)]">
+      {label}{required ? <span className="text-[var(--admin-accent)]"> *</span> : null}
     </label>
     {children}
-    {hint ? <p className="mt-1 text-[11px] text-muted">{hint}</p> : null}
+    {hint ? <p className="mt-1 text-[11px] text-[var(--admin-fg-muted)]">{hint}</p> : null}
   </div>
 )
 
 const Section = ({ title, subtitle, children }) => (
-  <section className="rounded-2xl border border-borderColor bg-white p-4 sm:p-5 space-y-4">
-    <div className="border-b border-borderColor/70 pb-3">
-      <h2 className="text-sm font-semibold tracking-wide text-ink">{title}</h2>
-      {subtitle ? <p className="mt-1 text-xs text-muted">{subtitle}</p> : null}
+  <section className="admin-panel">
+    <div className="admin-panel-header flex-col items-start gap-1">
+      <h2 className="admin-panel-title">{title}</h2>
+      {subtitle ? <p className="text-xs text-[var(--admin-fg-muted)]">{subtitle}</p> : null}
     </div>
-    {children}
+    <div className="admin-panel-body space-y-4">{children}</div>
   </section>
 )
 
@@ -271,21 +271,24 @@ const WalkInBooking = () => {
   }
 
   return (
-    <div className="px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 flex-1 pb-12 min-w-0">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <Title title={t('admin.walkIn.title')} subTitle={t('admin.walkIn.subtitle')} />
-        <div className="flex items-center gap-2">
-          <ChannelBadge channel="walk_in" />
-          <Link to="/owner/manage-bookings" className="text-sm text-primary hover:underline">
-            {t('admin.walkIn.viewAll')}
-          </Link>
-        </div>
-      </div>
+    <AdminPage>
+      <PageHeader
+        title={t('admin.walkIn.title')}
+        description={t('admin.walkIn.subtitle')}
+        actions={
+          <>
+            <ChannelBadge channel="walk_in" />
+            <Link to="/owner/manage-bookings" className="admin-btn admin-btn--secondary">
+              {t('admin.walkIn.viewAll')}
+            </Link>
+          </>
+        }
+      />
 
       {created && (
-        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-sm text-emerald-950">
+        <div className="mb-4 rounded-[var(--admin-radius-lg)] border border-[color-mix(in_srgb,var(--admin-success)_30%,var(--admin-border))] bg-[var(--admin-success-soft)] p-4 text-sm text-[var(--admin-success)]">
           <p className="font-semibold">{t('admin.walkIn.created', { id: created.reservationId })}</p>
-          <p className="mt-1 text-xs text-emerald-800/80">{t('admin.walkIn.createdContractHint')}</p>
+          <p className="mt-1 text-xs opacity-80">{t('admin.walkIn.createdContractHint')}</p>
           {created.completion?.completionUrl && (
             <p className="mt-2 break-all text-xs">Completion link: {created.completion.completionUrl}</p>
           )}
@@ -293,21 +296,21 @@ const WalkInBooking = () => {
             <button
               type="button"
               onClick={() => navigate('/owner/contracts')}
-              className="rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-white"
+              className="admin-btn admin-btn--primary"
             >
               {t('admin.walkIn.openContracts')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/owner/manage-bookings')}
-              className="rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs"
+              className="admin-btn admin-btn--secondary"
             >
               {t('admin.walkIn.openBookings')}
             </button>
             <button
               type="button"
               onClick={() => setCreated(null)}
-              className="rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs"
+              className="admin-btn admin-btn--ghost"
             >
               {t('admin.walkIn.createAnother')}
             </button>
@@ -566,14 +569,14 @@ const WalkInBooking = () => {
             <button
               type="submit"
               disabled={saving}
-              className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white transition hover:bg-primary-dull disabled:opacity-60"
+              className="admin-btn admin-btn--primary mt-5 w-full h-11"
             >
               {saving ? t('admin.walkIn.saving') : t('admin.walkIn.submit')}
             </button>
           </div>
         </aside>
       </form>
-    </div>
+    </AdminPage>
   )
 }
 
