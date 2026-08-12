@@ -449,7 +449,9 @@ export const submitCompletionSignature = async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
-    const status = error.code === 'VALIDATION' ? 400 : 500;
+    const status = error.code === 'VALIDATION' ? 400
+      : error.code === 'ALREADY_SIGNED' || error.code === 'TOKEN_CANCELLED' ? 409
+      : 500;
     res.status(status).json({ success: false, message: error.message || "Signature failed" });
   }
 };

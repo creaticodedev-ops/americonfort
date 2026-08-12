@@ -15,6 +15,7 @@ import superAdminRouter from "./routes/superAdminRoutes.js";
 import contractRouter from "./routes/contractRoutes.js";
 import invoiceRouter from "./routes/invoiceRoutes.js";
 import exportTemplateRouter from "./routes/exportTemplateRoutes.js";
+import adminModulesRouter from "./routes/adminModulesRoutes.js";
 import { protectDocumentUploads } from "./middleware/uploadAccess.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -184,6 +185,7 @@ if (hasBuiltClient) {
 
 app.use("/api/user", userRouter);
 app.use("/api/owner", ownerRouter);
+app.use("/api/owner", adminModulesRouter);
 app.use("/api/bookings", bookingRouter);
 app.use("/api/pickup-locations", pickupLocationRouter);
 app.use("/api/booking-completion", completionRouter);

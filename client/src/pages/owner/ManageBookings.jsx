@@ -11,6 +11,8 @@ import { isPhoneValid } from '../../utils/phoneValidation'
 import { Link } from 'react-router-dom'
 import { buildOwnerCompletionWaUrl, buildWaMeUrl, getAgencyWhatsAppDial } from '../../utils/whatsapp'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
+import ContractExtensionModal from '../../components/owner/ContractExtensionModal'
+import BookingRelationAssigners from '../../components/owner/BookingRelationAssigners'
 
 const emptyFilters = {
   customerName: '',
@@ -84,6 +86,7 @@ const ManageBookings = () => {
   const [identityType, setIdentityType] = useState('national_id')
   const [completionLinkCache, setCompletionLinkCache] = useState({})
   const [openingWhatsApp, setOpeningWhatsApp] = useState(false)
+  const [extendBooking, setExtendBooking] = useState(null)
 
   const resolveCompletionUrl = (booking) =>
     booking?.completion?.shareableCompletionUrl ||
@@ -762,6 +765,15 @@ const ManageBookings = () => {
                   <p className='mt-2 text-[11px] text-gray-500'>Same-model vehicles available for the selected dates are shown.</p>
                 </div>
               )}
+
+              <BookingRelationAssigners
+                booking={selectedBooking}
+                onUpdated={(b) => {
+                  setSelectedBooking(b)
+                  fetchOwnerBookings()
+                }}
+              />
+
               <p><span className='font-medium'>Pickup:</span> {formatDateTime(selectedBooking.pickupDate)}</p>
               <p><span className='font-medium'>Return:</span> {formatDateTime(selectedBooking.returnDate)}</p>
               <p><span className='font-medium'>{t('admin.bookings.pickupLocation')}:</span> {selectedBooking.pickupLocation || '-'}</p>
@@ -822,9 +834,54 @@ const ManageBookings = () => {
                   >
                     {t('admin.bookings.generateContract')}
                   </Link>
+                  {hasPermission('contract_extensions') && !['cancelled', 'completed'].includes(selectedBooking.status) && (
+                    <button
+                      type="button"
+                      onClick={() => setExtendBooking(selectedBooking)}
+                      className='col-span-2 px-3 py-2 rounded-lg border border-borderColor text-xs font-medium hover:bg-gray-50'
+                    >
+                      Extend contract
+                    </button>
+                  )}
+                  {hasPermission('signature_requests') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const { data } = await axios.post('/api/owner/signature-requests/generate', {
+                            bookingId: selectedBooking._id,
+                          })
+                          if (!data.success) throw new Error(data.message)
+                          if (data.completionUrl) {
+                            cacheCompletionUrl(selectedBooking._id, data.completionUrl)
+                            await navigator.clipboard.writeText(data.completionUrl)
+                          }
+                          toast.success('Signature link generated & copied')
+                        } catch (e) {
+                          toast.error(getErrorMessage(e))
+                        }
+                      }}
+                      className='col-span-2 px-3 py-2 rounded-lg border border-borderColor text-xs font-medium hover:bg-gray-50'
+                    >
+                      Generate signature link
+                    </button>
+                  )}
                 </>
               )}
             </div>
+
+            {extendBooking && (
+              <ContractExtensionModal
+                booking={extendBooking}
+                onClose={() => setExtendBooking(null)}
+                onExtended={(result) => {
+                  if (result?.booking) {
+                    setSelectedBooking((prev) => prev ? { ...prev, ...result.booking } : prev)
+                  }
+                  fetchOwnerBookings()
+                }}
+              />
+            )}
 
             {selectedBooking.completion && (
               <div className='mt-4 rounded-lg border border-borderColor bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1'>

@@ -51,6 +51,11 @@ export const generateCompletionLink = async (bookingId, { resend = false } = {})
 
   const completionUrl = buildCompletionUrl(token);
   booking.completion.shareableCompletionUrl = completionUrl;
+  if (booking.completion.signatureRequestStatus !== 'signed') {
+    booking.completion.signatureRequestStatus = 'pending';
+    booking.completion.signatureCancelledAt = null;
+    booking.completion.signatureCancelledBy = null;
+  }
   await booking.save();
 
   return {
@@ -166,8 +171,19 @@ export const findBookingByCompletionToken = async (rawToken) => {
   const booking = await Booking.findOne({ "completion.tokenHash": tokenHash }).populate("car");
   if (!booking) return null;
   if (isTokenExpired(booking.completion?.tokenExpiresAt)) {
+    try {
+      booking.completion.signatureRequestStatus = 'expired';
+      await booking.save();
+    } catch {
+      /* non-fatal */
+    }
     const err = new Error("This completion link has expired. Please contact the agency.");
     err.code = "TOKEN_EXPIRED";
+    throw err;
+  }
+  if (booking.completion?.signatureRequestStatus === 'cancelled') {
+    const err = new Error("This signature request was cancelled. Please contact the agency.");
+    err.code = "TOKEN_CANCELLED";
     throw err;
   }
   if (["cancelled"].includes(booking.status)) {
@@ -191,6 +207,9 @@ export const refreshCompletionFlags = (booking) => {
   c.signatureComplete = Boolean(
     c.signatureUrl && c.signatureSignedAt && secondDriverSigOk
   );
+  if (c.signatureComplete) {
+    c.signatureRequestStatus = 'signed';
+  }
   booking.completion = c;
   return c;
 };
@@ -353,10 +372,22 @@ export const saveSignatureAndMaybeFinalize = async (
   booking,
   { signatureDataUrl, secondDriverSignatureDataUrl } = {}
 ) => {
-  const url = await storeDataUrlImage(signatureDataUrl, `signature-${booking.reservationId}.png`);
   booking.completion = booking.completion || {};
+  if (booking.completion.signatureComplete || booking.completion.signatureRequestStatus === 'signed') {
+    const err = new Error('This contract has already been signed');
+    err.code = 'ALREADY_SIGNED';
+    throw err;
+  }
+  if (booking.completion.signatureRequestStatus === 'cancelled') {
+    const err = new Error('This signature request was cancelled');
+    err.code = 'TOKEN_CANCELLED';
+    throw err;
+  }
+
+  const url = await storeDataUrlImage(signatureDataUrl, `signature-${booking.reservationId}.png`);
   booking.completion.signatureUrl = url;
   booking.completion.signatureSignedAt = new Date();
+  booking.completion.signatureRequestStatus = 'signed';
 
   const needsSecond = Boolean(booking.secondDriver?.enabled);
   if (needsSecond) {

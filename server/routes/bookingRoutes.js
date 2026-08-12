@@ -1,6 +1,7 @@
 import express from "express";
 import {
   assignBookingVehicle,
+  assignBookingRelations,
   changeBookingStatus,
   changePaymentStatus,
   checkAvailabilityOfCar,
@@ -40,6 +41,7 @@ bookingRouter.post('/change-status', ...bookingsGate, changeBookingStatus);
 bookingRouter.post('/change-payment-status', ...bookingsGate, changePaymentStatus);
 bookingRouter.post('/update', ...bookingsGate, updateBooking);
 bookingRouter.post('/assign-vehicle', ...bookingsGate, assignBookingVehicle);
+bookingRouter.post('/assign-relations', ...bookingsGate, assignBookingRelations);
 bookingRouter.post(
   '/owner/:bookingId/documents',
   ...bookingsGate,

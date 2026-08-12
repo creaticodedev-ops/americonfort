@@ -887,6 +887,9 @@ export const getOwnerBookings = async (req, res) => {
       Booking.countDocuments(query),
       Booking.find(query)
         .populate('car', OWNER_BOOKING_CAR_FIELDS)
+        .populate('samsar', 'fullName phone status')
+        .populate('chauffeur', 'fullName phone status')
+        .populate('partnerCompany', 'companyName contactPerson status')
         .sort({ [sortBy]: sortOrder })
         .skip(skip)
         .limit(limit)
@@ -1367,6 +1370,114 @@ export const assignBookingVehicle = async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to assign vehicle' });
+  }
+};
+
+/**
+ * Assign / clear Samsar, Chauffeur, or Partner Company on a booking.
+ * Ownership of booking AND related entity is resolved server-side (never trust client owner ids).
+ */
+export const assignBookingRelations = async (req, res) => {
+  try {
+    const ownerId = req.user._id;
+    const { bookingId, samsarId, chauffeurId, partnerCompanyId } = req.body;
+
+    if (!mongoose.isValidObjectId(bookingId)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking ID' });
+    }
+
+    const booking = await Booking.findOne({ _id: bookingId, owner: ownerId });
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const changes = [];
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'samsarId')) {
+      if (samsarId === null || samsarId === '' || samsarId === undefined) {
+        booking.samsar = null;
+        changes.push('samsar cleared');
+      } else {
+        if (!mongoose.isValidObjectId(samsarId)) {
+          return res.status(400).json({ success: false, message: 'Invalid samsarId' });
+        }
+        const { default: Samsar } = await import('../models/Samsar.js');
+        const samsar = await Samsar.findOne({ _id: samsarId, owner: ownerId, status: 'active' });
+        if (!samsar) {
+          return res.status(404).json({ success: false, message: 'Samsar not found' });
+        }
+        booking.samsar = samsar._id;
+        changes.push(`samsar=${samsar.fullName}`);
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'chauffeurId')) {
+      if (chauffeurId === null || chauffeurId === '' || chauffeurId === undefined) {
+        booking.chauffeur = null;
+        changes.push('chauffeur cleared');
+      } else {
+        if (!mongoose.isValidObjectId(chauffeurId)) {
+          return res.status(400).json({ success: false, message: 'Invalid chauffeurId' });
+        }
+        const { default: Chauffeur } = await import('../models/Chauffeur.js');
+        const chauffeur = await Chauffeur.findOne({ _id: chauffeurId, owner: ownerId, status: 'active' });
+        if (!chauffeur) {
+          return res.status(404).json({ success: false, message: 'Chauffeur not found' });
+        }
+        booking.chauffeur = chauffeur._id;
+        changes.push(`chauffeur=${chauffeur.fullName}`);
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'partnerCompanyId')) {
+      if (partnerCompanyId === null || partnerCompanyId === '' || partnerCompanyId === undefined) {
+        booking.partnerCompany = null;
+        changes.push('partnerCompany cleared');
+      } else {
+        if (!mongoose.isValidObjectId(partnerCompanyId)) {
+          return res.status(400).json({ success: false, message: 'Invalid partnerCompanyId' });
+        }
+        const { default: PartnerCompany } = await import('../models/PartnerCompany.js');
+        const partner = await PartnerCompany.findOne({
+          _id: partnerCompanyId,
+          owner: ownerId,
+          status: 'active',
+        });
+        if (!partner) {
+          return res.status(404).json({ success: false, message: 'Partner company not found' });
+        }
+        booking.partnerCompany = partner._id;
+        changes.push(`partner=${partner.companyName}`);
+      }
+    }
+
+    if (!changes.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide samsarId, chauffeurId, and/or partnerCompanyId (null to clear)',
+      });
+    }
+
+    await booking.save();
+    await logAudit({
+      owner: ownerId,
+      actor: ownerId,
+      action: 'booking.assign_relations',
+      entityType: 'Booking',
+      entityId: bookingId,
+      details: `Assigned relations: ${changes.join(', ')}`,
+    });
+
+    const populated = await Booking.findById(bookingId)
+      .populate('car', OWNER_BOOKING_CAR_FIELDS)
+      .populate('samsar', 'fullName phone status')
+      .populate('chauffeur', 'fullName phone status')
+      .populate('partnerCompany', 'companyName contactPerson status');
+
+    res.json({ success: true, message: 'Assignment updated', booking: populated });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to update assignment' });
   }
 };
 

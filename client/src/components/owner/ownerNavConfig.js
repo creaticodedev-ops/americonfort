@@ -14,7 +14,13 @@ export const OWNER_NAV_GROUPS = [
   {
     id: 'bookings',
     labelKey: 'admin.menu.groups.bookings',
-    paths: ['/owner/manage-bookings', '/owner/walk-in', '/owner/calendar', '/owner/customers'],
+    paths: [
+      '/owner/manage-bookings',
+      '/owner/walk-in',
+      '/owner/calendar',
+      '/owner/customers',
+      '/owner/signature-requests',
+    ],
   },
   {
     id: 'fleet',
@@ -25,12 +31,29 @@ export const OWNER_NAV_GROUPS = [
       '/owner/vehicle-stats',
       '/owner/maintenance',
       '/owner/locations',
+      '/owner/chauffeurs',
     ],
+  },
+  {
+    id: 'partners',
+    labelKey: 'admin.menu.groups.partners',
+    paths: ['/owner/samsars', '/owner/partner-companies'],
   },
   {
     id: 'documents',
     labelKey: 'admin.menu.groups.documents',
     paths: ['/owner/contracts', '/owner/invoices', '/owner/templates'],
+  },
+  {
+    id: 'accounting',
+    labelKey: 'admin.menu.groups.accounting',
+    paths: [
+      '/owner/accounting',
+      '/owner/accounting/revenues',
+      '/owner/accounting/samsar-payments',
+      '/owner/accounting/agency-expenses',
+      '/owner/accounting/vehicle-expenses',
+    ],
   },
   {
     id: 'reporting',

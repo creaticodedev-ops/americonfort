@@ -14,6 +14,11 @@ export const OWNER_PERMISSIONS = [
   'contracts',
   'templates',
   'settings',
+  'accounting',
+  'chauffeurs',
+  'partners',
+  'signature_requests',
+  'contract_extensions',
 ];
 
 const userSchema = new mongoose.Schema({

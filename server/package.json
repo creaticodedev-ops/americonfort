@@ -28,7 +28,9 @@
     "test:contract-pdf": "node scripts/verify-contract-pdf-form.mjs",
     "test:contract-signatures": "node scripts/verify-contract-signature-embed.mjs",
     "test:contract-stamp": "node scripts/verify-contract-stamp-setting.mjs",
-    "test:agencies": "node scripts/verify-agencies-phase1.mjs"
+    "test:agencies": "node scripts/verify-agencies-phase1.mjs",
+    "test:admin-modules": "node scripts/verify-admin-modules-foundation.mjs",
+    "test:admin-modules-isolation": "node scripts/verify-admin-modules-isolation.mjs --memory"
   },
   "keywords": [],
   "author": "",

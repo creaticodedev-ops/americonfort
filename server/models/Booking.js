@@ -148,6 +148,10 @@ const bookingSchema = new mongoose.Schema({
   },
   /** Staff user who created a walk-in reservation */
   createdBy: { type: ObjectId, ref: "User", default: null },
+  /** Future-ready partner / staff links (nullable) */
+  chauffeur: { type: ObjectId, ref: "Chauffeur", default: null, index: true },
+  samsar: { type: ObjectId, ref: "Samsar", default: null, index: true },
+  partnerCompany: { type: ObjectId, ref: "PartnerCompany", default: null, index: true },
   /** Secure post-confirmation completion workflow */
   completion: {
     /** SHA-256 hash of the raw token (required for /complete-booking/:token lookup) */
@@ -155,6 +159,17 @@ const bookingSchema = new mongoose.Schema({
     shareableCompletionUrl: { type: String, default: "" },
     tokenExpiresAt: { type: Date, default: null },
     linkSentAt: { type: Date, default: null },
+    /**
+     * Signature-request state machine (extends completion; does not replace it).
+     * none | pending | signed | expired | cancelled
+     */
+    signatureRequestStatus: {
+      type: String,
+      enum: ["none", "pending", "signed", "expired", "cancelled"],
+      default: "none",
+    },
+    signatureCancelledAt: { type: Date, default: null },
+    signatureCancelledBy: { type: ObjectId, ref: "User", default: null },
     drivingLicenseUrl: { type: String, default: "" },
     identityType: {
       type: String,

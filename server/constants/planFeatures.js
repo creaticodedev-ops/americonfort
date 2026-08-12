@@ -24,6 +24,11 @@ export const PLAN_FEATURES = Object.freeze([
   'reports',
   'templates',
   'payments',
+  'accounting',
+  'chauffeurs',
+  'partners',
+  'signature_requests',
+  'contract_extensions',
 ]);
 
 /** Human labels for Super Admin / owner UI (keys stay the source of truth). */
@@ -45,6 +50,11 @@ export const PLAN_FEATURE_META = Object.freeze({
   reports: { label: 'Reports', description: 'Operational report exports' },
   templates: { label: 'Export templates', description: 'Document export templates' },
   payments: { label: 'Payments', description: 'Booking payment tracking' },
+  accounting: { label: 'Accounting', description: 'Revenues, expenses, and net result' },
+  chauffeurs: { label: 'Chauffeurs', description: 'Agency chauffeur management' },
+  partners: { label: 'Partners', description: 'Samsars and partner companies' },
+  signature_requests: { label: 'Signature requests', description: 'Customer contract signature workflow' },
+  contract_extensions: { label: 'Contract extensions', description: 'Extend rental periods with pricing' },
 });
 
 /** 0 = unlimited for every numeric limit. */
