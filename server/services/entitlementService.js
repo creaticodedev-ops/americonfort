@@ -72,8 +72,13 @@ export const resolveEntitlements = (user) => {
     };
   }
 
-  const features = normalizePlanFeatures(snap?.features);
   const limits = normalizePlanLimits(snap?.limits);
+  const isDefaultPlan = Boolean(snap?.isDefault) || snap?.code === DEFAULT_PLAN_CODE;
+  // Grandfathered Full Access always tracks the current product catalog so new
+  // modules appear after deploy without waiting for a manual plan re-assign.
+  const features = isDefaultPlan
+    ? [...PLAN_FEATURES]
+    : normalizePlanFeatures(snap?.features);
 
   // Derive plan commercial status from existing license fields (no billing yet)
   let status = 'active';
@@ -89,7 +94,7 @@ export const resolveEntitlements = (user) => {
     status,
     features,
     limits,
-    isDefault: Boolean(snap?.isDefault),
+    isDefault: isDefaultPlan,
     source: 'plan',
     assignedAt: snap?.assignedAt || null,
     catalog: featureCatalog(),
@@ -179,7 +184,11 @@ export const ensureDefaultPlans = async () => {
       full.features = normalizePlanFeatures([...full.features, ...missing]);
       dirty = true;
     }
-    if (dirty) await full.save();
+    if (dirty) {
+      await full.save();
+      // Push expanded catalog onto every owner still on Full Access
+      await refreshSnapshotsForPlan(full);
+    }
   }
 
   // Ensure only one default
@@ -228,15 +237,48 @@ export const applyPlanToUser = async (user, plan, { save = true } = {}) => {
 
 /**
  * Lazy migration: assign default Full Access plan when an owner has none.
- * Safe to call on every owner request (no-op when already assigned).
+ * Also refreshes Full Access snapshots when the product feature catalog grows
+ * (otherwise sidebar/API stay stuck on the old feature list).
+ * Safe to call on every owner request.
  */
 export const syncOwnerPlan = async (user) => {
   if (!user || user.role !== 'owner') return user;
-  if (user.plan && user.planSnapshot?.code) return user;
 
-  const plan = await getDefaultPlan();
-  if (!plan) return user;
-  await applyPlanToUser(user, plan, { save: true });
+  if (!user.plan || !user.planSnapshot?.code) {
+    const plan = await getDefaultPlan();
+    if (!plan) return user;
+    await applyPlanToUser(user, plan, { save: true });
+    return user;
+  }
+
+  const snap = user.planSnapshot;
+  const onFullAccess = Boolean(snap?.isDefault) || snap?.code === DEFAULT_PLAN_CODE;
+  if (!onFullAccess) return user;
+
+  const planDoc = await Plan.findById(user.plan);
+  if (!planDoc) {
+    const fallback = await getDefaultPlan();
+    if (!fallback) return user;
+    await applyPlanToUser(user, fallback, { save: true });
+    return user;
+  }
+
+  // Ensure plan document itself has the latest catalog, then refresh this user
+  const missingOnPlan = PLAN_FEATURES.filter((f) => !planDoc.features.includes(f));
+  if (missingOnPlan.length) {
+    planDoc.features = normalizePlanFeatures([...planDoc.features, ...missingOnPlan]);
+    await planDoc.save();
+    invalidateDefaultPlanCache();
+  }
+
+  const snapFeatures = normalizePlanFeatures(snap.features);
+  const planFeatures = normalizePlanFeatures(planDoc.features);
+  const snapKey = [...snapFeatures].sort().join(',');
+  const planKey = [...planFeatures].sort().join(',');
+  if (snapKey !== planKey || Boolean(snap.isDefault) !== Boolean(planDoc.isDefault)) {
+    await applyPlanToUser(user, planDoc, { save: true });
+  }
+
   return user;
 };
 

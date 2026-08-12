@@ -9,7 +9,7 @@ export const adminEn = {
     calendar: 'Calendar',
     customers: 'Customers',
     addCar: 'Add car',
-    fleet: 'Fleet',
+    fleet: 'Cars',
     vehicleStats: 'Vehicle Statistics',
     maintenance: 'Maintenance',
     locations: 'Locations',

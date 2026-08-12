@@ -107,4 +107,4 @@ export const findActiveOwnerNavGroupId = (pathname, groups) => {
   return null
 }
 
-export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v1'
+export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v2'

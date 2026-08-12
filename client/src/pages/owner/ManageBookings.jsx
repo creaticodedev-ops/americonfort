@@ -840,7 +840,7 @@ const ManageBookings = () => {
                       onClick={() => setExtendBooking(selectedBooking)}
                       className='col-span-2 px-3 py-2 rounded-lg border border-borderColor text-xs font-medium hover:bg-gray-50'
                     >
-                      Extend contract
+                      Extend Contract
                     </button>
                   )}
                   {hasPermission('signature_requests') && (
@@ -863,7 +863,7 @@ const ManageBookings = () => {
                       }}
                       className='col-span-2 px-3 py-2 rounded-lg border border-borderColor text-xs font-medium hover:bg-gray-50'
                     >
-                      Generate signature link
+                      Generate Signature Link
                     </button>
                   )}
                 </>

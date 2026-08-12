@@ -68,11 +68,11 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
 
   return (
     <div className="mt-4 rounded-lg border border-borderColor bg-gray-50 px-3 py-3 space-y-3">
-      <p className="font-medium text-gray-800 text-xs">Partners & chauffeur</p>
+      <p className="font-medium text-gray-800 text-xs">Assignments</p>
 
       {canPartners && (
         <div>
-          <label className="text-[11px] text-gray-500">Samsar</label>
+          <label className="text-[11px] text-gray-500">Assign Samsar</label>
           <div className="flex gap-2 mt-1">
             <select
               className={selectClass}
@@ -94,7 +94,7 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
 
       {canChauffeurs && (
         <div>
-          <label className="text-[11px] text-gray-500">Chauffeur</label>
+          <label className="text-[11px] text-gray-500">Assign Chauffeur</label>
           <div className="flex gap-2 mt-1">
             <select
               className={selectClass}
@@ -116,7 +116,7 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
 
       {canPartners && (
         <div>
-          <label className="text-[11px] text-gray-500">Partner company</label>
+          <label className="text-[11px] text-gray-500">Assign Partner Company</label>
           <div className="flex gap-2 mt-1">
             <select
               className={selectClass}

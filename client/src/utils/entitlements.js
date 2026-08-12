@@ -28,10 +28,12 @@ export const resolveEntitlements = (userOrEntitlements) => {
 /**
  * Missing/empty entitlements on a logged-in owner are treated as full access
  * until the server sync assigns the default plan (matches backend legacy rule).
+ * Full Access / default plan always unlocks the full UI catalog (matches server).
  */
 export const hasFeature = (userOrEntitlements, featureKey) => {
   if (!featureKey) return true
   const entitlements = resolveEntitlements(userOrEntitlements)
+  if (entitlements.isDefault || entitlements.code === 'full_access') return true
   const features = entitlements.features
   if (!Array.isArray(features) || features.length === 0) {
     // Legacy / not yet synced — do not lock the UI ahead of the API
