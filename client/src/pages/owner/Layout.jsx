@@ -18,7 +18,7 @@ const readCollapsed = () => {
 
 const AdminShell = () => {
   const { isOwner, navigate, authReady, setShowLogin, licenseLocked } = useAppContext()
-  const { t } = useI18n()
+  const { t, dir, isRtl } = useI18n()
   const { resolved } = useAdminTheme()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(readCollapsed)
@@ -45,7 +45,12 @@ const AdminShell = () => {
 
   if (!authReady) {
     return (
-      <div className="admin-app min-h-svh flex items-center justify-center text-[var(--admin-fg-muted)] px-4" data-theme={resolved}>
+      <div
+        className="admin-app min-h-svh flex items-center justify-center text-[var(--admin-fg-muted)] px-4"
+        data-theme={resolved}
+        data-rtl={isRtl ? 'true' : 'false'}
+        dir={dir}
+      >
         {t('admin.shell.loading')}
       </div>
     )
@@ -55,7 +60,7 @@ const AdminShell = () => {
 
   if (licenseLocked) {
     return (
-      <div className="admin-app admin-shell" data-theme={resolved}>
+      <div className="admin-app admin-shell" data-theme={resolved} data-rtl={isRtl ? 'true' : 'false'} dir={dir}>
         <NavbarOwner />
         <TrialExpired />
       </div>
@@ -63,7 +68,7 @@ const AdminShell = () => {
   }
 
   return (
-    <div className="admin-app admin-shell" data-theme={resolved}>
+    <div className="admin-app admin-shell" data-theme={resolved} data-rtl={isRtl ? 'true' : 'false'} dir={dir}>
       <NavbarOwner
         onOpenNav={() => setMobileNavOpen(true)}
         navOpen={mobileNavOpen}

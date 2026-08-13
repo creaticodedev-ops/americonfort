@@ -1104,3 +1104,94 @@ body.nav-open {
   border-top: 1px dashed color-mix(in srgb, var(--admin-danger) 35%, var(--admin-border));
 }
 
+/* ─── Arabic RTL Admin layout ─────────────────────────────────────────────
+   Relies on document dir=rtl + logical CSS. Flip only physical leftovers.
+*/
+html[dir='rtl'] .admin-app,
+.admin-app[dir='rtl'],
+.admin-app[data-rtl='true'] {
+  text-align: start;
+}
+
+html[dir='rtl'] .admin-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--admin-sidebar-border);
+}
+
+html[dir='rtl'] .admin-sidebar-drawer {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid var(--admin-sidebar-border);
+}
+
+html[dir='rtl'] .admin-sidebar-drawer.translate-x-0 {
+  transform: translateX(0);
+}
+
+html[dir='rtl'] .admin-nav-link {
+  flex-direction: row;
+}
+
+html[dir='rtl'] .admin-nav-group-label .admin-icon-chevron,
+html[dir='rtl'] .admin-nav-group-label svg {
+  transform: scaleX(-1);
+}
+
+html[dir='rtl'] .admin-nav-group-label svg.rotate-90 {
+  transform: scaleX(-1) rotate(90deg);
+}
+
+html[dir='rtl'] .admin-booking-card {
+  text-align: start;
+}
+
+html[dir='rtl'] .admin-booking-card.is-selected {
+  box-shadow: inset -3px 0 0 var(--admin-accent);
+}
+
+html[dir='rtl'] .admin-modal-header .admin-icon-btn.absolute {
+  right: auto;
+  left: 0.75rem;
+}
+
+html[dir='rtl'] .admin-detail-row {
+  direction: rtl;
+}
+
+html[dir='rtl'] .admin-topbar {
+  padding: 0 0.75rem 0 0.85rem;
+}
+
+html[dir='rtl'] .admin-formula-op {
+  display: inline-block;
+  margin-inline-end: 0.25rem;
+}
+
+/* Mirror directional chevrons / panel icons in RTL */
+html[dir='rtl'] .admin-app .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Tables: keep numeric columns readable */
+html[dir='rtl'] .admin-app table {
+  text-align: start;
+}
+
+html[dir='rtl'] .admin-app th,
+html[dir='rtl'] .admin-app td {
+  text-align: start;
+}
+
+html[dir='rtl'] .admin-app input,
+html[dir='rtl'] .admin-app textarea,
+html[dir='rtl'] .admin-app select {
+  text-align: start;
+}
+
+/* Toast / portal content inherits document dir — ensure start alignment */
+html[dir='rtl'] body {
+  text-align: start;
+}
+
+

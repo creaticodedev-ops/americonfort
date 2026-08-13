@@ -52,7 +52,7 @@ export const AdminModal = ({
         className={`admin-modal-panel ${width}`}
       >
         <div className="admin-modal-header">
-          <div className="min-w-0 pr-8">
+          <div className="min-w-0 pe-8">
             <h2 id={titleId} className="text-base font-semibold text-[var(--admin-fg)]">
               {title}
             </h2>
@@ -62,7 +62,7 @@ export const AdminModal = ({
           </div>
           <button
             type="button"
-            className="admin-icon-btn absolute right-3 top-3"
+            className="admin-icon-btn absolute end-3 top-3"
             onClick={onClose}
             aria-label="Close"
           >

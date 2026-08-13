@@ -11,6 +11,8 @@ export const en = {
     en: 'English',
     fr: 'French',
     es: 'Spanish',
+    ar: 'Arabic',
+    change: 'Change language',
   },
   hero: {
     title: 'Drive with distinction',
@@ -308,6 +310,8 @@ export const fr = {
     en: 'Anglais',
     fr: 'Français',
     es: 'Espagnol',
+    ar: 'Arabe',
+    change: 'Changer de langue',
   },
   hero: {
     title: 'Roulez avec distinction',
@@ -604,6 +608,8 @@ export const es = {
     en: 'Inglés',
     fr: 'Francés',
     es: 'Español',
+    ar: 'Árabe',
+    change: 'Cambiar idioma',
   },
   hero: {
     title: 'Conduce con distinción',
@@ -886,3 +892,5 @@ export const es = {
     close: 'Cerrar',
   },
 };
+
+export { ar } from './ar.generated.js'

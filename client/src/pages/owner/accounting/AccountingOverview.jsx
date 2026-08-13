@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import {
@@ -12,14 +12,6 @@ import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
 
-const PERIODS = [
-  { id: 'today', label: 'Today' },
-  { id: 'week', label: 'This Week' },
-  { id: 'month', label: 'This Month' },
-  { id: 'year', label: 'This Year' },
-  { id: 'custom', label: 'Custom' },
-]
-
 const AccountingOverview = () => {
   const { axios, currency } = useAppContext()
   const { t } = useI18n()
@@ -29,6 +21,17 @@ const AccountingOverview = () => {
   const [to, setTo] = useState('')
   const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const periods = useMemo(
+    () => [
+      { id: 'today', label: t('admin.accounting.today') },
+      { id: 'week', label: t('admin.accounting.thisWeek') },
+      { id: 'month', label: t('admin.accounting.thisMonth') },
+      { id: 'year', label: t('admin.accounting.thisYear') },
+      { id: 'custom', label: t('admin.accounting.custom') },
+    ],
+    [t],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -40,13 +43,13 @@ const AccountingOverview = () => {
       }
       const { data } = await axios.get(`/api/owner/accounting/overview?${params}`)
       if (data.success) setOverview(data.overview)
-      else toast.error(data.message || 'Failed to load')
+      else toast.error(data.message || t('admin.accounting.loadFailed'))
     } catch (e) {
       toast.error(getErrorMessage(e))
     } finally {
       setLoading(false)
     }
-  }, [axios, period, from, to])
+  }, [axios, period, from, to, t])
 
   useEffect(() => {
     load()
@@ -63,13 +66,13 @@ const AccountingOverview = () => {
   return (
     <AdminPage>
       <PageHeader
-        title="Accounting"
-        description="Agency financial overview. Gross revenue is derived from bookings — never edited manually."
+        title={t('admin.accounting.title')}
+        description={t('admin.accounting.subtitle')}
         breadcrumbs={[
-          { label: 'Finance', to: '/owner/accounting' },
-          { label: 'Overview' },
+          { label: t('admin.accounting.finance'), to: '/owner/accounting' },
+          { label: t('admin.accounting.overview') },
         ]}
-        actions={<SegmentedControl options={PERIODS} value={period} onChange={setPeriod} />}
+        actions={<SegmentedControl options={periods} value={period} onChange={setPeriod} />}
       />
 
       {period === 'custom' && (
@@ -80,7 +83,7 @@ const AccountingOverview = () => {
             value={from}
             onChange={(e) => setFrom(e.target.value)}
           />
-          <span className="text-xs text-[var(--admin-fg-muted)]">to</span>
+          <span className="text-xs text-[var(--admin-fg-muted)]">{t('admin.accounting.to')}</span>
           <input
             type="date"
             className="h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
@@ -92,7 +95,10 @@ const AccountingOverview = () => {
 
       {rangeLabel && (
         <p className="text-xs text-[var(--admin-fg-muted)] mb-4">
-          Period: {rangeLabel} · {overview?.breakdown?.revenue?.bookingCount || 0} revenue bookings
+          {t('admin.accounting.periodLabel', {
+            range: rangeLabel,
+            count: overview?.breakdown?.revenue?.bookingCount || 0,
+          })}
         </p>
       )}
 
@@ -105,15 +111,19 @@ const AccountingOverview = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-4">
-            <StatCard label="Gross Revenue" value={money(k.grossRevenue)} tone="success" />
-            <StatCard label="Samsar Payments" value={money(k.samsarPayments)} hint="Commissions paid" />
-            <StatCard label="Agency Expenses" value={money(k.agencyExpenses)} />
-            <StatCard label="Vehicle Expenses" value={money(k.vehicleExpenses)} />
+            <StatCard label={t('admin.accounting.grossRevenue')} value={money(k.grossRevenue)} tone="success" />
             <StatCard
-              label="Net Result"
+              label={t('admin.accounting.samsarPayments')}
+              value={money(k.samsarPayments)}
+              hint={t('admin.accounting.commissionsPaid')}
+            />
+            <StatCard label={t('admin.accounting.agencyExpenses')} value={money(k.agencyExpenses)} />
+            <StatCard label={t('admin.accounting.vehicleExpenses')} value={money(k.vehicleExpenses)} />
+            <StatCard
+              label={t('admin.accounting.netResult')}
               value={money(k.netResult)}
               tone={Number(k.netResult) >= 0 ? 'success' : 'danger'}
-              hint="Bottom line for the period"
+              hint={t('admin.accounting.bottomLine')}
             />
           </div>
 
@@ -131,49 +141,49 @@ const AccountingOverview = () => {
 
           <div className="admin-formula mb-6">
             <div className="admin-formula-row">
-              <span>Gross Revenue</span>
+              <span>{t('admin.accounting.grossRevenue')}</span>
               <span className="tabular-nums text-[var(--admin-fg)]">{money(k.grossRevenue)}</span>
             </div>
             <div className="admin-formula-row">
               <span>
-                <span className="admin-formula-op">−</span>Samsar Payments
+                <span className="admin-formula-op">−</span>
+                {t('admin.accounting.samsarPayments')}
               </span>
               <span className="tabular-nums">{money(k.samsarPayments)}</span>
             </div>
             <div className="admin-formula-row">
               <span>
-                <span className="admin-formula-op">−</span>Agency Expenses
+                <span className="admin-formula-op">−</span>
+                {t('admin.accounting.agencyExpenses')}
               </span>
               <span className="tabular-nums">{money(k.agencyExpenses)}</span>
             </div>
             <div className="admin-formula-row">
               <span>
-                <span className="admin-formula-op">−</span>Vehicle Expenses
+                <span className="admin-formula-op">−</span>
+                {t('admin.accounting.vehicleExpenses')}
               </span>
               <span className="tabular-nums">{money(k.vehicleExpenses)}</span>
             </div>
-            <div className="admin-formula-row is-total">
-              <span>= Net Result</span>
-              <span className="tabular-nums">{money(k.netResult)}</span>
+            <div className="admin-formula-row admin-formula-total">
+              <span>{t('admin.accounting.netResult')}</span>
+              <span className="tabular-nums font-semibold">{money(k.netResult)}</span>
             </div>
-            <p className="text-[11px] text-[var(--admin-fg-muted)] mt-2">
-              Paid revenue {money(k.paidRevenue)} · Unpaid {money(k.unpaidRevenue)} · Cancelled bookings excluded
-            </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              ['Revenues', 'Booking revenue ledger', '/owner/accounting/revenues'],
-              ['Samsar Payments', 'Commission payouts', '/owner/accounting/samsar-payments'],
-              ['Agency Expenses', 'Charges agences', '/owner/accounting/agency-expenses'],
-              ['Vehicle Expenses', 'Charges voitures', '/owner/accounting/vehicle-expenses'],
-            ].map(([label, hint, toPath]) => (
-              <Link key={toPath} to={toPath} className="admin-stat admin-stat--interactive no-underline">
-                <p className="admin-stat-label">{label}</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--admin-fg)]">{hint}</p>
-                <p className="mt-auto pt-3 text-xs font-medium text-[var(--admin-accent)]">Open →</p>
-              </Link>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <Link to="/owner/accounting/revenues" className="admin-btn admin-btn--secondary">
+              {t('admin.menu.revenues')}
+            </Link>
+            <Link to="/owner/accounting/samsar-payments" className="admin-btn admin-btn--secondary">
+              {t('admin.menu.samsarPayments')}
+            </Link>
+            <Link to="/owner/accounting/agency-expenses" className="admin-btn admin-btn--secondary">
+              {t('admin.menu.agencyExpenses')}
+            </Link>
+            <Link to="/owner/accounting/vehicle-expenses" className="admin-btn admin-btn--secondary">
+              {t('admin.menu.vehicleExpenses')}
+            </Link>
           </div>
         </>
       )}
