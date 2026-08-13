@@ -166,7 +166,7 @@ const ManageCars = () => {
   const CarActions = ({ car }) => (
     <div className="admin-action-rail">
       <button type="button" className="admin-btn admin-btn--ghost" onClick={() => openVehicleStats(car)}>
-        Stats
+        {t('admin.leftover.stats')}
       </button>
       <button type="button" className="admin-btn admin-btn--ghost" onClick={() => navigate(`/owner/edit-car/${car._id}`)}>
         {t('admin.common.edit')}
@@ -187,10 +187,10 @@ const ManageCars = () => {
             : t('admin.fleet.showOnWebsite')}
       </button>
       <Link to="/owner/maintenance" className="admin-btn admin-btn--ghost">
-        Maintenance
+        {t('admin.menu.maintenance')}
       </Link>
       <Link to="/owner/accounting/vehicle-expenses" className="admin-btn admin-btn--ghost">
-        Expenses
+        {t('admin.fleetUi.expenses')}
       </Link>
       <button type="button" className="admin-btn admin-btn--danger" onClick={() => setConfirmDeleteId(car._id)}>
         {t('admin.common.delete')}
@@ -211,10 +211,10 @@ const ManageCars = () => {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Total cars" value={snapshot.total} />
-        <StatCard label="Available" value={snapshot.available} tone="success" />
-        <StatCard label="Offline / rented" value={snapshot.offline} tone="info" />
-        <StatCard label="Maintenance" value={snapshot.maintenance} tone="warning" to="/owner/maintenance" />
+        <StatCard label={t('admin.fleetUi.totalCars')} value={snapshot.total} />
+        <StatCard label={t('admin.fleetUi.available')} value={snapshot.available} tone="success" />
+        <StatCard label={t('admin.fleetUi.offline')} value={snapshot.offline} tone="info" />
+        <StatCard label={t('admin.fleetUi.maintenance')} value={snapshot.maintenance} tone="warning" to="/owner/maintenance" />
       </div>
 
       <form
@@ -235,9 +235,9 @@ const ManageCars = () => {
         <input className={inputClass} placeholder={t('admin.fleet.plate')} value={filters.plate} onChange={(e) => setFilters({ ...filters, plate: e.target.value })} />
         <select className={inputClass} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
           <option value="">{t('admin.fleet.allStatuses')}</option>
-          <option value="available">Available</option>
-          <option value="booked">Rented</option>
-          <option value="maintenance">In Maintenance</option>
+          <option value="available">{t('admin.status.available')}</option>
+          <option value="booked">{t('admin.status.booked')}</option>
+          <option value="maintenance">{t('admin.fleetUi.inMaintenance')}</option>
         </select>
         <select className={inputClass} value={filters.branch} onChange={(e) => setFilters({ ...filters, branch: e.target.value })}>
           <option value="">{t('admin.fleet.allBranches')}</option>
@@ -273,7 +273,7 @@ const ManageCars = () => {
           <EmptyState
             icon="car"
             title={t('admin.fleet.none')}
-            description="Add your first vehicle to start taking reservations."
+            description={t('admin.leftover.addFirstVehicle')}
             action={<Link to="/owner/add-car" className="admin-btn admin-btn--primary">{t('admin.menu.addCar')}</Link>}
           />
         ) : (
@@ -383,9 +383,9 @@ const ManageCars = () => {
 
       <ConfirmDialog
         isOpen={Boolean(confirmDeleteId)}
-        title="Remove vehicle"
-        message="Remove this physical vehicle from the fleet? This cannot be undone."
-        confirmText="Delete"
+        title={t('admin.fleetUi.removeVehicle')}
+        message={t('admin.fleetUi.removeConfirm')}
+        confirmText={t('admin.common.delete')}
         variant="danger"
         onCancel={() => setConfirmDeleteId(null)}
         onConfirm={deleteCar}

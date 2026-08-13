@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { useI18n } from '../../../i18n/I18nContext'
 
 export const AdminPage = ({ children, className = '' }) => (
   <div className={`admin-page-inner px-4 py-5 sm:px-6 lg:px-8 xl:px-10 pb-14 min-w-0 flex-1 ${className}`}>
@@ -13,10 +14,12 @@ export const PageHeader = ({
   breadcrumbs,
   actions,
   className = '',
-}) => (
+}) => {
+  const { t } = useI18n()
+  return (
   <header className={`admin-page-header mb-6 ${className}`}>
     {breadcrumbs?.length ? (
-      <nav className="admin-breadcrumbs mb-2" aria-label="Breadcrumb">
+      <nav className="admin-breadcrumbs mb-2" aria-label={t('admin.commonUi.breadcrumb')}>
         <ol className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--admin-fg-muted)]">
           {breadcrumbs.map((crumb, i) => (
             <li key={`${crumb.label}-${i}`} className="inline-flex items-center gap-1.5">
@@ -49,6 +52,7 @@ export const PageHeader = ({
       ) : null}
     </div>
   </header>
-)
+  )
+}
 
 export default AdminPage

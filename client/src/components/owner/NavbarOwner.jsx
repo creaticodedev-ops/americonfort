@@ -63,7 +63,7 @@ const NavbarOwner = ({ onOpenNav, navOpen = false, onToggleCollapsed }) => {
             type="button"
             onClick={onToggleCollapsed}
             className="hidden md:inline-flex admin-icon-btn shrink-0"
-            aria-label="Toggle sidebar"
+            aria-label={t('admin.commonUi.toggleSidebar')}
           >
             <Icon name="panel" className="h-4 w-4" />
           </button>
@@ -79,7 +79,7 @@ const NavbarOwner = ({ onOpenNav, navOpen = false, onToggleCollapsed }) => {
           />
         </Link>
         {!licenseLocked && (
-          <div className="min-w-0 hidden lg:block border-l border-[var(--admin-border)] pl-3 ml-1">
+          <div className="min-w-0 hidden lg:block border-s border-[var(--admin-border)] ps-3 ms-1">
             <p className="text-sm font-semibold text-[var(--admin-fg)] truncate leading-tight">
               {pageMeta.title}
             </p>
@@ -106,8 +106,8 @@ const NavbarOwner = ({ onOpenNav, navOpen = false, onToggleCollapsed }) => {
           type="button"
           className="admin-icon-btn"
           onClick={toggle}
-          aria-label={resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={resolved === 'dark' ? 'Light mode' : 'Dark mode'}
+          aria-label={resolved === 'dark' ? t('admin.leftover.switchLight') : t('admin.leftover.switchDark')}
+          title={resolved === 'dark' ? t('admin.leftover.lightMode') : t('admin.leftover.darkMode')}
         >
           <Icon name={resolved === 'dark' ? 'sun' : 'moon'} className="h-4 w-4" />
         </button>
@@ -138,19 +138,19 @@ const NavbarOwner = ({ onOpenNav, navOpen = false, onToggleCollapsed }) => {
           {menuOpen && (
             <div
               role="menu"
-              className="absolute right-0 mt-2 w-56 rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-lg)] py-1 z-50"
+              className="absolute end-0 mt-2 w-56 rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-lg)] py-1 z-50"
             >
               <div className="px-3 py-2 border-b border-[var(--admin-border)]">
                 <p className="text-sm font-semibold truncate">{user?.name || 'Admin'}</p>
                 <p className="text-[11px] text-[var(--admin-fg-muted)] truncate">{user?.email}</p>
               </div>
               <div className="px-2 py-2 border-b border-[var(--admin-border)]">
-                <p className="px-1 pb-1 text-[10px] uppercase tracking-wider text-[var(--admin-fg-muted)]">Theme</p>
+                <p className="px-1 pb-1 text-[10px] uppercase tracking-wider text-[var(--admin-fg-muted)]">{t('admin.leftover.theme')}</p>
                 <div className="flex gap-1">
                   {[
-                    ['light', 'Light'],
-                    ['dark', 'Dark'],
-                    ['system', 'System'],
+                    ['light', t('admin.leftover.themeLight')],
+                    ['dark', t('admin.leftover.themeDark')],
+                    ['system', t('admin.leftover.themeSystem')],
                   ].map(([id, label]) => (
                     <button
                       key={id}

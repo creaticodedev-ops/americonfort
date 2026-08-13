@@ -2,8 +2,22 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { en as baseEn, fr as baseFr, es as baseEs } from './translations'
 import { ar as baseAr } from './ar.generated.js'
+import { extrasEn, extrasFr, extrasEs, extrasAr, polishArAdmin } from './adminExtras'
 
 const RTL_LANGS = new Set(['ar'])
+
+const deepMerge = (base, overlay) => {
+  if (!overlay) return base
+  const out = { ...(base || {}) }
+  for (const [key, value] of Object.entries(overlay)) {
+    if (value && typeof value === 'object' && !Array.isArray(value) && out[key] && typeof out[key] === 'object') {
+      out[key] = deepMerge(out[key], value)
+    } else {
+      out[key] = value
+    }
+  }
+  return out
+}
 
 const baseDictionaries = {
   en: { ...baseEn },
@@ -28,6 +42,15 @@ const applyDocumentDirection = (lang) => {
   document.documentElement.dir = dir
   document.documentElement.dataset.lang = lang
   document.body?.setAttribute?.('dir', dir)
+  if (dir === 'rtl') {
+    if (!document.getElementById('cairo-arabic-font')) {
+      const link = document.createElement('link')
+      link.id = 'cairo-arabic-font'
+      link.rel = 'stylesheet'
+      link.href = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap'
+      document.head.appendChild(link)
+    }
+  }
 }
 
 export const I18nProvider = ({ children }) => {
@@ -60,10 +83,10 @@ export const I18nProvider = ({ children }) => {
       const arMod = await import('./adminAr.generated.js')
       if (cancelled) return
       setDictionaries({
-        en: { ...baseEn, admin: mod.adminEn },
-        fr: { ...baseFr, admin: mod.adminFr },
-        es: { ...baseEs, admin: mod.adminEs },
-        ar: { ...baseAr, admin: arMod.adminAr },
+        en: { ...baseEn, admin: deepMerge(mod.adminEn, extrasEn) },
+        fr: { ...baseFr, admin: deepMerge(mod.adminFr, extrasFr) },
+        es: { ...baseEs, admin: deepMerge(mod.adminEs, extrasEs) },
+        ar: { ...baseAr, admin: deepMerge(deepMerge(arMod.adminAr, extrasAr), polishArAdmin) },
       })
       setAdminLoaded(true)
     })

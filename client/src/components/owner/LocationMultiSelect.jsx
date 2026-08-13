@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { useI18n } from '../../i18n/I18nContext'
 
 /**
  * Multi-select checklist for available cities, with Select All.
@@ -12,6 +13,7 @@ const LocationMultiSelect = ({
   hint,
   required = false,
 }) => {
+  const { t } = useI18n()
   const selectedSet = useMemo(
     () => new Set(selected.map((c) => String(c).toLowerCase())),
     [selected]
@@ -52,7 +54,7 @@ const LocationMultiSelect = ({
       {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
       <div className="mt-2 rounded-md border border-borderColor bg-white max-h-48 overflow-y-auto divide-y divide-borderColor">
         {cities.length === 0 ? (
-          <p className="px-3 py-3 text-xs text-gray-400">No pickup cities configured yet.</p>
+          <p className="px-3 py-3 text-xs text-gray-400">{t('admin.leftover.noCities')}</p>
         ) : (
           cities.map((city) => {
             const checked = selectedSet.has(city.toLowerCase())

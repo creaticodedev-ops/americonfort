@@ -17,13 +17,6 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 
-const PERIODS = [
-  { id: '7d', label: '7 Days' },
-  { id: '30d', label: '30 Days' },
-  { id: 'month', label: 'This Month' },
-  { id: 'year', label: 'This Year' },
-]
-
 const Dashboard = () => {
   const { axios, isOwner, currency, hasPermission, hasFeature } = useAppContext()
   const { t } = useI18n()
@@ -140,12 +133,22 @@ const Dashboard = () => {
     <AdminPage>
       <PageHeader
         title={t('admin.dashboard.title')}
-        description="Operational pulse for your rental business — scan KPIs, act on pending work, then dig into trends."
+        description={t('admin.ops.pulse')}
         actions={
           <>
-            <SegmentedControl options={PERIODS} value={period} onChange={setPeriod} ariaLabel="Dashboard period" />
+            <SegmentedControl
+              options={[
+                { id: '7d', label: t('admin.ops.period7d') },
+                { id: '30d', label: t('admin.ops.period30d') },
+                { id: 'month', label: t('admin.ops.periodMonth') },
+                { id: 'year', label: t('admin.ops.periodYear') },
+              ]}
+              value={period}
+              onChange={setPeriod}
+              ariaLabel={t('admin.ops.periodAria')}
+            />
             <Link to="/owner/manage-bookings" className="admin-btn admin-btn--primary">
-              Reservations
+              {t('admin.ops.reservations')}
             </Link>
           </>
         }
@@ -153,18 +156,18 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
-          label="Revenue"
+          label={t('admin.ops.revenue')}
           value={money(canAccounting ? kpis.grossRevenue ?? dash.monthlyRevenue : dash.monthlyRevenue)}
-          hint={canAccounting ? 'Gross booking revenue' : t('admin.dashboard.monthlyRevenue')}
+          hint={canAccounting ? t('admin.ops.grossHint') : t('admin.dashboard.monthlyRevenue')}
           spark={spark}
           tone="success"
           to={canAccounting ? '/owner/accounting' : '/owner/analytics'}
         />
         {canAccounting ? (
           <StatCard
-            label="Net Result"
+            label={t('admin.ops.netResult')}
             value={money(kpis.netResult)}
-            hint="After samsar + expenses"
+            hint={t('admin.ops.afterExpenses')}
             tone={Number(kpis.netResult) >= 0 ? 'success' : 'danger'}
             to="/owner/accounting"
           />
@@ -172,21 +175,21 @@ const Dashboard = () => {
           <StatCard
             label={t('admin.dashboard.monthlyRevenue')}
             value={money(dash.monthlyRevenue)}
-            hint="This calendar month"
+            hint={t('admin.ops.thisMonth')}
             tone="success"
           />
         )}
         <StatCard
-          label="Reservations"
+          label={t('admin.ops.reservations')}
           value={dash.todayBookings}
-          hint="Created today"
+          hint={t('admin.ops.createdToday')}
           tone="info"
           to="/owner/manage-bookings"
         />
         <StatCard
           label={t('admin.dashboard.activeRentals')}
           value={dash.activeRentals}
-          hint="Currently on rent"
+          hint={t('admin.ops.currentlyOnRent')}
           tone="success"
           to="/owner/manage-bookings"
         />
@@ -196,21 +199,21 @@ const Dashboard = () => {
           hint={t('admin.dashboard.fleetUtilSub')}
         />
         <StatCard
-          label="Pending payments"
+          label={t('admin.ops.pendingPayments')}
           value={dash.pendingBookings}
-          hint="Awaiting confirmation / action"
+          hint={t('admin.ops.awaitingAction')}
           tone={dash.pendingBookings ? 'warning' : 'default'}
           to="/owner/manage-bookings"
         />
         <StatCard
-          label="Pending signatures"
+          label={t('admin.ops.pendingSignatures')}
           value={pendingSignatures == null ? '—' : pendingSignatures}
-          hint={canSignatures ? 'Open signature queue' : 'Enable signature module'}
+          hint={canSignatures ? t('admin.ops.openQueue') : t('admin.ops.enableSignatures')}
           tone={pendingSignatures ? 'warning' : 'default'}
           to={canSignatures ? '/owner/signature-requests' : undefined}
         />
         <StatCard
-          label="Expenses"
+          label={t('admin.ops.expenses')}
           value={
             canAccounting
               ? money(
@@ -220,7 +223,7 @@ const Dashboard = () => {
                 )
               : '—'
           }
-          hint={canAccounting ? 'Samsar + agency + vehicle' : 'Requires accounting'}
+          hint={canAccounting ? t('admin.ops.expenseHint') : t('admin.ops.requiresAccounting')}
           tone="default"
           to={canAccounting ? '/owner/accounting' : undefined}
         />
@@ -242,10 +245,10 @@ const Dashboard = () => {
         <ChartCard className="lg:col-span-2" title={t('admin.dashboard.fleetSnapshot')}>
           <div className="grid grid-cols-2 gap-2">
             {[
-              ['Available', dash.availableVehicles, 'success'],
-              ['On rent', dash.rentedVehicles, 'info'],
-              ['Maintenance', dash.maintenanceVehicles, 'warning'],
-              ['Total fleet', dash.totalCars, 'default'],
+              [t('admin.ops.available'), dash.availableVehicles, 'success'],
+              [t('admin.ops.onRent'), dash.rentedVehicles, 'info'],
+              [t('admin.ops.maintenance'), dash.maintenanceVehicles, 'warning'],
+              [t('admin.ops.totalFleet'), dash.totalCars, 'default'],
             ].map(([label, value, tone]) => (
               <div
                 key={label}
@@ -268,35 +271,35 @@ const Dashboard = () => {
             ))}
           </div>
           <Link to="/owner/manage-cars" className="mt-3 inline-block text-xs font-medium text-[var(--admin-accent)]">
-            Manage fleet →
+            {t('admin.ops.manageFleet')}
           </Link>
         </ChartCard>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4 mt-4">
         <ChartCard
-          title="Recent reservations"
+          title={t('admin.ops.recentReservations')}
           action={
             <Link to="/owner/manage-bookings" className="text-xs font-medium text-[var(--admin-accent)]">
-              View all
+              {t('admin.ops.viewAll')}
             </Link>
           }
         >
           {(dash.recentBookings || []).length === 0 ? (
             <EmptyState
               icon="calendar"
-              title="No recent reservations"
-              description="New bookings will appear here as they come in."
+              title={t('admin.ops.noRecent')}
+              description={t('admin.ops.noRecentHint')}
             />
           ) : (
             <div className="overflow-x-auto -mx-1">
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Customer</th>
-                    <th>Vehicle</th>
-                    <th>Amount</th>
-                    <th>Status</th>
+                    <th>{t('admin.ops.customer')}</th>
+                    <th>{t('admin.ops.vehicle')}</th>
+                    <th>{t('admin.ops.amount')}</th>
+                    <th>{t('admin.ops.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -323,29 +326,29 @@ const Dashboard = () => {
           )}
         </ChartCard>
 
-        <ChartCard title="Pending actions">
+        <ChartCard title={t('admin.ops.pendingActions')}>
           <ul className="space-y-2">
             {[
               {
-                label: 'Pending reservations',
+                label: t('admin.ops.pendingReservations'),
                 value: dash.pendingBookings,
                 to: '/owner/manage-bookings',
                 show: true,
               },
               {
-                label: 'Overdue returns',
+                label: t('admin.ops.overdueReturns'),
                 value: dash.overdueCount,
                 to: '/owner/manage-bookings',
                 show: true,
               },
               {
-                label: 'Vehicles offline / maintenance',
+                label: t('admin.ops.vehiclesOffline'),
                 value: dash.maintenanceVehicles,
                 to: '/owner/maintenance',
                 show: hasPermission('maintenance'),
               },
               {
-                label: 'Upcoming returns (7 days)',
+                label: t('admin.ops.upcomingReturns'),
                 value: dash.upcomingReturns?.length || 0,
                 to: '/owner/calendar',
                 show: hasPermission('calendar'),
@@ -371,9 +374,9 @@ const Dashboard = () => {
           </ul>
         </ChartCard>
 
-        <ChartCard title="Reservation status">
+        <ChartCard title={t('admin.ops.reservationStatus')}>
           {statusDistribution.length === 0 ? (
-            <EmptyState title="No distribution yet" description="Status mix appears once you have bookings." />
+            <EmptyState title={t('admin.ops.noDistribution')} description={t('admin.ops.noDistributionHint')} />
           ) : (
             <div className="space-y-2.5">
               {statusDistribution.map((row) => {
@@ -382,7 +385,11 @@ const Dashboard = () => {
                 return (
                   <div key={row.key}>
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="capitalize text-[var(--admin-fg-secondary)]">{row.label}</span>
+                      <span className="text-[var(--admin-fg-secondary)]">
+                      {t(`admin.status.${row.key}`) !== `admin.status.${row.key}`
+                        ? t(`admin.status.${row.key}`)
+                        : row.label}
+                    </span>
                       <span className="tabular-nums font-medium text-[var(--admin-fg)]">{row.value}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-[var(--admin-surface-2)] overflow-hidden">

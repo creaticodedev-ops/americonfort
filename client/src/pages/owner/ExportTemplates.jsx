@@ -443,7 +443,7 @@ const ExportTemplates = () => {
 
           {showPreview && previewHtml && (
             <div className="border border-borderColor rounded-xl overflow-hidden">
-              <iframe title="Template preview" srcDoc={previewHtml} className="w-full min-h-[480px] bg-white" />
+              <iframe title={t('admin.commonUi.preview')} srcDoc={previewHtml} className="w-full min-h-[480px] bg-white" />
             </div>
           )}
         </form>

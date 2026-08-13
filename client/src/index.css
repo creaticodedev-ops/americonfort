@@ -1194,4 +1194,60 @@ html[dir='rtl'] body {
   text-align: start;
 }
 
+html[dir='rtl'],
+html[dir='rtl'] .admin-app {
+  --font-sans: "Cairo", "IBM Plex Sans Arabic", ui-sans-serif, sans-serif;
+  --admin-font: "Cairo", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
+}
+
+html[dir='rtl'] .font-display,
+html[dir='rtl'] .admin-app {
+  font-family: var(--admin-font);
+}
+
+html[dir='rtl'] .admin-app .text-left {
+  text-align: start;
+}
+
+html[dir='rtl'] .admin-app .text-right {
+  text-align: end;
+}
+
+html[dir='rtl'] .admin-table-wrap,
+html[dir='rtl'] .admin-app .overflow-x-auto {
+  direction: rtl;
+}
+
+html[dir='rtl'] .admin-app [class*="translate-x-full"] {
+  /* mobile drawer closed state handled in layout; keep LTR utilities from leaking */
+}
+
+html[dir='rtl'] .goober,
+html[dir='rtl'] [role="status"] {
+  text-align: start;
+}
+
+html[dir='ltr'] .admin-app {
+  text-align: start;
+}
+
+/* Dark-mode contrast: muted text on dark surfaces */
+.admin-app[data-theme='dark'] .admin-badge {
+  border-color: transparent;
+}
+
+.admin-app input[type='date'],
+.admin-app input[type='datetime-local'] {
+  min-width: 0;
+}
+
+.admin-app .admin-table {
+  width: 100%;
+}
+
+.admin-app .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
 

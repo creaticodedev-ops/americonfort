@@ -1,4 +1,5 @@
 import React from 'react'
+import { useI18n } from '../../i18n/I18nContext'
 
 const toneFromStatus = (status) => {
   const s = String(status || '').toLowerCase()
@@ -12,11 +13,14 @@ const toneFromStatus = (status) => {
 }
 
 /**
- * Status badge with dot indicator — never color-only (includes text label).
+ * Status badge with translated label (never color-only).
  */
 const StatusBadge = ({ status, label, className = '' }) => {
+  const { t } = useI18n()
+  const key = String(status || '').toLowerCase()
+  const translated = key ? t(`admin.status.${key}`) : ''
+  const text = label || (translated && translated !== `admin.status.${key}` ? translated : status) || '—'
   const tone = toneFromStatus(status)
-  const text = label || status || '—'
   return (
     <span className={`admin-badge admin-badge--${tone} ${className}`}>
       {text}

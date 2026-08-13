@@ -468,10 +468,10 @@ const ManageBookings = () => {
       'Hello, regarding this reservation:',
       '',
       `ID: ${booking.reservationId || '—'}`,
-      `Customer: ${booking.customerName || '—'}`,
-      `Phone: ${booking.customerPhone || '—'}`,
-      `Vehicle: ${vehicle}`,
-      `Status: ${booking.status || '—'}`,
+      `${t('admin.leftover.printCustomer')}: ${booking.customerName || '—'}`,
+      `${t('admin.leftover.printPhone')}: ${booking.customerPhone || '—'}`,
+      `${t('admin.leftover.printVehicle')}: ${vehicle}`,
+      `${t('admin.leftover.printStatus')}: ${booking.status || '—'}`,
     ].join('\n')
     window.open(
       buildWaMeUrl(text, getAgencyWhatsAppDial(whatsappSettings, 'reservation')),
@@ -504,7 +504,7 @@ const ManageBookings = () => {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-      toast.success('Export downloaded')
+      toast.success(t('admin.leftover.exportDownloaded'))
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
@@ -530,18 +530,18 @@ const ManageBookings = () => {
           <h1>Reservation ${escapeHtml(reservationId)}</h1>
           <p class="muted">Printed ${escapeHtml(new Date().toLocaleString())}</p>
           <table>
-            <tr><td>Customer</td><td>${escapeHtml(booking.customerName || '-')}</td></tr>
-            <tr><td>Phone</td><td>${escapeHtml(booking.customerPhone || '-')}</td></tr>
-            <tr><td>Email</td><td>${escapeHtml(booking.customerEmail || '-')}</td></tr>
-            <tr><td>Vehicle</td><td>${escapeHtml(vehicle)}</td></tr>
-            <tr><td>Pickup Location</td><td>${escapeHtml(booking.pickupLocation || '-')}</td></tr>
-            <tr><td>Drop-off Location</td><td>${escapeHtml(booking.returnLocation || '-')}</td></tr>
-            <tr><td>Pickup</td><td>${escapeHtml(formatDateTime(booking.pickupDate))}</td></tr>
-            <tr><td>Return</td><td>${escapeHtml(formatDateTime(booking.returnDate))}</td></tr>
-            <tr><td>Status</td><td>${escapeHtml(booking.status)}</td></tr>
-            <tr><td>Payment</td><td>${escapeHtml(booking.paymentStatus)}</td></tr>
-            <tr><td>Total</td><td>${escapeHtml(String(currency))}${escapeHtml(String(booking.price))}</td></tr>
-            <tr><td>Notes</td><td>${escapeHtml(booking.notes || '-')}</td></tr>
+            <tr><td>${t('admin.leftover.printCustomer')}</td><td>${escapeHtml(booking.customerName || '-')}</td></tr>
+            <tr><td>${t('admin.leftover.printPhone')}</td><td>${escapeHtml(booking.customerPhone || '-')}</td></tr>
+            <tr><td>${t('admin.leftover.printEmail')}</td><td>${escapeHtml(booking.customerEmail || '-')}</td></tr>
+            <tr><td>${t('admin.leftover.printVehicle')}</td><td>${escapeHtml(vehicle)}</td></tr>
+            <tr><td>${t('admin.leftover.printPickupLoc')}</td><td>${escapeHtml(booking.pickupLocation || '-')}</td></tr>
+            <tr><td>${t('admin.leftover.printDropoff')}</td><td>${escapeHtml(booking.returnLocation || '-')}</td></tr>
+            <tr><td>${t('admin.leftover.printPickup')}</td><td>${escapeHtml(formatDateTime(booking.pickupDate))}</td></tr>
+            <tr><td>${t('admin.leftover.printReturn')}</td><td>${escapeHtml(formatDateTime(booking.returnDate))}</td></tr>
+            <tr><td>${t('admin.leftover.printStatus')}</td><td>${escapeHtml(booking.status)}</td></tr>
+            <tr><td>${t('admin.leftover.printPayment')}</td><td>${escapeHtml(booking.paymentStatus)}</td></tr>
+            <tr><td>${t('admin.leftover.printTotal')}</td><td>${escapeHtml(String(currency))}${escapeHtml(String(booking.price))}</td></tr>
+            <tr><td>${t('admin.leftover.printNotes')}</td><td>${escapeHtml(booking.notes || '-')}</td></tr>
           </table>
           <script>window.onload = () => { window.print(); }</script>
         </body>
@@ -549,7 +549,7 @@ const ManageBookings = () => {
     `
     const win = window.open('', '_blank', 'width=800,height=900')
     if (!win) {
-      toast.error('Please allow pop-ups to print')
+      toast.error(t('admin.leftover.allowPrint'))
       return
     }
     win.document.write(html)
@@ -608,31 +608,31 @@ const ManageBookings = () => {
           <div>
             <label className={labelClass}>{t('admin.bookings.status')}</label>
             <select className={inputClass} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
-              <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="ready_for_pickup">Ready for Pickup</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="">{t('admin.common.allStatuses')}</option>
+              <option value="pending">{t('admin.status.pending')}</option>
+              <option value="confirmed">{t('admin.status.confirmed')}</option>
+              <option value="ready_for_pickup">{t('admin.status.ready_for_pickup')}</option>
+              <option value="active">{t('admin.status.active')}</option>
+              <option value="completed">{t('admin.status.completed')}</option>
+              <option value="cancelled">{t('admin.status.cancelled')}</option>
             </select>
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookings.paymentStatus')}</label>
             <select className={inputClass} value={filters.paymentStatus} onChange={(e) => setFilters({ ...filters, paymentStatus: e.target.value })}>
-              <option value="">All payments</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="failed">Failed</option>
-              <option value="refunded">Refunded</option>
+              <option value="">{t('admin.bookingsUi.allPayments')}</option>
+              <option value="pending">{t('admin.status.pending')}</option>
+              <option value="paid">{t('admin.status.paid')}</option>
+              <option value="failed">{t('admin.status.failed')}</option>
+              <option value="refunded">{t('admin.status.refunded')}</option>
             </select>
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookings.channel')}</label>
             <select className={inputClass} value={filters.channel} onChange={(e) => setFilters({ ...filters, channel: e.target.value })}>
-              <option value="">All channels</option>
-              <option value="online">Online</option>
-              <option value="walk_in">Walk-in</option>
+              <option value="">{t('admin.bookingsUi.allChannels')}</option>
+              <option value="online">{t('admin.bookingsUi.online')}</option>
+              <option value="walk_in">{t('admin.bookingsUi.walkIn')}</option>
             </select>
           </div>
           <div>
@@ -665,7 +665,7 @@ const ManageBookings = () => {
               <EmptyState
                 icon="calendar"
                 title={t('admin.bookings.none')}
-                description="Adjust filters or create a walk-in reservation."
+                description={t('admin.leftover.adjustFilters')}
                 action={<Link to="/owner/walk-in" className="admin-btn admin-btn--primary">{t('admin.walkIn.menu')}</Link>}
               />
             ) : (
@@ -719,7 +719,7 @@ const ManageBookings = () => {
                 ) : bookings.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="!p-0">
-                      <EmptyState icon="calendar" title={t('admin.bookings.none')} description="Create a walk-in or wait for online bookings." />
+                      <EmptyState icon="calendar" title={t('admin.bookings.none')} description={t('admin.leftover.createWalkIn')} />
                     </td>
                   </tr>
                 ) : (
@@ -753,12 +753,12 @@ const ManageBookings = () => {
                           value={booking.status}
                           className="h-8 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs"
                         >
-                          <option value="pending">Pending</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="ready_for_pickup">Ready for Pickup</option>
-                          <option value="active">Active</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
+                          <option value="pending">{t('admin.status.pending')}</option>
+                          <option value="confirmed">{t('admin.status.confirmed')}</option>
+                          <option value="ready_for_pickup">{t('admin.status.ready_for_pickup')}</option>
+                          <option value="active">{t('admin.status.active')}</option>
+                          <option value="completed">{t('admin.status.completed')}</option>
+                          <option value="cancelled">{t('admin.status.cancelled')}</option>
                         </select>
                         <div className="mt-1"><StatusBadge status={booking.paymentStatus} /></div>
                       </td>
@@ -820,13 +820,13 @@ const ManageBookings = () => {
                 </button>
               </div>
 
-              <DetailSection title="Customer">
+              <DetailSection title={t('admin.details.customer')}>
                 <DetailRow label={t('admin.bookings.customer')}>{selectedBooking.customerName || '—'}</DetailRow>
                 <DetailRow label={t('admin.bookings.email')}>{selectedBooking.customerEmail || '—'}</DetailRow>
                 <DetailRow label={t('admin.bookings.phone')}>{selectedBooking.customerPhone || '—'}</DetailRow>
               </DetailSection>
 
-              <DetailSection title="Vehicle">
+              <DetailSection title={t('admin.details.vehicle')}>
                 <DetailRow label={t('admin.bookings.vehicle')}>
                   {selectedBooking.car?.brand} {selectedBooking.car?.model}
                 </DetailRow>
@@ -852,14 +852,14 @@ const ManageBookings = () => {
                 )}
               </DetailSection>
 
-              <DetailSection title="Rental period">
-                <DetailRow label="Pickup">{formatDateTime(selectedBooking.pickupDate)}</DetailRow>
-                <DetailRow label="Return">{formatDateTime(selectedBooking.returnDate)}</DetailRow>
+              <DetailSection title={t('admin.details.period')}>
+                <DetailRow label={t('admin.details.pickup')}>{formatDateTime(selectedBooking.pickupDate)}</DetailRow>
+                <DetailRow label={t('admin.details.return')}>{formatDateTime(selectedBooking.returnDate)}</DetailRow>
                 <DetailRow label={t('admin.bookings.pickupLocation')}>{selectedBooking.pickupLocation || '—'}</DetailRow>
-                <DetailRow label="Drop-off">{selectedBooking.returnLocation || '—'}</DetailRow>
+                <DetailRow label={t('admin.details.dropoff')}>{selectedBooking.returnLocation || '—'}</DetailRow>
               </DetailSection>
 
-              <DetailSection title="Pricing">
+              <DetailSection title={t('admin.details.pricing')}>
                 {selectedBooking.priceBreakdown ? (
                   <>
                     <DetailRow label={t('admin.bookings.rentalPrice')}>{currency}{selectedBooking.priceBreakdown.rentalPrice ?? 0}</DetailRow>
@@ -902,24 +902,24 @@ const ManageBookings = () => {
                     <strong>{currency}{selectedBooking.price}</strong>
                   </DetailRow>
                 )}
-                <DetailRow label="Notes">{selectedBooking.notes || '—'}</DetailRow>
+                <DetailRow label={t('admin.details.notes')}>{selectedBooking.notes || '—'}</DetailRow>
               </DetailSection>
 
-              <DetailSection title="Payment">
+              <DetailSection title={t('admin.details.payment')}>
                 <label className={labelClass}>{t('admin.bookings.paymentStatus')}</label>
                 <select
                   className={inputClass}
                   value={selectedBooking.paymentStatus || 'pending'}
                   onChange={(e) => changePaymentStatus(selectedBooking._id, e.target.value)}
                 >
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                  <option value="failed">Failed</option>
-                  <option value="refunded">Refunded</option>
+                  <option value="pending">{t('admin.status.pending')}</option>
+                  <option value="paid">{t('admin.status.paid')}</option>
+                  <option value="failed">{t('admin.status.failed')}</option>
+                  <option value="refunded">{t('admin.status.refunded')}</option>
                 </select>
               </DetailSection>
 
-              <DetailSection title="Contract & signature">
+              <DetailSection title={t('admin.details.contract')}>
                 {selectedBooking.completion && (
                   <div className="mb-2 space-y-1 text-xs text-[var(--admin-fg-secondary)]">
                     <p>{t('admin.bookings.docs')}: {selectedBooking.completion.documentsComplete ? '✓' : '—'}</p>
@@ -962,13 +962,13 @@ const ManageBookings = () => {
                             cacheCompletionUrl(selectedBooking._id, data.completionUrl)
                             await navigator.clipboard.writeText(data.completionUrl)
                           }
-                          toast.success('Signature link generated & copied')
+                          toast.success(t('admin.leftover.sigGenerated'))
                         } catch (e) {
                           toast.error(getErrorMessage(e))
                         }
                       }}
                     >
-                      Generate Signature Link
+                      {t('admin.leftover.generateSig')}
                     </button>
                   )}
                   {(selectedBooking.status === 'confirmed' || selectedBooking.status === 'pending') && (
@@ -989,7 +989,7 @@ const ManageBookings = () => {
                 </div>
               </DetailSection>
 
-              <DetailSection title="Samsar · Chauffeur · Partner">
+              <DetailSection title={t('admin.details.relations')}>
                 <BookingRelationAssigners
                   booking={selectedBooking}
                   onUpdated={(b) => {
@@ -999,7 +999,7 @@ const ManageBookings = () => {
                 />
               </DetailSection>
 
-              <DetailSection title="Documents">
+              <DetailSection title={t('admin.details.documents')}>
                 <div className="admin-action-rail mb-2">
                   <button type="button" className="admin-btn admin-btn--ghost" onClick={() => downloadDocument(selectedBooking._id, 'driving_license')}>
                     ↓ {t('admin.bookings.downloadLicense')}
@@ -1052,10 +1052,10 @@ const ManageBookings = () => {
                 />
               </DetailSection>
 
-              <DetailSection title="Activity / history">
-                <DetailRow label="Created">{formatDateTime(selectedBooking.createdAt)}</DetailRow>
-                <DetailRow label="Updated">{formatDateTime(selectedBooking.updatedAt)}</DetailRow>
-                <DetailRow label="Channel">{selectedBooking.channel || 'online'}</DetailRow>
+              <DetailSection title={t('admin.details.activity')}>
+                <DetailRow label={t('admin.details.created')}>{formatDateTime(selectedBooking.createdAt)}</DetailRow>
+                <DetailRow label={t('admin.details.updated')}>{formatDateTime(selectedBooking.updatedAt)}</DetailRow>
+                <DetailRow label={t('admin.leftover.printChannel')}>{selectedBooking.channel || 'online'}</DetailRow>
                 <div className="admin-action-rail pt-1">
                   <button type="button" className="admin-btn admin-btn--ghost" onClick={() => openWhatsApp(selectedBooking)}>
                     {t('admin.bookings.whatsapp')}
@@ -1078,7 +1078,7 @@ const ManageBookings = () => {
           </aside>
         ) : (
           <div className="admin-panel">
-            <EmptyState icon="inbox" title={t('admin.bookings.selectHint')} description="Select a reservation from the list to inspect details and take action." />
+            <EmptyState icon="inbox" title={t('admin.bookings.selectHint')} />
           </div>
         )}
       </div>
@@ -1140,20 +1140,20 @@ const ManageBookings = () => {
             <div>
               <label className={labelClass}>{t('admin.bookings.status')}</label>
               <select className={inputClass} value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="ready_for_pickup">Ready for Pickup</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="pending">{t('admin.status.pending')}</option>
+                <option value="confirmed">{t('admin.status.confirmed')}</option>
+                <option value="ready_for_pickup">{t('admin.status.ready_for_pickup')}</option>
+                <option value="active">{t('admin.status.active')}</option>
+                <option value="completed">{t('admin.status.completed')}</option>
+                <option value="cancelled">{t('admin.status.cancelled')}</option>
               </select>
             </div>
             <div>
-              <label className={labelClass}>Pickup Date & Time</label>
+              <label className={labelClass}>{t('admin.invoiceUi.pickupAt')}</label>
               <input type="datetime-local" className={inputClass} value={editForm.pickupDate} onChange={(e) => setEditForm({ ...editForm, pickupDate: e.target.value })} required />
             </div>
             <div>
-              <label className={labelClass}>Return Date & Time</label>
+              <label className={labelClass}>{t('admin.invoiceUi.returnAt')}</label>
               <input type="datetime-local" className={inputClass} value={editForm.returnDate} onChange={(e) => setEditForm({ ...editForm, returnDate: e.target.value })} required />
             </div>
             <div>
@@ -1161,23 +1161,23 @@ const ManageBookings = () => {
               <input className={inputClass} value={editForm.pickupLocation} onChange={(e) => setEditForm({ ...editForm, pickupLocation: e.target.value })} required />
             </div>
             <div>
-              <label className={labelClass}>Drop-off Location</label>
+              <label className={labelClass}>{t('admin.details.dropoff')}</label>
               <input className={inputClass} value={editForm.returnLocation} onChange={(e) => setEditForm({ ...editForm, returnLocation: e.target.value })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.bookings.paymentStatus')}</label>
               <select className={inputClass} value={editForm.paymentStatus} onChange={(e) => setEditForm({ ...editForm, paymentStatus: e.target.value })}>
-                <option value="pending">Pending</option>
-                <option value="paid">Paid</option>
-                <option value="failed">Failed</option>
-                <option value="refunded">Refunded</option>
+                <option value="pending">{t('admin.status.pending')}</option>
+                <option value="paid">{t('admin.status.paid')}</option>
+                <option value="failed">{t('admin.status.failed')}</option>
+                <option value="refunded">{t('admin.status.refunded')}</option>
               </select>
             </div>
             <div className="sm:col-span-2">
               <label className={labelClass}>{t('admin.bookings.assignVehicle')}</label>
               <select className={inputClass} value={editForm.carId} onChange={(e) => setEditForm({ ...editForm, carId: e.target.value })}>
                 {editVehicleOptions.length === 0 ? (
-                  <option value="">No compatible vehicle available</option>
+                  <option value="">{t('admin.bookingsUi.noCompatible')}</option>
                 ) : (
                   editVehicleOptions.map((c) => (
                     <option key={c._id} value={c._id}>
@@ -1188,7 +1188,7 @@ const ManageBookings = () => {
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className={labelClass}>Notes</label>
+              <label className={labelClass}>{t('admin.details.notes')}</label>
               <textarea className={inputClass} rows="3" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
             </div>
           </form>

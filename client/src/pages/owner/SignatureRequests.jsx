@@ -11,22 +11,24 @@ import {
   SegmentedControl,
 } from '../../components/owner/ui'
 import { useAppContext } from '../../context/AppContext'
+import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
-
-const STATUS_OPTS = [
-  { id: 'all', label: 'All' },
-  { id: 'pending', label: 'Pending' },
-  { id: 'signed', label: 'Signed' },
-  { id: 'expired', label: 'Expired' },
-  { id: 'cancelled', label: 'Cancelled' },
-]
 
 const SignatureRequests = () => {
   const { axios, hasPermission } = useAppContext()
+  const { t } = useI18n()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
   const [search, setSearch] = useState('')
+
+  const statusOpts = [
+    { id: 'all', label: t('admin.status.all') },
+    { id: 'pending', label: t('admin.status.pending') },
+    { id: 'signed', label: t('admin.status.signed') },
+    { id: 'expired', label: t('admin.status.expired') },
+    { id: 'cancelled', label: t('admin.status.cancelled') },
+  ]
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -36,25 +38,25 @@ const SignatureRequests = () => {
       if (search.trim()) params.set('search', search.trim())
       const { data } = await axios.get(`/api/owner/signature-requests?${params}`)
       if (data.success) setItems(data.items || [])
-      else toast.error(data.message || 'Failed to load')
+      else toast.error(data.message || t('admin.signatures.loadFailed'))
     } catch (e) {
       toast.error(getErrorMessage(e))
     } finally {
       setLoading(false)
     }
-  }, [axios, status, search])
+  }, [axios, status, search, t])
 
   useEffect(() => {
     load()
   }, [load])
 
   const copyLink = async (url) => {
-    if (!url) return toast.error('No link available')
+    if (!url) return toast.error(t('admin.signatures.noLink'))
     try {
       await navigator.clipboard.writeText(url)
-      toast.success('Link copied')
+      toast.success(t('admin.signatures.linkCopied'))
     } catch {
-      toast.error('Could not copy')
+      toast.error(t('admin.signatures.copyFailed'))
     }
   }
 
@@ -73,8 +75,8 @@ const SignatureRequests = () => {
   if (!hasPermission('signature_requests')) {
     return (
       <AdminPage>
-        <PageHeader title="Signature Requests" />
-        <p className="text-sm text-[var(--admin-fg-muted)]">You do not have access to this module.</p>
+        <PageHeader title={t('admin.signatures.title')} />
+        <p className="text-sm text-[var(--admin-fg-muted)]">{t('admin.signatures.noAccess')}</p>
       </AdminPage>
     )
   }
@@ -84,7 +86,7 @@ const SignatureRequests = () => {
   const columns = [
     {
       key: 'reservation',
-      label: 'Reservation',
+      label: t('admin.signatures.reservation'),
       render: (row) => (
         <div>
           <p className="font-medium">{row.reservationId || '—'}</p>
@@ -93,25 +95,25 @@ const SignatureRequests = () => {
             className="text-[11px] text-[var(--admin-accent)]"
             onClick={(e) => e.stopPropagation()}
           >
-            Open reservations
+            {t('admin.signatures.openReservations')}
           </Link>
         </div>
       ),
     },
-    { key: 'customerName', label: 'Customer', render: (row) => row.customerName || '—' },
+    { key: 'customerName', label: t('admin.signatures.customer'), render: (row) => row.customerName || '—' },
     {
       key: 'vehicle',
-      label: 'Vehicle',
+      label: t('admin.signatures.vehicle'),
       render: (row) => (row.car ? `${row.car.brand} ${row.car.model}` : '—'),
     },
     {
       key: 'status',
-      label: 'Status',
+      label: t('admin.signatures.status'),
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('admin.signatures.actions'),
       className: 'whitespace-nowrap',
       render: (row) => (
         <div className="flex flex-wrap gap-2">
@@ -119,9 +121,9 @@ const SignatureRequests = () => {
             <button
               type="button"
               className="text-xs font-medium text-[var(--admin-accent)]"
-              onClick={() => act('generate', row.bookingId, 'Link generated')}
+              onClick={() => act('generate', row.bookingId, t('admin.signatures.generated'))}
             >
-              Generate
+              {t('admin.signatures.generate')}
             </button>
           )}
           {row.status === 'pending' && (
@@ -131,30 +133,30 @@ const SignatureRequests = () => {
                 className="text-xs font-medium text-[var(--admin-accent)]"
                 onClick={() => copyLink(row.shareableCompletionUrl)}
               >
-                Copy link
+                {t('admin.signatures.copyLink')}
               </button>
               <button
                 type="button"
                 className="text-xs font-medium text-[var(--admin-accent)]"
-                onClick={() => act('resend', row.bookingId, 'Link resent')}
+                onClick={() => act('resend', row.bookingId, t('admin.signatures.resent'))}
               >
-                Resend
+                {t('admin.signatures.resend')}
               </button>
               <button
                 type="button"
                 className="text-xs font-medium text-[var(--admin-danger)]"
                 onClick={() => {
-                  if (window.confirm('Cancel this signature request?')) {
-                    act('cancel', row.bookingId, 'Cancelled')
+                  if (window.confirm(t('admin.signatures.cancelConfirm'))) {
+                    act('cancel', row.bookingId, t('admin.signatures.cancelled'))
                   }
                 }}
               >
-                Cancel
+                {t('admin.signatures.cancel')}
               </button>
             </>
           )}
           {row.status === 'signed' && (
-            <span className="text-xs text-[var(--admin-success)] font-medium">Signed</span>
+            <span className="text-xs text-[var(--admin-success)] font-medium">{t('admin.signatures.signed')}</span>
           )}
         </div>
       ),
@@ -164,15 +166,17 @@ const SignatureRequests = () => {
   return (
     <AdminPage>
       <PageHeader
-        title="Signature Requests"
-        description="Document signature queue. Pending requests need attention before pickup."
+        title={t('admin.signatures.title')}
+        description={t('admin.signatures.subtitle')}
         breadcrumbs={[
-          { label: 'Documents', to: '/owner/signature-requests' },
-          { label: 'Signatures' },
+          { label: t('admin.signatures.documents'), to: '/owner/signature-requests' },
+          { label: t('admin.signatures.signatures') },
         ]}
         actions={
           pendingCount > 0 ? (
-            <span className="admin-badge admin-badge--pending">{pendingCount} pending</span>
+            <span className="admin-badge admin-badge--pending">
+              {t('admin.signatures.pendingCount', { count: pendingCount })}
+            </span>
           ) : null
         }
       />
@@ -181,21 +185,26 @@ const SignatureRequests = () => {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search reservation / customer"
+          placeholder={t('admin.signatures.search')}
         />
-        <SegmentedControl options={STATUS_OPTS} value={status} onChange={setStatus} ariaLabel="Signature status" />
+        <SegmentedControl
+          options={statusOpts}
+          value={status}
+          onChange={setStatus}
+          ariaLabel={t('admin.commonUi.signatureStatus')}
+        />
       </FilterBar>
 
       <DataTable
         columns={columns}
         data={items}
         loading={loading}
-        emptyMessage="No signature requests yet"
-        emptyDescription="Generate a signature link from a reservation to start the completion workflow."
+        emptyMessage={t('admin.signatures.empty')}
+        emptyDescription={t('admin.signatures.emptyHint')}
         emptyIcon="signature"
         emptyAction={
           <Link to="/owner/manage-bookings" className="admin-btn admin-btn--primary">
-            Go to reservations
+            {t('admin.signatures.goReservations')}
           </Link>
         }
       />

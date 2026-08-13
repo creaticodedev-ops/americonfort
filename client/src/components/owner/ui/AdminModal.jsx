@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef } from 'react'
 import { Icon } from './adminIcons'
+import { useI18n } from '../../../i18n/I18nContext'
 
 export const AdminModal = ({
   open,
@@ -11,6 +12,7 @@ export const AdminModal = ({
   size = 'md',
   closeOnBackdrop = true,
 }) => {
+  const { t } = useI18n()
   const titleId = useId()
   const panelRef = useRef(null)
 
@@ -40,7 +42,7 @@ export const AdminModal = ({
       <button
         type="button"
         className="admin-modal-backdrop"
-        aria-label="Close dialog"
+        aria-label={t('admin.commonUi.closeDialog')}
         onClick={() => closeOnBackdrop && onClose?.()}
       />
       <div
@@ -64,7 +66,7 @@ export const AdminModal = ({
             type="button"
             className="admin-icon-btn absolute end-3 top-3"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('admin.commonUi.close')}
           >
             <Icon name="x" className="h-4 w-4" />
           </button>
@@ -80,13 +82,15 @@ export const ConfirmDialog = ({
   isOpen,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
   variant = 'danger',
   loading = false,
-}) => (
+}) => {
+  const { t } = useI18n()
+  return (
   <AdminModal
     open={isOpen}
     onClose={onCancel}
@@ -96,7 +100,7 @@ export const ConfirmDialog = ({
     footer={
       <>
         <button type="button" className="admin-btn admin-btn--secondary" onClick={onCancel} disabled={loading}>
-          {cancelText}
+          {cancelText || t('admin.common.cancel')}
         </button>
         <button
           type="button"
@@ -104,11 +108,12 @@ export const ConfirmDialog = ({
           onClick={onConfirm}
           disabled={loading}
         >
-          {loading ? 'Working…' : confirmText}
+          {loading ? t('admin.commonUi.working') : (confirmText || t('admin.commonUi.confirm'))}
         </button>
       </>
     }
   />
-)
+  )
+}
 
 export default AdminModal

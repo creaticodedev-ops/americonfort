@@ -18,15 +18,15 @@ const STATUS_STYLES = {
   maintenance: 'bg-amber-100 text-amber-800',
 }
 
-const TYPE_LABELS = {
-  oil_change: 'Oil change',
-  tire_replacement: 'Tire replacement',
-  general_service: 'General service',
-  repair: 'Repair',
-  inspection: 'Technical inspection',
-  insurance: 'Insurance',
-  registration: 'Registration',
-  other: 'Other',
+const TYPE_KEYS = {
+  oil_change: 'typeOil',
+  tire_replacement: 'typeTire',
+  general_service: 'typeService',
+  repair: 'typeRepair',
+  inspection: 'typeInspection',
+  insurance: 'typeInsurance',
+  registration: 'typeRegistration',
+  other: 'typeOther',
 }
 
 const emptyRecord = {
@@ -222,7 +222,7 @@ const Maintenance = () => {
         completedDate: new Date().toISOString(),
       })
       if (data.success) {
-        toast.success('Marked complete')
+        toast.success(t('admin.leftover.markedComplete'))
         loadRecords()
         loadFleet()
       }
@@ -379,7 +379,7 @@ const Maintenance = () => {
               <p className="p-6 text-gray-400 text-sm">{t('admin.fleet.none')}</p>
             ) : (
               <div className="overflow-x-auto table-scroll">
-                <table className="w-full text-sm text-left min-w-[1100px]">
+                <table className="w-full text-sm text-start min-w-[1100px]">
                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                     <tr>
                       <th className="px-4 py-3">{t('admin.fleet.fleetId')}</th>
@@ -446,7 +446,7 @@ const Maintenance = () => {
               <div>
                 <p className="font-medium text-gray-800">{r.title}</p>
                 <p className="text-xs text-gray-500">
-                  {formatUnit(r.car)} · {TYPE_LABELS[r.type] || r.type} · {r.status}
+                  {formatUnit(r.car)} · {t(`admin.maint.${TYPE_KEYS[r.type] || 'typeOther'}`)} · {t(`admin.status.${r.status}`) !== `admin.status.${r.status}` ? t(`admin.status.${r.status}`) : r.status}
                 </p>
               </div>
               <p className="text-sm text-gray-600">
@@ -460,15 +460,15 @@ const Maintenance = () => {
       {tab === 'history' && (
         <div className="mt-6 rounded-xl border border-borderColor bg-white overflow-hidden">
           <div className="overflow-x-auto table-scroll">
-            <table className="w-full text-sm text-left min-w-[800px]">
+            <table className="w-full text-sm text-start min-w-[800px]">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Vehicle</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Cost</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">{t('admin.maint.date')}</th>
+                  <th className="px-4 py-3">{t('admin.maint.vehicle')}</th>
+                  <th className="px-4 py-3">{t('admin.maint.type')}</th>
+                  <th className="px-4 py-3">{t('admin.maint.title')}</th>
+                  <th className="px-4 py-3">{t('admin.maint.costTh')}</th>
+                  <th className="px-4 py-3">{t('admin.maint.status')}</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -483,21 +483,21 @@ const Maintenance = () => {
                           : '—'}
                     </td>
                     <td className="px-4 py-3">{formatUnit(r.car)}</td>
-                    <td className="px-4 py-3 text-xs">{TYPE_LABELS[r.type] || r.type}</td>
+                    <td className="px-4 py-3 text-xs">{t(`admin.maint.${TYPE_KEYS[r.type] || 'typeOther'}`)}</td>
                     <td className="px-4 py-3">{r.title}</td>
                     <td className="px-4 py-3">{currency}{r.cost || 0}</td>
                     <td className="px-4 py-3 capitalize text-xs">{r.status}</td>
                     <td className="px-4 py-3">
                       {r.status !== 'completed' && r.status !== 'cancelled' && (
                         <button type="button" onClick={() => completeRecord(r._id)} className="text-xs text-primary hover:underline">
-                          Complete
+                          {t('admin.bookings.complete')}
                         </button>
                       )}
                     </td>
                   </tr>
                 ))}
                 {!records.length && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No service history yet.</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">{t('admin.leftover.noHistory')}</td></tr>
                 )}
               </tbody>
             </table>
@@ -511,14 +511,14 @@ const Maintenance = () => {
             <button type="button" className="px-3 py-1.5 border rounded-lg text-sm" onClick={() => {
               if (calMonth === 1) { setCalMonth(12); setCalYear((y) => y - 1) }
               else setCalMonth((m) => m - 1)
-            }}>Prev</button>
+            }}>{t('admin.maint.prev')}</button>
             <p className="text-sm font-medium text-gray-800 min-w-[8rem] text-center">
               {new Date(calYear, calMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
             </p>
             <button type="button" className="px-3 py-1.5 border rounded-lg text-sm" onClick={() => {
               if (calMonth === 12) { setCalMonth(1); setCalYear((y) => y + 1) }
               else setCalMonth((m) => m + 1)
-            }}>Next</button>
+            }}>{t('admin.maint.next')}</button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-xs">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
@@ -550,19 +550,19 @@ const Maintenance = () => {
         <div className="mt-6 space-y-4">
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="rounded-xl border bg-white p-4">
-              <p className="text-xs text-gray-400 uppercase">Total cost (YTD)</p>
+              <p className="text-xs text-gray-400 uppercase">{t('admin.leftover.totalCostYtd')}</p>
               <p className="text-2xl font-semibold text-primary mt-1">{currency}{report.totalCost}</p>
             </div>
             <div className="rounded-xl border bg-white p-4">
-              <p className="text-xs text-gray-400 uppercase">Jobs completed</p>
+              <p className="text-xs text-gray-400 uppercase">{t('admin.maint.jobsCompleted')}</p>
               <p className="text-2xl font-semibold mt-1">{report.recordCount}</p>
             </div>
             <div className="rounded-xl border bg-white p-4">
-              <p className="text-xs text-gray-400 uppercase">By type</p>
+              <p className="text-xs text-gray-400 uppercase">{t('admin.maint.byType')}</p>
               <ul className="mt-2 text-xs space-y-1 max-h-24 overflow-y-auto">
                 {Object.entries(report.byType || {}).map(([type, v]) => (
                   <li key={type} className="flex justify-between gap-2">
-                    <span>{TYPE_LABELS[type] || type}</span>
+                    <span>{t(`admin.maint.${TYPE_KEYS[type] || 'typeOther'}`)}</span>
                     <span>{v.count} · {currency}{v.cost}</span>
                   </li>
                 ))}
@@ -573,9 +573,9 @@ const Maintenance = () => {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-4 py-3 text-left">Vehicle</th>
-                  <th className="px-4 py-3 text-left">Jobs</th>
-                  <th className="px-4 py-3 text-left">Cost</th>
+                  <th className="px-4 py-3 text-start">{t('admin.maint.vehicle')}</th>
+                  <th className="px-4 py-3 text-start">{t('admin.maint.jobs')}</th>
+                  <th className="px-4 py-3 text-start">{t('admin.maint.costTh')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -623,9 +623,9 @@ const Maintenance = () => {
                   <label className="text-xs text-gray-500">{label}</label>
                   {key === 'status' ? (
                     <select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                      <option value="available">Available</option>
-                      <option value="booked">Rented</option>
-                      <option value="maintenance">In Maintenance</option>
+                      <option value="available">{t('admin.status.available')}</option>
+                      <option value="booked">{t('admin.status.booked')}</option>
+                      <option value="maintenance">{t('admin.fleetUi.inMaintenance')}</option>
                     </select>
                   ) : (
                     <input
@@ -638,13 +638,13 @@ const Maintenance = () => {
                 </div>
               ))}
               <div className="sm:col-span-2">
-                <label className="text-xs text-gray-500">Notes</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.notes')}</label>
                 <textarea className={inputClass} rows={2} value={form.maintenanceNotes} onChange={(e) => setForm({ ...form, maintenanceNotes: e.target.value })} />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-              <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm">Save</button>
+              <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 border rounded-lg text-sm">{t('admin.common.cancel')}</button>
+              <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm">{t('admin.common.save')}</button>
             </div>
           </form>
         </div>
@@ -656,9 +656,9 @@ const Maintenance = () => {
           <form onSubmit={saveRecord} className="bg-white rounded-t-2xl sm:rounded-xl w-full max-w-lg max-h-[90svh] overflow-y-auto p-5 sm:p-6 space-y-3">
             <h3 className="text-lg font-semibold">{t('admin.maintenance.scheduleWork')}</h3>
             <div>
-              <label className="text-xs text-gray-500">Vehicle *</label>
+              <label className="text-xs text-gray-500">{t('admin.maint.vehicleRequired')}</label>
               <select required className={inputClass} value={recordForm.carId} onChange={(e) => setRecordForm({ ...recordForm, carId: e.target.value })}>
-                <option value="">Select…</option>
+                <option value="">{t('admin.maint.select')}</option>
                 {cars.map((c) => (
                   <option key={c._id} value={c._id}>{formatUnit(c)}</option>
                 ))}
@@ -666,57 +666,57 @@ const Maintenance = () => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500">Type</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.type')}</label>
                 <select className={inputClass} value={recordForm.type} onChange={(e) => setRecordForm({ ...recordForm, type: e.target.value })}>
-                  {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  {Object.keys(TYPE_KEYS).map((k) => <option key={k} value={k}>{t(`admin.maint.${TYPE_KEYS[k]}`)}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500">Status</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.status')}</label>
                 <select className={inputClass} value={recordForm.status} onChange={(e) => setRecordForm({ ...recordForm, status: e.target.value })}>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="completed">Completed</option>
+                  <option value="scheduled">{t('admin.status.scheduled')}</option>
+                  <option value="in_progress">{t('admin.status.in_progress')}</option>
+                  <option value="completed">{t('admin.status.completed')}</option>
                 </select>
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-500">Title *</label>
-              <input required className={inputClass} value={recordForm.title} onChange={(e) => setRecordForm({ ...recordForm, title: e.target.value })} placeholder="e.g. 10,000 km service" />
+              <label className="text-xs text-gray-500">{t('admin.maint.title')}</label>
+              <input required className={inputClass} value={recordForm.title} onChange={(e) => setRecordForm({ ...recordForm, title: e.target.value })} placeholder={t('admin.maint.titlePh')} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500">Scheduled</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.scheduled')}</label>
                 <input type="date" className={inputClass} value={recordForm.scheduledDate} onChange={(e) => setRecordForm({ ...recordForm, scheduledDate: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Cost</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.cost')}</label>
                 <input type="number" min="0" step="0.01" className={inputClass} value={recordForm.cost} onChange={(e) => setRecordForm({ ...recordForm, cost: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Mileage</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.mileage')}</label>
                 <input type="number" className={inputClass} value={recordForm.mileageAtService} onChange={(e) => setRecordForm({ ...recordForm, mileageAtService: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Vendor</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.vendor')}</label>
                 <input className={inputClass} value={recordForm.vendor} onChange={(e) => setRecordForm({ ...recordForm, vendor: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Next due date</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.nextDueDate')}</label>
                 <input type="date" className={inputClass} value={recordForm.nextDueDate} onChange={(e) => setRecordForm({ ...recordForm, nextDueDate: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Next due km</label>
+                <label className="text-xs text-gray-500">{t('admin.maint.nextDueKm')}</label>
                 <input type="number" className={inputClass} value={recordForm.nextDueMileage} onChange={(e) => setRecordForm({ ...recordForm, nextDueMileage: e.target.value })} />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={recordForm.setCarInMaintenance} onChange={(e) => setRecordForm({ ...recordForm, setCarInMaintenance: e.target.checked })} />
-              Mark vehicle In Maintenance while work is open
+              {t('admin.maint.markInMaintenance')}
             </label>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowRecord(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-              <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm">Save</button>
+              <button type="button" onClick={() => setShowRecord(false)} className="px-4 py-2 border rounded-lg text-sm">{t('admin.common.cancel')}</button>
+              <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm">{t('admin.common.save')}</button>
             </div>
           </form>
         </div>

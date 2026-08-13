@@ -384,7 +384,7 @@ const DocumentEditor = ({
           ) : (
             <div className="overflow-hidden rounded-xl border border-borderColor">
               {previewHtml ? (
-                <iframe title="Document preview" srcDoc={previewHtml} className="min-h-[480px] w-full bg-white" />
+                <iframe title={t('admin.commonUi.preview')} srcDoc={previewHtml} className="min-h-[480px] w-full bg-white" />
               ) : (
                 <p className="p-6 text-sm text-gray-500">{t('admin.documents.noPreview')}</p>
               )}

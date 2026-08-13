@@ -25,7 +25,7 @@ const Reports = () => {
       if (contentType.includes('application/json')) {
         const text = await response.data.text();
         const json = JSON.parse(text);
-        toast.error(json.message || 'Export failed');
+        toast.error(json.message || t('admin.reportsUi.exportFailed'));
         return;
       }
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -35,7 +35,7 @@ const Reports = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      toast.success('Report downloaded');
+      toast.success(t('admin.reportsUi.downloaded'));
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -46,20 +46,20 @@ const Reports = () => {
   const printPdf = () => {
     const w = window.open('', '_blank', 'width=900,height=700');
     if (!w) {
-      toast.error('Allow pop-ups to print PDF');
+      toast.error(t('admin.reportsUi.allowPopups'));
       return;
     }
     w.document.write(`
-      <html><head><title>Agency Report</title>
+      <html><head><title>${t('admin.reportsUi.agencyReport')}</title>
       <style>body{font-family:Arial;padding:32px}h1{margin:0 0 8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{border:1px solid #e5e7eb;padding:16px;border-radius:8px}</style>
       </head><body>
-      <h1>Car Rental Agency Report</h1>
-      <p>Generated ${new Date().toLocaleString()}</p>
+      <h1>${t('admin.reportsUi.agencyReport')}</h1>
+      <p>${new Date().toLocaleString()}</p>
       <div class="grid">
-        <div class="card"><b>Weekly revenue</b><br/>${currency}${analytics?.weeklyRevenue || 0}</div>
-        <div class="card"><b>Monthly revenue</b><br/>${currency}${analytics?.monthlyRevenue || 0}</div>
-        <div class="card"><b>Yearly revenue</b><br/>${currency}${analytics?.yearlyRevenue || 0}</div>
-        <div class="card"><b>Total revenue</b><br/>${currency}${analytics?.totalRevenue || 0}</div>
+        <div class="card"><b>${t('admin.reportsUi.weekly')}</b><br/>${currency}${analytics?.weeklyRevenue || 0}</div>
+        <div class="card"><b>${t('admin.reportsUi.monthly')}</b><br/>${currency}${analytics?.monthlyRevenue || 0}</div>
+        <div class="card"><b>${t('admin.reportsUi.yearly')}</b><br/>${currency}${analytics?.yearlyRevenue || 0}</div>
+        <div class="card"><b>${t('admin.reportsUi.total')}</b><br/>${currency}${analytics?.totalRevenue || 0}</div>
       </div>
       <script>window.onload=()=>window.print()</script>
       </body></html>

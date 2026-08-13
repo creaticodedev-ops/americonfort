@@ -1,13 +1,15 @@
 import React from 'react'
+import { useI18n } from '../../i18n/I18nContext'
 
 /** Lightweight CSS bar chart — no chart library required */
 const RevenueChart = ({ data = [], currency = '', height = 180 }) => {
+  const { t } = useI18n()
   const max = Math.max(1, ...data.map((d) => d.amount || 0))
 
   if (!data.length) {
     return (
       <p className="text-sm text-[var(--admin-fg-muted)] py-10 text-center">
-        No revenue data yet
+        {t('admin.leftover.noRevenue')}
       </p>
     )
   }

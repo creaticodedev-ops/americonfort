@@ -1,5 +1,6 @@
 import React from 'react'
 import { EmptyState, SkeletonRows } from './ui'
+import { useI18n } from '../../i18n/I18nContext'
 
 const DataTable = ({
   columns,
@@ -8,13 +9,15 @@ const DataTable = ({
   sortOrder,
   onSort,
   loading,
-  emptyMessage = 'No data found',
+  emptyMessage,
   emptyDescription,
   emptyAction,
   emptyIcon = 'inbox',
   onRowClick,
   className = '',
 }) => {
+  const { t } = useI18n()
+  const emptyTitle = emptyMessage || t('admin.leftover.noData')
   const handleSort = (key) => {
     if (!key || !onSort) return
     if (sortBy === key) {
@@ -27,10 +30,10 @@ const DataTable = ({
   const SortIcon = ({ columnKey }) => {
     if (!columnKey) return null
     if (sortBy !== columnKey) {
-      return <span className="ml-1 opacity-35 text-[10px]" aria-hidden="true">↕</span>
+      return <span className="ms-1 opacity-35 text-[10px]" aria-hidden="true">↕</span>
     }
     return (
-      <span className="ml-1 text-[var(--admin-accent)] text-[10px]" aria-hidden="true">
+      <span className="ms-1 text-[var(--admin-accent)] text-[10px]" aria-hidden="true">
         {sortOrder === 'asc' ? '↑' : '↓'}
       </span>
     )
@@ -75,7 +78,7 @@ const DataTable = ({
                 <td colSpan={columns.length} className="!p-0">
                   <EmptyState
                     icon={emptyIcon}
-                    title={emptyMessage}
+                    title={emptyTitle}
                     description={emptyDescription}
                     action={emptyAction}
                   />

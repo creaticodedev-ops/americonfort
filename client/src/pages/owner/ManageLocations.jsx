@@ -141,7 +141,7 @@ const ManageLocations = () => {
           <input
             type="text"
             required
-            placeholder="Casablanca Airport"
+            placeholder={t('admin.locUi.namePh')}
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -152,7 +152,7 @@ const ManageLocations = () => {
           <input
             type="text"
             required
-            placeholder="Casablanca"
+            placeholder={t('admin.locUi.cityPh')}
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.city}
             onChange={(e) => setForm({ ...form, city: e.target.value })}
@@ -163,7 +163,7 @@ const ManageLocations = () => {
           <input
             type="text"
             required
-            placeholder="Mohammed V International Airport, Casablanca"
+            placeholder={t('admin.locUi.addressPh')}
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.address}
             onChange={(e) => setForm({ ...form, address: e.target.value })}

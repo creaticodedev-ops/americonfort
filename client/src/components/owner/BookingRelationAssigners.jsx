@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useAppContext } from '../../context/AppContext'
+import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
 
 const selectClass =
@@ -11,6 +12,7 @@ const selectClass =
  */
 const BookingRelationAssigners = ({ booking, onUpdated }) => {
   const { axios, hasPermission } = useAppContext()
+  const { t } = useI18n()
   const canPartners = hasPermission('partners')
   const canChauffeurs = hasPermission('chauffeurs')
   const canBookings = hasPermission('bookings')
@@ -51,7 +53,7 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
         ...payload,
       })
       if (!data.success) throw new Error(data.message)
-      toast.success('Assignment updated')
+      toast.success(t('admin.leftover.assignmentUpdated'))
       onUpdated?.(data.booking)
     } catch (e) {
       toast.error(getErrorMessage(e))
@@ -62,7 +64,7 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
 
   if (!canBookings) return null
   if (!canPartners && !canChauffeurs) {
-    return <p className="text-xs text-[var(--admin-fg-muted)]">No assignment permissions.</p>
+    return <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.leftover.noAssignPerm')}</p>
   }
 
   const samsarId = booking.samsar?._id || booking.samsar || ''
@@ -73,7 +75,7 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
     <div className="space-y-3">
       {canPartners && (
         <div>
-          <label className="text-[11px] text-[var(--admin-fg-muted)]">Assign Samsar</label>
+          <label className="text-[11px] text-[var(--admin-fg-muted)]">{t('admin.leftover.assignSamsar')}</label>
           <div className="mt-1">
             <select
               className={selectClass}
@@ -92,7 +94,7 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
 
       {canChauffeurs && (
         <div>
-          <label className="text-[11px] text-[var(--admin-fg-muted)]">Assign Chauffeur</label>
+          <label className="text-[11px] text-[var(--admin-fg-muted)]">{t('admin.leftover.assignChauffeur')}</label>
           <div className="mt-1">
             <select
               className={selectClass}
@@ -111,7 +113,7 @@ const BookingRelationAssigners = ({ booking, onUpdated }) => {
 
       {canPartners && (
         <div>
-          <label className="text-[11px] text-[var(--admin-fg-muted)]">Assign Partner Company</label>
+          <label className="text-[11px] text-[var(--admin-fg-muted)]">{t('admin.leftover.assignPartner')}</label>
           <div className="mt-1">
             <select
               className={selectClass}

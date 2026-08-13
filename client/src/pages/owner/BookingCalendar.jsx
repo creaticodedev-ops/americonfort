@@ -258,7 +258,7 @@ const BookingCalendar = () => {
         footer={
           <>
             <Link to="/owner/manage-bookings" className="admin-btn admin-btn--secondary" onClick={() => setSelected(null)}>
-              Open reservations
+              {t('admin.leftover.openReservations')}
             </Link>
             <button type="button" className="admin-btn admin-btn--primary" onClick={() => setSelected(null)}>
               {t('admin.calendar.close')}
@@ -271,8 +271,8 @@ const BookingCalendar = () => {
             <ChannelBadge channel={selected.channel || 'online'} />
             <p><span className="font-medium text-[var(--admin-fg)]">{t('admin.bookings.customer')}:</span> {selected.customerName}</p>
             <p><span className="font-medium text-[var(--admin-fg)]">{t('admin.bookings.vehicle')}:</span> {selected.car?.brand} {selected.car?.model}</p>
-            <p><span className="font-medium text-[var(--admin-fg)]">Pickup:</span> {new Date(selected.pickupDate).toLocaleString()}</p>
-            <p><span className="font-medium text-[var(--admin-fg)]">Return:</span> {new Date(selected.returnDate).toLocaleString()}</p>
+            <p><span className="font-medium text-[var(--admin-fg)]">{t('admin.details.pickup')}:</span> {new Date(selected.pickupDate).toLocaleString()}</p>
+            <p><span className="font-medium text-[var(--admin-fg)]">{t('admin.details.return')}:</span> {new Date(selected.returnDate).toLocaleString()}</p>
             <StatusBadge status={selected.status} />
           </div>
         )}

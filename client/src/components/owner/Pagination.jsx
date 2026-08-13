@@ -1,6 +1,8 @@
 import React from 'react'
+import { useI18n } from '../../i18n/I18nContext'
 
 const Pagination = ({ page, totalPages, total, limit, onPageChange }) => {
+  const { t } = useI18n()
   if (!totalPages || totalPages <= 1) return null
 
   const hasRange = Number.isFinite(total) && Number.isFinite(limit) && limit > 0
@@ -19,8 +21,10 @@ const Pagination = ({ page, totalPages, total, limit, onPageChange }) => {
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm text-[var(--admin-fg-muted)]">
-      <p className="text-xs sm:text-sm text-center sm:text-left">
-        {hasRange ? `Showing ${start}–${end} of ${total} results` : `Page ${page} of ${totalPages}`}
+      <p className="text-xs sm:text-sm text-center sm:text-start">
+        {hasRange
+          ? t('admin.commonUi.showingResults', { start, end, total })
+          : t('admin.commonUi.pageOf', { page, total: totalPages })}
       </p>
       <div className="flex items-center gap-1 flex-wrap justify-center">
         <button
@@ -29,7 +33,7 @@ const Pagination = ({ page, totalPages, total, limit, onPageChange }) => {
           disabled={page <= 1}
           className="admin-btn admin-btn--secondary h-8 px-2.5 disabled:opacity-40"
         >
-          Prev
+          {t('admin.common.previous')}
         </button>
         {pages.map((p) => (
           <button
@@ -51,7 +55,7 @@ const Pagination = ({ page, totalPages, total, limit, onPageChange }) => {
           disabled={page >= totalPages}
           className="admin-btn admin-btn--secondary h-8 px-2.5 disabled:opacity-40"
         >
-          Next
+          {t('admin.common.next')}
         </button>
       </div>
     </div>

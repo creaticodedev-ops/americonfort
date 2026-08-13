@@ -30,7 +30,7 @@ const SettingsHub = () => {
                 </span>
                 <SettingsIcon
                   name="chevron"
-                  className="mt-0.5 h-4 w-4 shrink-0 text-[var(--admin-fg-muted)] transition group-hover:text-[var(--admin-accent)] group-hover:translate-x-0.5"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-[var(--admin-fg-muted)] transition group-hover:text-[var(--admin-accent)] ltr:group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5"
                 />
               </span>
               <span className="mt-1 block text-xs sm:text-[13px] text-[var(--admin-fg-secondary)] leading-relaxed">

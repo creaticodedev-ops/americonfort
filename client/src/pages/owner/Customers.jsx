@@ -91,7 +91,7 @@ const Customers = () => {
         note: note || undefined,
       });
       if (data.success) {
-        toast.success('Customer rated (admin only)');
+        toast.success(t('admin.leftover.ratedAdmin'));
         setNote('');
         openDetail(selected);
         fetchCustomers();
@@ -109,7 +109,7 @@ const Customers = () => {
     try {
       const { data } = await axios.post('/api/owner/crm/note', { email: selected.email, note });
       if (data.success) {
-        toast.success('Private note saved');
+        toast.success(t('admin.leftover.noteSaved'));
         setNote('');
         openDetail(selected);
       } else toast.error(data.message);
@@ -158,7 +158,7 @@ const Customers = () => {
         <input className={inputClass} placeholder={t('admin.customers.search')} value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
         <select className={inputClass} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
           <option value="">{t('admin.customers.allStatuses')}</option>
-          <option value="new">New</option>
+          <option value="new">{t('admin.customersUi.statusNew')}</option>
           <option value="regular">{t('admin.customers.regular')}</option>
           <option value="vip">{t('admin.customers.vip')}</option>
           <option value="blacklisted">{t('admin.customers.blacklist')}</option>
@@ -175,11 +175,11 @@ const Customers = () => {
         <input type="number" min="0" className={inputClass} placeholder={t('admin.customers.minBookings')} value={filters.minBookings} onChange={(e) => setFilters({ ...filters, minBookings: e.target.value })} />
         <input type="number" min="0" className={inputClass} placeholder={t('admin.customers.minSpending')} value={filters.minSpent} onChange={(e) => setFilters({ ...filters, minSpent: e.target.value })} />
         <select className={inputClass} value={filters.sortBy} onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}>
-          <option value="lastBookingAt">Sort: Last booking</option>
-          <option value="totalSpent">Sort: Spending</option>
-          <option value="totalReservations">Sort: Bookings</option>
-          <option value="rating">Sort: Rating</option>
-          <option value="name">Sort: Name</option>
+          <option value="lastBookingAt">{t('admin.customersUi.sortLast')}</option>
+          <option value="totalSpent">{t('admin.customersUi.sortSpent')}</option>
+          <option value="totalReservations">{t('admin.customersUi.sortBookings')}</option>
+          <option value="rating">{t('admin.customersUi.sortRating')}</option>
+          <option value="name">{t('admin.customersUi.sortName')}</option>
         </select>
         <div className="flex flex-col sm:flex-row gap-2 sm:col-span-2 lg:col-span-1">
           <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm cursor-pointer">{t('admin.customers.apply')}</button>
@@ -250,14 +250,14 @@ const Customers = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
-                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">Reservations</p><p className="font-semibold">{detail.customer.totalReservations}</p></div>
-                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">Spent</p><p className="font-semibold">{currency}{detail.customer.totalSpent}</p></div>
-                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">Cancellations</p><p className="font-semibold">{detail.customer.cancelledReservations}</p></div>
-                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">Completed</p><p className="font-semibold">{detail.customer.completedReservations}</p></div>
+                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">{t('admin.leftover.reservations')}</p><p className="font-semibold">{detail.customer.totalReservations}</p></div>
+                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">{t('admin.leftover.spent')}</p><p className="font-semibold">{currency}{detail.customer.totalSpent}</p></div>
+                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">{t('admin.leftover.cancellations')}</p><p className="font-semibold">{detail.customer.cancelledReservations}</p></div>
+                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-400">{t('admin.status.completed')}</p><p className="font-semibold">{detail.customer.completedReservations}</p></div>
               </div>
 
               <div className="mt-4">
-                <p className="text-xs font-medium text-gray-500 mb-1">Average rating (admin only)</p>
+                <p className="text-xs font-medium text-gray-500 mb-1">{t('admin.leftover.avgRating')}</p>
                 <Stars value={detail.customer.rating || 0} />
               </div>
 
@@ -276,7 +276,7 @@ const Customers = () => {
                 <textarea
                   className={`${inputClass} mt-2`}
                   rows="2"
-                  placeholder='Private note e.g. "Excellent customer", "Late return", "Vehicle returned dirty"'
+                  placeholder={t('admin.leftover.notePh')}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
@@ -296,7 +296,7 @@ const Customers = () => {
                       <p className="text-gray-400 mt-1">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</p>
                     </div>
                   ))}
-                  {!(detail.customer.internalNotes || []).length && <p className="text-xs text-gray-400">No notes yet</p>}
+                  {!(detail.customer.internalNotes || []).length && <p className="text-xs text-gray-400">{t('admin.leftover.noNotes')}</p>}
                 </div>
               </div>
 

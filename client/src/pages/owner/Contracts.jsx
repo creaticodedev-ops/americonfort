@@ -139,7 +139,7 @@ const Contracts = () => {
               checked={Boolean(form.secondDriverEnabled)}
               onChange={(e) => set('secondDriverEnabled', e.target.checked)}
             />
-            Second driver enabled
+            {t('admin.leftover.secondDriverOn')}
           </label>
           {form.secondDriverEnabled && (
             <div className="grid gap-3 md:grid-cols-2">
@@ -711,9 +711,9 @@ const Contracts = () => {
         <div className="rounded-2xl border border-borderColor bg-white overflow-hidden">
           <div className="px-4 py-3 border-b border-borderColor flex items-center justify-between">
             <p className="font-medium text-sm">{previewTitle}</p>
-            <button type="button" onClick={() => setPreviewHtml('')} className="text-xs text-gray-500">Close</button>
+            <button type="button" onClick={() => setPreviewHtml('')} className="text-xs text-gray-500">{t('admin.common.close')}</button>
           </div>
-          <iframe title="Contract preview" srcDoc={previewHtml} className="w-full min-h-[520px] bg-white" />
+          <iframe title={t('admin.commonUi.preview')} srcDoc={previewHtml} className="w-full min-h-[520px] bg-white" />
         </div>
       )}
 

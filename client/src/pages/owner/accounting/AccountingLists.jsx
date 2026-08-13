@@ -10,10 +10,13 @@ import {
   AdminModal,
 } from '../../../components/owner/ui'
 import { useAppContext } from '../../../context/AppContext'
+import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
 
 const field =
   'h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
+
+const input = 'w-full h-10 px-3 rounded-lg border border-borderColor text-sm'
 
 /** Shared accounting list shell */
 const AccountingListPage = ({
@@ -24,9 +27,9 @@ const AccountingListPage = ({
   columns,
   buildCreateForm,
   initialForm,
-  dateFieldLabel = 'Date',
 }) => {
   const { axios, currency } = useAppContext()
+  const { t } = useI18n()
   const cur = (currency || 'MAD ').trim()
   const [items, setItems] = useState([])
   const [totals, setTotals] = useState(null)
@@ -50,13 +53,13 @@ const AccountingListPage = ({
         setItems(data.items || [])
         setPagination(data.pagination || { pages: 1, total: 0 })
         setTotals(data.totals || null)
-      } else toast.error(data.message || 'Failed')
+      } else toast.error(data.message || t('admin.lists.failed'))
     } catch (e) {
       toast.error(getErrorMessage(e))
     } finally {
       setLoading(false)
     }
-  }, [axios, listUrl, page, from, to])
+  }, [axios, listUrl, page, from, to, t])
 
   useEffect(() => {
     load()
@@ -67,7 +70,7 @@ const AccountingListPage = ({
     try {
       const { data } = await axios.post(createUrl, form)
       if (!data.success) throw new Error(data.message)
-      toast.success('Saved')
+      toast.success(t('admin.lists.saved'))
       setModal(false)
       setForm(initialForm)
       load()
@@ -90,13 +93,13 @@ const AccountingListPage = ({
         title={title}
         description={subtitle}
         breadcrumbs={[
-          { label: 'Finance', to: '/owner/accounting' },
+          { label: t('admin.lists.finance'), to: '/owner/accounting' },
           { label: title },
         ]}
         actions={
           createUrl ? (
             <button type="button" className="admin-btn admin-btn--primary" onClick={() => setModal(true)}>
-              Add
+              {t('admin.lists.add')}
             </button>
           ) : null
         }
@@ -111,8 +114,8 @@ const AccountingListPage = ({
             setPage(1)
             setFrom(e.target.value)
           }}
-          title={dateFieldLabel}
-          aria-label="From date"
+          title={t('admin.lists.fromDate')}
+          aria-label={t('admin.lists.fromDate')}
         />
         <input
           type="date"
@@ -122,13 +125,13 @@ const AccountingListPage = ({
             setPage(1)
             setTo(e.target.value)
           }}
-          aria-label="To date"
+          aria-label={t('admin.lists.toDate')}
         />
       </FilterBar>
 
       {totals && (
         <p className="text-sm text-[var(--admin-fg-secondary)] mb-3">
-          Total:{' '}
+          {t('admin.lists.total')}:{' '}
           <strong className="text-[var(--admin-fg)] tabular-nums">
             {cur}
             {Number(totals.grossRevenue ?? totals.total ?? 0).toLocaleString()}
@@ -136,14 +139,14 @@ const AccountingListPage = ({
           {totals.paidRevenue != null && (
             <>
               {' '}
-              · Paid: {cur}
+              · {t('admin.lists.paid')}: {cur}
               {Number(totals.paidRevenue).toLocaleString()}
             </>
           )}
           {totals.unpaidRevenue != null && (
             <>
               {' '}
-              · Unpaid: {cur}
+              · {t('admin.lists.unpaid')}: {cur}
               {Number(totals.unpaidRevenue).toLocaleString()}
             </>
           )}
@@ -154,8 +157,8 @@ const AccountingListPage = ({
         columns={tableColumns}
         data={items}
         loading={loading}
-        emptyMessage="No records for this period"
-        emptyDescription="Adjust the date range or add a new entry."
+        emptyMessage={t('admin.lists.empty')}
+        emptyDescription={t('admin.lists.emptyHint')}
       />
 
       <Pagination
@@ -169,14 +172,14 @@ const AccountingListPage = ({
       <AdminModal
         open={Boolean(modal && buildCreateForm)}
         onClose={() => setModal(false)}
-        title="Add record"
+        title={t('admin.lists.addRecord')}
         footer={
           <>
             <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setModal(false)}>
-              Cancel
+              {t('admin.common.cancel')}
             </button>
             <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('admin.common.saving') : t('admin.common.save')}
             </button>
           </>
         }
@@ -187,28 +190,30 @@ const AccountingListPage = ({
   )
 }
 
-export const RevenuesPage = () => (
-  <AccountingListPage
-    title="Revenues"
-    subtitle="Derived from bookings (no separate revenue ledger)."
-    listUrl="/api/owner/accounting/revenues"
-    createUrl={null}
-    initialForm={{}}
-    columns={[
-      { key: 'reservationId', label: 'Reservation', render: (i) => i.reservationId || '—' },
-      { key: 'customerName', label: 'Customer' },
-      { key: 'car', label: 'Vehicle', render: (i) => (i.car ? `${i.car.brand} ${i.car.model}` : '—') },
-      { key: 'price', label: 'Amount', render: (i, cur) => `${cur}${i.price}` },
-      { key: 'paymentStatus', label: 'Payment', render: (i) => <StatusBadge status={i.paymentStatus} /> },
-      { key: 'createdAt', label: 'Date', render: (i) => new Date(i.createdAt).toLocaleDateString() },
-    ]}
-  />
-)
-
-const input = 'w-full h-10 px-3 rounded-lg border border-borderColor text-sm'
+export const RevenuesPage = () => {
+  const { t } = useI18n()
+  return (
+    <AccountingListPage
+      title={t('admin.lists.revenuesTitle')}
+      subtitle={t('admin.lists.revenuesSubtitle')}
+      listUrl="/api/owner/accounting/revenues"
+      createUrl={null}
+      initialForm={{}}
+      columns={[
+        { key: 'reservationId', label: t('admin.lists.reservation'), render: (i) => i.reservationId || '—' },
+        { key: 'customerName', label: t('admin.lists.customer') },
+        { key: 'car', label: t('admin.lists.vehicle'), render: (i) => (i.car ? `${i.car.brand} ${i.car.model}` : '—') },
+        { key: 'price', label: t('admin.lists.amount'), render: (i, cur) => `${cur}${i.price}` },
+        { key: 'paymentStatus', label: t('admin.lists.payment'), render: (i) => <StatusBadge status={i.paymentStatus} /> },
+        { key: 'createdAt', label: t('admin.lists.date'), render: (i) => new Date(i.createdAt).toLocaleDateString() },
+      ]}
+    />
+  )
+}
 
 export const SamsarPaymentsPage = () => {
   const { axios } = useAppContext()
+  const { t } = useI18n()
   const [samsars, setSamsars] = useState([])
   useEffect(() => {
     axios.get('/api/owner/samsars?limit=100&status=active').then(({ data }) => {
@@ -218,82 +223,86 @@ export const SamsarPaymentsPage = () => {
 
   return (
     <AccountingListPage
-      title="Samsar Payments"
-      subtitle="Commission payments to Samsars (separate from customer payments)."
+      title={t('admin.lists.samsarTitle')}
+      subtitle={t('admin.lists.samsarSubtitle')}
       listUrl="/api/owner/accounting/samsar-payments"
       createUrl="/api/owner/accounting/samsar-payments"
       initialForm={{ samsarId: '', amount: '', paymentDate: new Date().toISOString().slice(0, 10), paymentStatus: 'paid', paymentMethod: 'cash', notes: '', bookingId: '' }}
       columns={[
-        { key: 'samsar', label: 'Samsar', render: (i) => i.samsar?.fullName || '—' },
-        { key: 'amount', label: 'Amount', render: (i, cur) => `${cur}${i.amount}` },
-        { key: 'paymentDate', label: 'Date', render: (i) => new Date(i.paymentDate).toLocaleDateString() },
-        { key: 'paymentStatus', label: 'Status', render: (i) => <StatusBadge status={i.paymentStatus} /> },
-        { key: 'booking', label: 'Reservation', render: (i) => i.booking?.reservationId || '—' },
+        { key: 'samsar', label: t('admin.lists.samsar'), render: (i) => i.samsar?.fullName || '—' },
+        { key: 'amount', label: t('admin.lists.amount'), render: (i, cur) => `${cur}${i.amount}` },
+        { key: 'paymentDate', label: t('admin.lists.date'), render: (i) => new Date(i.paymentDate).toLocaleDateString() },
+        { key: 'paymentStatus', label: t('admin.lists.status'), render: (i) => <StatusBadge status={i.paymentStatus} /> },
+        { key: 'booking', label: t('admin.lists.reservation'), render: (i) => i.booking?.reservationId || '—' },
       ]}
       buildCreateForm={(form, setForm) => (
         <>
           <select className={input} value={form.samsarId} onChange={(e) => setForm({ ...form, samsarId: e.target.value })}>
-            <option value="">Select Samsar *</option>
+            <option value="">{t('admin.lists.selectSamsar')}</option>
             {samsars.map((s) => <option key={s._id} value={s._id}>{s.fullName}</option>)}
           </select>
-          <input className={input} type="number" min="0" step="0.01" placeholder="Amount *" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           <input className={input} type="date" value={form.paymentDate} onChange={(e) => setForm({ ...form, paymentDate: e.target.value })} />
           <select className={input} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-            <option value="pending">Pending</option>
-            <option value="paid">Paid</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="pending">{t('admin.status.pending')}</option>
+            <option value="paid">{t('admin.status.paid')}</option>
+            <option value="cancelled">{t('admin.status.cancelled')}</option>
           </select>
           <select className={input} value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
-            <option value="cash">Cash</option>
-            <option value="bank_transfer">Bank transfer</option>
-            <option value="check">Check</option>
-            <option value="other">Other</option>
+            <option value="cash">{t('admin.lists.cash')}</option>
+            <option value="bank_transfer">{t('admin.lists.bankTransfer')}</option>
+            <option value="check">{t('admin.lists.check')}</option>
+            <option value="other">{t('admin.lists.other')}</option>
           </select>
-          <input className={input} placeholder="Booking ID (optional)" value={form.bookingId} onChange={(e) => setForm({ ...form, bookingId: e.target.value })} />
-          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <input className={input} placeholder={t('admin.lists.bookingId')} value={form.bookingId} onChange={(e) => setForm({ ...form, bookingId: e.target.value })} />
+          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </>
       )}
     />
   )
 }
 
-export const AgencyExpensesPage = () => (
-  <AccountingListPage
-    title="Agency Expenses"
-    subtitle="Charges agences — operating costs for the agency."
-    listUrl="/api/owner/accounting/agency-expenses"
-    createUrl="/api/owner/accounting/agency-expenses"
-    initialForm={{ category: 'other', amount: '', expenseDate: new Date().toISOString().slice(0, 10), description: '', paymentStatus: 'paid', paymentMethod: 'cash', notes: '' }}
-    columns={[
-      { key: 'category', label: 'Category' },
-      { key: 'description', label: 'Description' },
-      { key: 'amount', label: 'Amount', render: (i, cur) => `${cur}${i.amount}` },
-      { key: 'expenseDate', label: 'Date', render: (i) => new Date(i.expenseDate).toLocaleDateString() },
-      { key: 'paymentStatus', label: 'Status', render: (i) => <StatusBadge status={i.paymentStatus} /> },
-    ]}
-    buildCreateForm={(form, setForm) => (
-      <>
-        <select className={input} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-          {['rent', 'utilities', 'salaries', 'marketing', 'insurance', 'taxes', 'supplies', 'software', 'other'].map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        <input className={input} type="number" min="0" step="0.01" placeholder="Amount *" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-        <input className={input} type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} />
-        <input className={input} placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        <select className={input} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-          <option value="pending">Pending</option>
-          <option value="paid">Paid</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-      </>
-    )}
-  />
-)
+export const AgencyExpensesPage = () => {
+  const { t } = useI18n()
+  return (
+    <AccountingListPage
+      title={t('admin.lists.agencyTitle')}
+      subtitle={t('admin.lists.agencySubtitle')}
+      listUrl="/api/owner/accounting/agency-expenses"
+      createUrl="/api/owner/accounting/agency-expenses"
+      initialForm={{ category: 'other', amount: '', expenseDate: new Date().toISOString().slice(0, 10), description: '', paymentStatus: 'paid', paymentMethod: 'cash', notes: '' }}
+      columns={[
+        { key: 'category', label: t('admin.lists.category'), render: (i) => t(`admin.cats.${i.category}`) !== `admin.cats.${i.category}` ? t(`admin.cats.${i.category}`) : i.category },
+        { key: 'description', label: t('admin.lists.description') },
+        { key: 'amount', label: t('admin.lists.amount'), render: (i, cur) => `${cur}${i.amount}` },
+        { key: 'expenseDate', label: t('admin.lists.date'), render: (i) => new Date(i.expenseDate).toLocaleDateString() },
+        { key: 'paymentStatus', label: t('admin.lists.status'), render: (i) => <StatusBadge status={i.paymentStatus} /> },
+      ]}
+      buildCreateForm={(form, setForm) => (
+        <>
+          <select className={input} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+            {['rent', 'utilities', 'salaries', 'marketing', 'insurance', 'taxes', 'supplies', 'software', 'other'].map((c) => (
+              <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
+            ))}
+          </select>
+          <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          <input className={input} type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} />
+          <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <select className={input} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
+            <option value="pending">{t('admin.status.pending')}</option>
+            <option value="paid">{t('admin.status.paid')}</option>
+            <option value="cancelled">{t('admin.status.cancelled')}</option>
+          </select>
+          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        </>
+      )}
+    />
+  )
+}
 
 export const VehicleExpensesPage = () => {
   const { axios } = useAppContext()
+  const { t } = useI18n()
   const [cars, setCars] = useState([])
   useEffect(() => {
     axios.get('/api/owner/cars').then(({ data }) => {
@@ -304,42 +313,42 @@ export const VehicleExpensesPage = () => {
 
   return (
     <AccountingListPage
-      title="Vehicle Expenses"
-      subtitle="Charges voitures — fuel, repairs, insurance, and more."
+      title={t('admin.lists.vehicleTitle')}
+      subtitle={t('admin.lists.vehicleSubtitle')}
       listUrl="/api/owner/accounting/vehicle-expenses"
       createUrl="/api/owner/accounting/vehicle-expenses"
       initialForm={{ carId: '', category: 'fuel', amount: '', expenseDate: new Date().toISOString().slice(0, 10), description: '', paymentStatus: 'paid', paymentMethod: 'cash', odometer: '', notes: '' }}
       columns={[
-        { key: 'car', label: 'Vehicle', render: (i) => (i.car ? `${i.car.brand} ${i.car.model}` : '—') },
-        { key: 'category', label: 'Category' },
-        { key: 'amount', label: 'Amount', render: (i, cur) => `${cur}${i.amount}` },
-        { key: 'odometer', label: 'Odometer', render: (i) => (i.odometer != null ? `${i.odometer} km` : '—') },
-        { key: 'expenseDate', label: 'Date', render: (i) => new Date(i.expenseDate).toLocaleDateString() },
-        { key: 'paymentStatus', label: 'Status', render: (i) => <StatusBadge status={i.paymentStatus} /> },
+        { key: 'car', label: t('admin.lists.vehicle'), render: (i) => (i.car ? `${i.car.brand} ${i.car.model}` : '—') },
+        { key: 'category', label: t('admin.lists.category'), render: (i) => t(`admin.cats.${i.category}`) !== `admin.cats.${i.category}` ? t(`admin.cats.${i.category}`) : i.category },
+        { key: 'amount', label: t('admin.lists.amount'), render: (i, cur) => `${cur}${i.amount}` },
+        { key: 'odometer', label: t('admin.lists.odometer'), render: (i) => (i.odometer != null ? `${i.odometer} km` : '—') },
+        { key: 'expenseDate', label: t('admin.lists.date'), render: (i) => new Date(i.expenseDate).toLocaleDateString() },
+        { key: 'paymentStatus', label: t('admin.lists.status'), render: (i) => <StatusBadge status={i.paymentStatus} /> },
       ]}
       buildCreateForm={(form, setForm) => (
         <>
           <select className={input} value={form.carId} onChange={(e) => setForm({ ...form, carId: e.target.value })}>
-            <option value="">Select vehicle *</option>
+            <option value="">{t('admin.lists.selectVehicle')}</option>
             {cars.map((c) => (
               <option key={c._id} value={c._id}>{c.brand} {c.model} {c.licensePlate || ''}</option>
             ))}
           </select>
           <select className={input} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {['fuel', 'maintenance', 'repair', 'insurance', 'registration', 'tires', 'cleaning', 'parking', 'tolls', 'other'].map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
             ))}
           </select>
-          <input className={input} type="number" min="0" step="0.01" placeholder="Amount *" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           <input className={input} type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} />
-          <input className={input} type="number" min="0" placeholder="Odometer (optional)" value={form.odometer} onChange={(e) => setForm({ ...form, odometer: e.target.value })} />
-          <input className={input} placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <input className={input} type="number" min="0" placeholder={t('admin.lists.odometerPh')} value={form.odometer} onChange={(e) => setForm({ ...form, odometer: e.target.value })} />
+          <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <select className={input} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-            <option value="pending">Pending</option>
-            <option value="paid">Paid</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="pending">{t('admin.status.pending')}</option>
+            <option value="paid">{t('admin.status.paid')}</option>
+            <option value="cancelled">{t('admin.status.cancelled')}</option>
           </select>
-          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </>
       )}
     />

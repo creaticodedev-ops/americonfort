@@ -466,7 +466,7 @@ const WalkInBooking = () => {
                   <option value="5/8">5/8</option>
                   <option value="3/4">3/4</option>
                   <option value="7/8">7/8</option>
-                  <option value="Full">Full</option>
+                  <option value="Full">{t('admin.walkUi.fuelFull')}</option>
                 </select>
               </Field>
               <Field label={t('admin.walkIn.franchiseAmount')}>
@@ -507,10 +507,10 @@ const WalkInBooking = () => {
           <Section title={t('admin.walkIn.options')}>
             <Field label={t('admin.walkIn.initialStatus')}>
               <select className={input} value={form.status} onChange={(e) => setField('status', e.target.value)}>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="ready_for_pickup">Ready for pickup</option>
-                <option value="active">Active (out)</option>
+                <option value="pending">{t('admin.status.pending')}</option>
+                <option value="confirmed">{t('admin.status.confirmed')}</option>
+                <option value="ready_for_pickup">{t('admin.status.ready_for_pickup')}</option>
+                <option value="active">{t('admin.walkUi.activeOut')}</option>
               </select>
             </Field>
             <label className="flex items-center gap-2 text-sm text-ink">

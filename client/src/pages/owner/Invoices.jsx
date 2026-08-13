@@ -97,10 +97,10 @@ const Invoices = () => {
             <div>
               <label className={labelClass}>{t('admin.invoices.paymentMethod')}</label>
               <select className={fieldClass} value={editForm.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })}>
-                <option value="cash">Cash</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="card">Card</option>
-                <option value="cheque">Cheque</option>
+                <option value="cash">{t('admin.invoiceUi.cash')}</option>
+                <option value="bank_transfer">{t('admin.invoiceUi.bankTransfer')}</option>
+                <option value="card">{t('admin.invoiceUi.card')}</option>
+                <option value="cheque">{t('admin.invoiceUi.cheque')}</option>
               </select>
             </div>
             {field('paymentReference', t('admin.invoices.paymentReference'))}
@@ -108,7 +108,7 @@ const Invoices = () => {
         </div>
 
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">Customer</h4>
+          <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">{t('admin.invoiceUi.customer')}</h4>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {field('customerName', t('admin.invoices.customerName'))}
             {field('customerEmail', t('admin.invoices.customerEmail'), 'email')}
@@ -121,22 +121,22 @@ const Invoices = () => {
         </div>
 
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">Vehicle & rental</h4>
+          <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">{t('admin.invoiceUi.vehicleRental')}</h4>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {field('vehicleBrand', t('admin.invoices.vehicleBrand'))}
             {field('vehicleModel', t('admin.invoices.vehicleModel'))}
             {field('vehiclePlate', t('admin.invoices.vehiclePlate'))}
             {field('vehicleYear', t('admin.invoices.vehicleYear'))}
             {field('vehicleType', t('admin.invoices.vehicleType'))}
-            {field('pickupDate', 'Pickup date & time', 'datetime-local')}
-            {field('returnDate', 'Return date & time', 'datetime-local')}
-            {field('pickupLocation', 'Pickup location')}
-            {field('returnLocation', 'Return location')}
-            {field('rentalDays', 'Rental days', 'number')}
-            {field('pricePerDay', 'Price per day', 'number')}
-            {field('pickupFee', 'Pickup fee', 'number')}
-            {field('dropoffFee', 'Drop-off fee', 'number')}
-            {field('franchiseAmount', 'Franchise / deposit', 'number')}
+            {field('pickupDate', t('admin.invoiceUi.pickupAt'), 'datetime-local')}
+            {field('returnDate', t('admin.invoiceUi.returnAt'), 'datetime-local')}
+            {field('pickupLocation', t('admin.invoiceUi.pickupLocation'))}
+            {field('returnLocation', t('admin.invoiceUi.returnLocation'))}
+            {field('rentalDays', t('admin.invoiceUi.rentalDays'), 'number')}
+            {field('pricePerDay', t('admin.invoiceUi.pricePerDay'), 'number')}
+            {field('pickupFee', t('admin.invoiceUi.pickupFee'), 'number')}
+            {field('dropoffFee', t('admin.invoiceUi.dropoffFee'), 'number')}
+            {field('franchiseAmount', t('admin.invoiceUi.franchise'), 'number')}
           </div>
         </div>
 
@@ -159,16 +159,16 @@ const Invoices = () => {
         </div>
 
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">Company & signatures</h4>
+          <h4 className="text-sm font-semibold text-gray-800 border-b border-borderColor pb-1">{t('admin.invoiceUi.companySignatures')}</h4>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {field('agencyName', 'Agency name')}
-            {field('agencyPhone', 'Agency phone')}
-            {field('agencyEmail', 'Agency email', 'email')}
-            {field('agencyAddress', 'Agency address')}
-            {field('agencyTaxId', 'Agency tax ID')}
-            {field('logoUrl', 'Logo URL')}
-            {field('companySignatureUrl', 'Company signature URL')}
-            {field('customerSignatureUrl', 'Customer signature URL')}
+            {field('agencyName', t('admin.invoiceUi.agencyName'))}
+            {field('agencyPhone', t('admin.invoiceUi.agencyPhone'))}
+            {field('agencyEmail', t('admin.invoiceUi.agencyEmail'), 'email')}
+            {field('agencyAddress', t('admin.invoiceUi.agencyAddress'))}
+            {field('agencyTaxId', t('admin.invoiceUi.agencyTaxId'))}
+            {field('logoUrl', t('admin.invoiceUi.logoUrl'))}
+            {field('companySignatureUrl', t('admin.invoiceUi.companySignatureUrl'))}
+            {field('customerSignatureUrl', t('admin.invoiceUi.customerSignatureUrl'))}
           </div>
         </div>
 
@@ -594,10 +594,10 @@ const Invoices = () => {
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-500">{t('admin.invoices.paymentMethod')}</label>
                   <select className="w-full rounded-lg border border-borderColor px-3 py-2 text-sm" value={form.paymentMethod} onChange={(e) => updateForm({ paymentMethod: e.target.value })}>
-                    <option value="cash">Cash</option>
-                    <option value="bank_transfer">Bank transfer</option>
-                    <option value="card">Card</option>
-                    <option value="cheque">Cheque</option>
+                    <option value="cash">{t('admin.invoiceUi.cash')}</option>
+                    <option value="bank_transfer">{t('admin.invoiceUi.bankTransfer')}</option>
+                    <option value="card">{t('admin.invoiceUi.card')}</option>
+                    <option value="cheque">{t('admin.invoiceUi.cheque')}</option>
                   </select>
                 </div>
                 <div>

@@ -1,11 +1,14 @@
 import React from 'react'
 import { Icon } from './adminIcons'
+import { useI18n } from '../../../i18n/I18nContext'
 
-export const SegmentedControl = ({ options, value, onChange, className = '', ariaLabel }) => (
+export const SegmentedControl = ({ options, value, onChange, className = '', ariaLabel }) => {
+  const { t } = useI18n()
+  return (
   <div
     className={`admin-segment ${className}`}
     role="tablist"
-    aria-label={ariaLabel || 'Period'}
+    aria-label={ariaLabel || t('admin.ops.periodAria')}
   >
     {options.map((opt) => {
       const active = value === opt.id
@@ -23,24 +26,28 @@ export const SegmentedControl = ({ options, value, onChange, className = '', ari
       )
     })}
   </div>
-)
+  )
+}
 
 export const FilterBar = ({ children, className = '' }) => (
   <div className={`admin-filter-bar ${className}`}>{children}</div>
 )
 
-export const SearchInput = ({ value, onChange, placeholder = 'Search…', className = '' }) => (
+export const SearchInput = ({ value, onChange, placeholder, className = '' }) => {
+  const { t } = useI18n()
+  return (
   <label className={`admin-search ${className}`}>
     <Icon name="search" className="h-4 w-4 text-[var(--admin-fg-muted)] shrink-0" />
     <input
       type="search"
       value={value}
       onChange={(e) => onChange?.(e.target.value)}
-      placeholder={placeholder}
+      placeholder={placeholder || t('admin.common.search')}
       className="admin-search-input"
     />
   </label>
-)
+  )
+}
 
 export const ChartCard = ({ title, action, children, className = '' }) => (
   <section className={`admin-panel ${className}`}>

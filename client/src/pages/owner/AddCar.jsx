@@ -49,11 +49,11 @@ const AddCar = () => {
     if (isLoading) return
 
     if (!image) {
-      toast.error('Please upload a car image')
+      toast.error(t('admin.leftover.uploadImage'))
       return
     }
     if (!car.category || !car.transmission || !car.fuel_type) {
-      toast.error('Please complete all vehicle details')
+      toast.error(t('admin.leftover.completeDetails'))
       return
     }
     if (!car.locations?.length) {
@@ -61,7 +61,7 @@ const AddCar = () => {
       return
     }
     if (!car.licensePlate?.trim()) {
-      toast.error('License plate is required for each physical vehicle')
+      toast.error(t('admin.leftover.plateRequired'))
       return
     }
 
@@ -106,11 +106,11 @@ const AddCar = () => {
         <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
           <div className='flex flex-col w-full'>
             <label>{t('admin.addCar.brand')}</label>
-            <input type="text" placeholder="e.g. BMW, Mercedes, Audi..." required className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.brand} onChange={(e) => setCar({ ...car, brand: e.target.value })} />
+            <input type="text" placeholder={t('admin.leftover.brandPh')} required className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.brand} onChange={(e) => setCar({ ...car, brand: e.target.value })} />
           </div>
           <div className='flex flex-col w-full'>
             <label>{t('admin.addCar.model')}</label>
-            <input type="text" placeholder="e.g. X5, E-Class, M4..." required className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.model} onChange={(e) => setCar({ ...car, model: e.target.value })} />
+            <input type="text" placeholder={t('admin.leftover.modelPh')} required className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.model} onChange={(e) => setCar({ ...car, model: e.target.value })} />
           </div>
         </div>
 
@@ -120,15 +120,15 @@ const AddCar = () => {
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <div className='flex flex-col w-full'>
               <label>{t('admin.addCar.fleetId')}</label>
-              <input type="text" placeholder="Auto if empty (FLT-XXXXXX)" className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none uppercase' value={car.fleetId} onChange={(e) => setCar({ ...car, fleetId: e.target.value })} />
+              <input type="text" placeholder={t('admin.carForm.fleetIdPh')} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none uppercase' value={car.fleetId} onChange={(e) => setCar({ ...car, fleetId: e.target.value })} />
             </div>
             <div className='flex flex-col w-full'>
               <label>{t('admin.addCar.vin')}</label>
-              <input type="text" placeholder="17-character VIN" className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none uppercase' value={car.vin} onChange={(e) => setCar({ ...car, vin: e.target.value })} />
+              <input type="text" placeholder={t('admin.carForm.vinPh')} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none uppercase' value={car.vin} onChange={(e) => setCar({ ...car, vin: e.target.value })} />
             </div>
             <div className='flex flex-col w-full'>
               <label>{t('admin.addCar.plate')} *</label>
-              <input type="text" required placeholder="License plate" className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none uppercase' value={car.licensePlate} onChange={(e) => setCar({ ...car, licensePlate: e.target.value })} />
+              <input type="text" required placeholder={t('admin.carForm.platePh')} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none uppercase' value={car.licensePlate} onChange={(e) => setCar({ ...car, licensePlate: e.target.value })} />
             </div>
             <div className='flex flex-col w-full'>
               <label>{t('admin.addCar.mileage')}</label>
@@ -136,7 +136,7 @@ const AddCar = () => {
             </div>
             <div className='flex flex-col w-full sm:col-span-2'>
               <label>{t('admin.addCar.branch')}</label>
-              <input type="text" placeholder="e.g. Casablanca Airport depot" className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.branch} onChange={(e) => setCar({ ...car, branch: e.target.value })} />
+              <input type="text" placeholder={t('admin.carForm.branchPh')} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.branch} onChange={(e) => setCar({ ...car, branch: e.target.value })} />
             </div>
           </div>
         </div>
@@ -153,7 +153,7 @@ const AddCar = () => {
           <div className='flex flex-col w-full'>
             <label>{t('admin.addCar.category')}</label>
             <select required onChange={(e) => setCar({ ...car, category: e.target.value })} value={car.category} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'>
-              <option value="">Select a category</option>
+              <option value="">{t('admin.carForm.selectCategory')}</option>
               {VEHICLE_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -165,20 +165,20 @@ const AddCar = () => {
           <div className='flex flex-col w-full'>
             <label>{t('admin.addCar.transmission')}</label>
             <select required onChange={(e) => setCar({ ...car, transmission: e.target.value })} value={car.transmission} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'>
-              <option value="">Select a transmission</option>
-              <option value="Automatic">Automatic</option>
-              <option value="Manual">Manual</option>
-              <option value="Semi-Automatic">Semi-Automatic</option>
+              <option value="">{t('admin.carForm.selectTransmission')}</option>
+              <option value="Automatic">{t('admin.carForm.automatic')}</option>
+              <option value="Manual">{t('admin.carForm.manual')}</option>
+              <option value="Semi-Automatic">{t('admin.carForm.semiAuto')}</option>
             </select>
           </div>
           <div className='flex flex-col w-full'>
             <label>{t('admin.addCar.fuelType')}</label>
             <select required onChange={(e) => setCar({ ...car, fuel_type: e.target.value })} value={car.fuel_type} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'>
-              <option value="">Select a fuel type</option>
-              <option value="Gas">ESSENCE</option>
-              <option value="Diesel">DIESEL</option>
-              <option value="Electric">Electric</option>
-              <option value="Hybrid">Hybrid</option>
+              <option value="">{t('admin.carForm.selectFuel')}</option>
+              <option value="Gas">{t('admin.carForm.gas')}</option>
+              <option value="Diesel">{t('admin.carForm.diesel')}</option>
+              <option value="Electric">{t('admin.carForm.electric')}</option>
+              <option value="Hybrid">{t('admin.carForm.hybrid')}</option>
             </select>
           </div>
           <div className='flex flex-col w-full'>
@@ -199,7 +199,7 @@ const AddCar = () => {
 
         <div className='flex flex-col w-full'>
           <label>{t('admin.addCar.description')}</label>
-          <textarea rows={5} placeholder="Describe the vehicle..." required className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.description} onChange={(e) => setCar({ ...car, description: e.target.value })} />
+          <textarea rows={5} placeholder={t('admin.carForm.descPh')} required className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' value={car.description} onChange={(e) => setCar({ ...car, description: e.target.value })} />
         </div>
 
         <button disabled={isLoading} className='flex items-center gap-2 px-4 py-2.5 mt-4 bg-primary text-white rounded-md font-medium w-max cursor-pointer disabled:opacity-60'>
