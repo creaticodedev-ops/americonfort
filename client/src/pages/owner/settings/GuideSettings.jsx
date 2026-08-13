@@ -4,22 +4,6 @@ import { getSettingsCategory } from './settingsCategories'
 import { GuidePage, RelatedLink, useSettingsLabel } from './settingsShared'
 
 const GUIDE_LINKS = {
-  general: [
-    {
-      to: '/owner/settings/whatsapp',
-      titleKey: 'admin.settings.nav.whatsapp',
-      title: 'WhatsApp',
-      descriptionKey: 'admin.settings.nav.whatsappDesc',
-      description: 'Configure reservation and confirmation numbers.',
-    },
-    {
-      to: '/owner/settings/branding',
-      titleKey: 'admin.settings.nav.branding',
-      title: 'Agency Branding',
-      descriptionKey: 'admin.settings.nav.brandingDesc',
-      description: 'Manage logo and stamp assets via templates.',
-    },
-  ],
   pricing: [
     {
       to: '/owner/manage-cars',
@@ -27,22 +11,6 @@ const GUIDE_LINKS = {
       title: 'Fleet',
       descriptionKey: 'admin.settings.nav.pricingDesc',
       description: 'Set daily rates and availability per vehicle.',
-    },
-  ],
-  branding: [
-    {
-      to: '/owner/templates',
-      titleKey: 'admin.menu.templates',
-      title: 'Export Templates',
-      descriptionKey: 'admin.settings.nav.templatesHint',
-      description: 'Upload logo and agency stamp used on contracts and invoices.',
-    },
-    {
-      to: '/owner/settings/documents',
-      titleKey: 'admin.settings.nav.documents',
-      title: 'Contracts & Documents',
-      descriptionKey: 'admin.settings.nav.documentsDesc',
-      description: 'Default show/hide for the agency stamp on contracts.',
     },
   ],
   printing: [
@@ -59,14 +27,6 @@ const GUIDE_LINKS = {
       title: 'Contracts',
       descriptionKey: 'admin.settings.nav.contractsHint',
       description: 'Generate and download printable contract PDFs.',
-    },
-  ],
-  security: [
-    {
-      to: '/owner/audit',
-      titleKey: 'admin.menu.audit',
-      title: 'Audit log',
-      description: 'Review owner-scoped actions recorded for this agency.',
     },
   ],
   notifications: [

@@ -23,7 +23,11 @@ export const PageHeader = ({
         <ol className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--admin-fg-muted)]">
           {breadcrumbs.map((crumb, i) => (
             <li key={`${crumb.label}-${i}`} className="inline-flex items-center gap-1.5">
-              {i > 0 && <span aria-hidden="true" className="opacity-50">/</span>}
+              {i > 0 && (
+                <span aria-hidden="true" className="opacity-50 rtl-flip inline-block">
+                  /
+                </span>
+              )}
               {crumb.to ? (
                 <Link to={crumb.to} className="hover:text-[var(--admin-fg)] transition-colors">
                   {crumb.label}

@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import Title from '../../components/owner/Title';
+import {
+  AdminPage,
+  PageHeader,
+  StatCard,
+  ChartCard,
+} from '../../components/owner/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import toast from 'react-hot-toast';
@@ -67,38 +72,41 @@ const Reports = () => {
     w.document.close();
   };
 
-  return (
-    <div className="px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 flex-1 pb-12">
-      <Title title={t('admin.reports.title')} subTitle={t('admin.reports.subtitle')} />
+  const exportCards = [
+    { type: 'revenue', title: t('admin.reportsUi.reservationsTitle'), desc: t('admin.reportsUi.reservationsDesc') },
+    { type: 'customers', title: t('admin.reportsUi.customersTitle'), desc: t('admin.reportsUi.customersDesc') },
+    { type: 'fleet', title: t('admin.reportsUi.fleetTitle'), desc: t('admin.reportsUi.fleetDesc') },
+  ];
 
-      <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  return (
+    <AdminPage>
+      <PageHeader title={t('admin.reports.title')} description={t('admin.reports.subtitle')} />
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: t('admin.reports.weekly'), value: analytics?.weeklyRevenue },
           { label: t('admin.reports.monthly'), value: analytics?.monthlyRevenue },
           { label: t('admin.reports.yearly'), value: analytics?.yearlyRevenue },
           { label: t('admin.reports.allTime'), value: analytics?.totalRevenue },
         ].map((c) => (
-          <div key={c.label} className="rounded-xl border border-borderColor bg-white p-5">
-            <p className="text-xs text-gray-500">{c.label} {t('admin.reports.revenue')}</p>
-            <p className="text-xl font-semibold text-primary mt-1">{currency}{c.value ?? '—'}</p>
-          </div>
+          <StatCard
+            key={c.label}
+            label={`${c.label} ${t('admin.reports.revenue')}`}
+            value={`${currency}${c.value ?? '—'}`}
+          />
         ))}
       </div>
 
-      <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[
-          { type: 'revenue', title: 'Reservations report', desc: 'All bookings with amounts, status, and dates' },
-          { type: 'customers', title: 'Customers report', desc: 'CRM profiles, ratings, VIP/blacklist, spending' },
-          { type: 'fleet', title: 'Fleet & compliance', desc: 'Mileage, service, insurance, registration' },
-        ].map((card) => (
-          <div key={card.type} className="rounded-xl border border-borderColor bg-white p-5">
-            <h3 className="font-semibold text-gray-800">{card.title}</h3>
-            <p className="text-sm text-gray-500 mt-1">{card.desc}</p>
+      <div className="mt-6 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {exportCards.map((card) => (
+          <div key={card.type} className="admin-panel p-5">
+            <h3 className="text-sm font-semibold text-[var(--admin-fg)]">{card.title}</h3>
+            <p className="text-sm text-[var(--admin-fg-secondary)] mt-1">{card.desc}</p>
             <button
               type="button"
               disabled={exporting === card.type}
               onClick={() => download(card.type)}
-              className="mt-4 px-4 py-2 text-sm bg-primary text-white rounded-lg cursor-pointer disabled:opacity-60"
+              className="admin-btn admin-btn--primary mt-4"
             >
               {exporting === card.type ? t('admin.reports.exporting') : t('admin.reports.exportCsv')}
             </button>
@@ -106,14 +114,13 @@ const Reports = () => {
         ))}
       </div>
 
-      <div className="mt-6 rounded-xl border border-borderColor bg-white p-5">
-        <h3 className="font-semibold text-gray-800">{t('admin.reports.pdfTitle')}</h3>
-        <p className="text-sm text-gray-500 mt-1">{t('admin.reports.pdfHint')}</p>
-        <button type="button" onClick={printPdf} className="mt-4 px-4 py-2 text-sm border rounded-lg cursor-pointer hover:bg-gray-50">
+      <ChartCard className="mt-6" title={t('admin.reports.pdfTitle')}>
+        <p className="text-sm text-[var(--admin-fg-secondary)]">{t('admin.reports.pdfHint')}</p>
+        <button type="button" onClick={printPdf} className="admin-btn admin-btn--secondary mt-4">
           {t('admin.reports.printPdf')}
         </button>
-      </div>
-    </div>
+      </ChartCard>
+    </AdminPage>
   );
 };
 

@@ -7,7 +7,7 @@
 export const SETTINGS_CATEGORIES = [
   {
     id: 'general',
-    kind: 'guide',
+    kind: 'page',
     titleKey: 'admin.settings.nav.general',
     title: 'General Settings',
     descriptionKey: 'admin.settings.nav.generalDesc',
@@ -52,12 +52,21 @@ export const SETTINGS_CATEGORIES = [
   },
   {
     id: 'branding',
-    kind: 'guide',
+    kind: 'page',
     titleKey: 'admin.settings.nav.branding',
     title: 'Agency Branding',
     descriptionKey: 'admin.settings.nav.brandingDesc',
     description: 'Logo, cachet, and template branding assets.',
     icon: 'brand',
+  },
+  {
+    id: 'domains',
+    kind: 'page',
+    titleKey: 'admin.settings.nav.domains',
+    title: 'Custom Domain',
+    descriptionKey: 'admin.settings.nav.domainsDesc',
+    description: 'Public booking domain linked to your agency plan.',
+    icon: 'pin',
   },
   {
     id: 'printing',
@@ -90,7 +99,9 @@ export const SETTINGS_CATEGORIES = [
   },
   {
     id: 'security',
-    kind: 'guide',
+    kind: 'link',
+    to: '/owner/staff',
+    kindLabel: 'module',
     titleKey: 'admin.settings.nav.security',
     title: 'Security & Permissions',
     descriptionKey: 'admin.settings.nav.securityDesc',

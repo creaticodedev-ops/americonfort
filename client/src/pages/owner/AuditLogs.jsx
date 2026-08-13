@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import Title from '../../components/owner/Title';
+import { AdminPage, PageHeader, EmptyState, Skeleton } from '../../components/owner/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import toast from 'react-hot-toast';
@@ -32,18 +32,20 @@ const AuditLogs = () => {
   }, [page, axios]);
 
   return (
-    <div className="px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 flex-1 pb-12">
-      <Title title={t('admin.audit.title')} subTitle={t('admin.audit.subtitle')} />
+    <AdminPage>
+      <PageHeader title={t('admin.audit.title')} description={t('admin.audit.subtitle')} />
 
-      <div className="mt-6 rounded-xl border border-borderColor bg-white overflow-hidden">
+      <div className="admin-panel overflow-hidden">
         {loading ? (
-          <p className="p-6 text-gray-400">{t('admin.audit.loading')}</p>
+          <div className="p-6">
+            <Skeleton className="h-40 w-full" />
+          </div>
         ) : logs.length === 0 ? (
-          <p className="p-6 text-gray-400">{t('admin.audit.none')}</p>
+          <EmptyState title={t('admin.audit.none')} />
         ) : (
-          <div className="table-scroll">
-            <table className="w-full text-sm text-left max-lg:min-w-[640px]">
-              <thead className="bg-gray-50 text-gray-500">
+          <div className="table-scroll admin-table-wrap">
+            <table className="admin-table w-full text-sm text-start max-lg:min-w-[640px]">
+              <thead>
                 <tr>
                   <th className="p-3">{t('admin.audit.when')}</th>
                   <th className="p-3">{t('admin.audit.action')}</th>
@@ -53,11 +55,15 @@ const AuditLogs = () => {
               </thead>
               <tbody>
                 {logs.map((log) => (
-                  <tr key={log._id} className="border-t border-gray-100">
-                    <td className="p-3 text-xs text-gray-500 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
-                    <td className="p-3 font-medium text-primary text-xs">{log.action}</td>
-                    <td className="p-3 text-xs">{log.entityType} {log.entityId ? `· ${String(log.entityId).slice(-8)}` : ''}</td>
-                    <td className="p-3 text-gray-600">{log.details}</td>
+                  <tr key={log._id} className="border-t border-[var(--admin-border)]">
+                    <td className="p-3 text-xs text-[var(--admin-fg-muted)] whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </td>
+                    <td className="p-3 font-medium text-[var(--admin-accent)] text-xs">{log.action}</td>
+                    <td className="p-3 text-xs">
+                      {log.entityType} {log.entityId ? `· ${String(log.entityId).slice(-8)}` : ''}
+                    </td>
+                    <td className="p-3 text-[var(--admin-fg-secondary)]">{log.details}</td>
                   </tr>
                 ))}
               </tbody>
@@ -65,14 +71,28 @@ const AuditLogs = () => {
           </div>
         )}
         {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
-            <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40 cursor-pointer">{t('admin.common.previous')}</button>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--admin-border)] text-sm">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="admin-btn admin-btn--secondary disabled:opacity-40"
+            >
+              {t('admin.common.previous')}
+            </button>
             <span>{t('admin.bookings.pageOf', { page: pagination.page, total: pagination.totalPages })}</span>
-            <button type="button" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40 cursor-pointer">{t('admin.common.next')}</button>
+            <button
+              type="button"
+              disabled={page >= pagination.totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="admin-btn admin-btn--secondary disabled:opacity-40"
+            >
+              {t('admin.common.next')}
+            </button>
           </div>
         )}
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

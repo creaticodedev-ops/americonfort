@@ -440,7 +440,7 @@ const BookingSettings = () => {
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <button
             type="button"
-            className="text-xs text-muted hover:text-ink transition"
+            className="text-xs text-[var(--admin-fg-muted)] hover:text-[var(--admin-fg)] transition"
             onClick={() => setOpenSections(new Set(SECTION_IDS))}
           >
             {label('admin.settings.expandAll', 'Expand all')}
@@ -448,7 +448,7 @@ const BookingSettings = () => {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            className="admin-btn admin-btn--primary disabled:opacity-60"
           >
             {saving
               ? label('admin.common.saving', 'Saving...')

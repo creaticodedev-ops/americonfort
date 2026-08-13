@@ -125,14 +125,14 @@ const WhatsAppSettings = () => {
           />
         </Field>
         {fallbackDial ? (
-          <p className="rounded-xl border border-borderColor bg-sand/40 px-3 py-2 text-xs text-muted">
+          <p className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-2)] px-3 py-2 text-xs text-[var(--admin-fg-muted)]">
             {label('admin.settings.fallbackNote', 'If a field is empty, the app falls back to {{number}} (environment default).').replace('{{number}}', `+${fallbackDial}`)}
           </p>
         ) : null}
         <button
           type="submit"
           disabled={saving}
-          className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+          className="admin-btn admin-btn--primary disabled:opacity-60"
         >
           {saving
             ? label('admin.common.loading', 'Loading...')

@@ -506,7 +506,7 @@ body.nav-open {
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
   box-shadow: var(--admin-shadow-sm);
-  text-align: left;
+  text-align: start;
   color: inherit;
 }
 
@@ -800,7 +800,7 @@ body.nav-open {
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  text-align: left;
+  text-align: start;
   font-size: 0.8125rem;
   color: var(--admin-fg-secondary);
 }
@@ -1071,7 +1071,7 @@ body.nav-open {
   padding: 0.9rem 1rem;
   border-bottom: 1px solid var(--admin-border);
   background: var(--admin-surface);
-  text-align: left;
+  text-align: start;
   width: 100%;
   cursor: pointer;
   transition: background 0.12s ease;

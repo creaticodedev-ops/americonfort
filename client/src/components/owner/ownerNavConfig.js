@@ -1,8 +1,8 @@
 import { ownerMenuLinks } from '../../assets/ownerAssets'
 
 /**
- * Workflow-based Admin IA — existing routes only (no duplicates).
- * MAIN / OPERATIONS / FINANCE / DOCUMENTS / MANAGEMENT / SETTINGS
+ * Enterprise Admin IA — existing routes only (no duplicates / dead links).
+ * MAIN / OPERATIONS / PARTNERS / FINANCE / DOCUMENTS / INSIGHTS / MANAGEMENT / SETTINGS
  */
 export const OWNER_NAV_GROUPS = [
   {
@@ -16,16 +16,18 @@ export const OWNER_NAV_GROUPS = [
     paths: [
       '/owner/manage-bookings',
       '/owner/calendar',
+      '/owner/signature-requests',
       '/owner/manage-cars',
       '/owner/chauffeurs',
-      '/owner/samsars',
-      '/owner/partner-companies',
-      '/owner/employees',
+      '/owner/maintenance',
       '/owner/customers',
-      '/owner/locations',
-      '/owner/vehicle-stats',
-      '/owner/add-car',
+      '/owner/walk-in',
     ],
+  },
+  {
+    id: 'partners',
+    labelKey: 'admin.menu.groups.partners',
+    paths: ['/owner/samsars', '/owner/partner-companies', '/owner/employees'],
   },
   {
     id: 'finance',
@@ -41,28 +43,27 @@ export const OWNER_NAV_GROUPS = [
   {
     id: 'documents',
     labelKey: 'admin.menu.groups.documents',
-    paths: [
-      '/owner/contracts',
-      '/owner/signature-requests',
-      '/owner/invoices',
-      '/owner/templates',
-    ],
+    paths: ['/owner/contracts', '/owner/invoices', '/owner/templates'],
+  },
+  {
+    id: 'insights',
+    labelKey: 'admin.menu.groups.insights',
+    paths: ['/owner/vehicle-stats', '/owner/reports', '/owner/analytics'],
   },
   {
     id: 'management',
     labelKey: 'admin.menu.groups.management',
-    paths: [
-      '/owner/walk-in',
-      '/owner/maintenance',
-      '/owner/reports',
-      '/owner/analytics',
-      '/owner/audit',
-    ],
+    paths: ['/owner/locations', '/owner/staff', '/owner/audit'],
   },
   {
     id: 'settings',
     labelKey: 'admin.menu.groups.settings',
-    paths: ['/owner/settings'],
+    paths: [
+      '/owner/settings',
+      '/owner/settings/general',
+      '/owner/settings/branding',
+      '/owner/settings/domains',
+    ],
   },
 ]
 
@@ -71,11 +72,24 @@ const linkByPath = Object.fromEntries(ownerMenuLinks.map((link) => [link.path, l
 const RELATED_ACTIVE = {
   '/owner/manage-cars': ['/owner/edit-car'],
   '/owner/vehicle-stats': ['/owner/vehicle-stats'],
-  '/owner/settings': ['/owner/settings'],
 }
+
+const SETTINGS_SIDEBAR_LEAVES = [
+  '/owner/settings/general',
+  '/owner/settings/branding',
+  '/owner/settings/domains',
+]
 
 export const isOwnerNavPathActive = (pathname, path) => {
   if (path === '/owner') return pathname === '/owner'
+  if (path === '/owner/accounting') return pathname === '/owner/accounting'
+  if (path === '/owner/settings') {
+    if (pathname === '/owner/settings' || pathname === '/owner/settings/') return true
+    if (!pathname.startsWith('/owner/settings/')) return false
+    return !SETTINGS_SIDEBAR_LEAVES.some(
+      (leaf) => pathname === leaf || pathname.startsWith(`${leaf}/`),
+    )
+  }
   if (pathname === path || pathname.startsWith(`${path}/`)) return true
   const related = RELATED_ACTIVE[path] || []
   return related.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
@@ -86,7 +100,7 @@ export const getGroupedOwnerNav = (hasPermission, hasFeature = () => true) =>
     id: group.id,
     labelKey: group.labelKey,
     items: group.paths
-      .map((path) => linkByPath[path])
+      .map((p) => linkByPath[p])
       .filter((link) => {
         if (!link) return false
         if (link.permission != null && !hasPermission(link.permission)) return false
@@ -112,11 +126,12 @@ export const getOwnerPageMeta = (pathname, t) => {
       description: null,
     }
   }
-  const fuzzy = ownerMenuLinks.find(
-    (l) => l.path !== '/owner' && (pathname === l.path || pathname.startsWith(`${l.path}/`)),
-  )
+  const fuzzy = [...ownerMenuLinks]
+    .sort((a, b) => b.path.length - a.path.length)
+    .find((l) => l.path !== '/owner' && (pathname === l.path || pathname.startsWith(`${l.path}/`)))
   if (fuzzy) return { title: t(fuzzy.nameKey), description: null }
   if (pathname.startsWith('/owner/edit-car')) return { title: t('admin.menu.fleet'), description: null }
+  if (pathname.startsWith('/owner/add-car')) return { title: t('admin.menu.addCar'), description: null }
   if (pathname.startsWith('/owner/settings')) return { title: t('admin.menu.settings'), description: null }
   return { title: t('admin.menu.dashboard'), description: null }
 }
@@ -131,6 +146,6 @@ export const OWNER_QUICK_ACTIONS = [
   { labelKey: 'admin.quick.newEmployee', path: '/owner/employees', permission: 'employees', feature: 'employees' },
 ]
 
-export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v4'
+export const OWNER_NAV_STORAGE_KEY = 'americonfort.owner.navGroups.v5'
 export const OWNER_SIDEBAR_COLLAPSED_KEY = 'americonfort.owner.sidebarCollapsed.v1'
 export const OWNER_NAV_GROUP_EXPANDED_KEY = 'americonfort.owner.navGroupExpanded.v1'

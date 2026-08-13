@@ -53,7 +53,7 @@ const Dashboard = () => {
       }
       const [ops, an, acc, sig] = await Promise.all(reqs)
       if (ops.data.success) setDash(ops.data.dashboard)
-      else throw new Error(ops.data.message || 'Failed to load dashboard')
+      else throw new Error(ops.data.message || t('admin.shell.loadError'))
       if (an.data.success) setAnalytics(an.data.analytics)
       if (acc?.data?.success) setAccounting(acc.data.overview)
       if (sig?.data?.success) {

@@ -13,17 +13,17 @@ export const useSettingsLabel = () => {
 
 export const Field = ({ label, hint, children }) => (
   <div className="space-y-1.5">
-    <label className="block text-xs font-medium text-gray-600">{label}</label>
+    <label className="block text-xs font-medium text-[var(--admin-fg-secondary)]">{label}</label>
     {children}
-    {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+    {hint ? <p className="text-xs text-[var(--admin-fg-muted)]">{hint}</p> : null}
   </div>
 )
 
 export const Check = ({ checked, onChange, label }) => (
-  <label className="flex items-start gap-2.5 text-sm text-ink cursor-pointer">
+  <label className="flex items-start gap-2.5 text-sm text-[var(--admin-fg)] cursor-pointer">
     <input
       type="checkbox"
-      className="mt-0.5 h-4 w-4 rounded border-borderColor text-primary focus:ring-primary/30"
+      className="mt-0.5 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[color-mix(in_srgb,var(--admin-accent)_30%,transparent)]"
       checked={Boolean(checked)}
       onChange={(e) => onChange(e.target.checked)}
     />
@@ -33,20 +33,18 @@ export const Check = ({ checked, onChange, label }) => (
 
 export const SectionTitle = ({ title, hint }) => (
   <div className="mb-4">
-    <h3 className="text-sm font-semibold text-ink">{title}</h3>
-    {hint ? <p className="mt-0.5 text-xs text-muted">{hint}</p> : null}
+    <h3 className="text-sm font-semibold text-[var(--admin-fg)]">{title}</h3>
+    {hint ? <p className="mt-0.5 text-xs text-[var(--admin-fg-muted)]">{hint}</p> : null}
   </div>
 )
 
 export const settingsInputClass =
-  'w-full rounded-xl border border-borderColor bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-primary/40'
+  'w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2.5 text-sm text-[var(--admin-fg)] outline-none focus:border-[color-mix(in_srgb,var(--admin-accent)_40%,var(--admin-border))]'
 
 export const settingsNumClass = `${settingsInputClass} max-w-[12rem]`
 
 export const SettingsPanel = ({ children, className = '' }) => (
-  <div
-    className={`rounded-2xl border border-borderColor bg-white p-5 sm:p-6 space-y-6 ${className}`}
-  >
+  <div className={`admin-panel p-5 sm:p-6 space-y-6 ${className}`}>
     {children}
   </div>
 )
@@ -54,13 +52,16 @@ export const SettingsPanel = ({ children, className = '' }) => (
 export const RelatedLink = ({ to, title, description }) => (
   <Link
     to={to}
-    className="group flex items-center gap-3 rounded-xl border border-borderColor bg-light/30 px-4 py-3 transition hover:border-primary/30 hover:bg-white"
+    className="group flex items-center gap-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)] px-4 py-3 transition hover:border-[color-mix(in_srgb,var(--admin-accent)_30%,var(--admin-border))] hover:bg-[var(--admin-surface)]"
   >
     <div className="min-w-0 flex-1">
-      <p className="text-sm font-medium text-ink group-hover:text-primary transition">{title}</p>
-      {description ? <p className="mt-0.5 text-xs text-muted">{description}</p> : null}
+      <p className="text-sm font-medium text-[var(--admin-fg)] group-hover:text-[var(--admin-accent)] transition">{title}</p>
+      {description ? <p className="mt-0.5 text-xs text-[var(--admin-fg-muted)]">{description}</p> : null}
     </div>
-    <SettingsIcon name="chevron" className="h-4 w-4 text-muted shrink-0" />
+    <SettingsIcon
+      name="chevron"
+      className="h-4 w-4 text-[var(--admin-fg-muted)] shrink-0 ltr:group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5"
+    />
   </Link>
 )
 
@@ -69,11 +70,11 @@ export const GuidePage = ({ title, description, children }) => {
   return (
     <SettingsPanel>
       <div>
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
-        {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+        <h2 className="text-base font-semibold text-[var(--admin-fg)]">{title}</h2>
+        {description ? <p className="mt-1 text-sm text-[var(--admin-fg-secondary)]">{description}</p> : null}
       </div>
       <div className="space-y-3">{children}</div>
-      <p className="text-xs text-muted">
+      <p className="text-xs text-[var(--admin-fg-muted)]">
         {label(
           'admin.settings.nav.guideNote',
           'Additional options for this area will appear here as the product grows. Related tools remain available from the links above.',
@@ -85,22 +86,22 @@ export const GuidePage = ({ title, description, children }) => {
 
 /** Collapsible subsection for dense category pages (e.g. Booking Settings). */
 export const AccordionSection = ({ id, title, hint, open, onToggle, children }) => (
-  <div className="rounded-xl border border-borderColor overflow-hidden">
+  <div className="rounded-xl border border-[var(--admin-border)] overflow-hidden">
     <button
       type="button"
       id={`${id}-header`}
       aria-expanded={open}
       aria-controls={`${id}-panel`}
       onClick={onToggle}
-      className="flex w-full items-start gap-3 px-4 py-3.5 text-left hover:bg-light/50 transition"
+      className="flex w-full items-start gap-3 px-4 py-3.5 text-start hover:bg-[var(--admin-surface-2)] transition"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-ink">{title}</span>
-        {hint ? <span className="mt-0.5 block text-xs text-muted">{hint}</span> : null}
+        <span className="block text-sm font-semibold text-[var(--admin-fg)]">{title}</span>
+        {hint ? <span className="mt-0.5 block text-xs text-[var(--admin-fg-muted)]">{hint}</span> : null}
       </span>
       <SettingsIcon
         name="chevron"
-        className={`mt-0.5 h-4 w-4 shrink-0 text-muted transition-transform ${open ? 'rotate-90' : ''}`}
+        className={`mt-0.5 h-4 w-4 shrink-0 text-[var(--admin-fg-muted)] transition-transform rtl-flip ${open ? 'rotate-90' : ''}`}
       />
     </button>
     <div
@@ -112,7 +113,7 @@ export const AccordionSection = ({ id, title, hint, open, onToggle, children }) 
       }`}
     >
       <div className="min-h-0 overflow-hidden">
-        <div className="border-t border-borderColor px-4 py-4 space-y-3 bg-white">{children}</div>
+        <div className="border-t border-[var(--admin-border)] px-4 py-4 space-y-3 bg-[var(--admin-surface)]">{children}</div>
       </div>
     </div>
   </div>

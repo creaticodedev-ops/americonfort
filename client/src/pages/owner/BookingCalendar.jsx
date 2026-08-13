@@ -134,7 +134,7 @@ const BookingCalendar = () => {
             <button type="button" onClick={() => shift(1)} className="admin-btn admin-btn--secondary">{t('admin.calendar.next')}</button>
           </div>
           <h2 className="admin-panel-title text-center flex-1">{headerLabel}</h2>
-          <SegmentedControl options={viewOptions} value={view} onChange={setView} ariaLabel="Calendar view" />
+          <SegmentedControl options={viewOptions} value={view} onChange={setView} ariaLabel={t('admin.calendar.viewAria')} />
         </div>
 
         <div className="admin-panel-body">

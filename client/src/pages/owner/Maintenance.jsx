@@ -286,7 +286,7 @@ const Maintenance = () => {
           options={tabs.map((tb) => ({ id: tb.id, label: tb.label }))}
           value={tab}
           onChange={setTab}
-          ariaLabel="Maintenance tabs"
+          ariaLabel={t('admin.maintenance.tabsAria')}
         />
       </div>
 

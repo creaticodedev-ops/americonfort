@@ -55,7 +55,7 @@ export const ownerMenuLinks = [
   { nameKey: 'admin.menu.signatureRequests', path: '/owner/signature-requests', icon: listIcon, coloredIcon: listIconColored, permission: 'signature_requests', feature: 'signature_requests' },
   { nameKey: 'admin.menu.addCar', path: '/owner/add-car', icon: addIcon, coloredIcon: addIconColored, permission: 'fleet', feature: 'fleet' },
   { nameKey: 'admin.menu.fleet', path: '/owner/manage-cars', icon: carIcon, coloredIcon: carIconColored, permission: 'fleet', feature: 'fleet' },
-  { nameKey: 'admin.menu.vehicleStats', path: '/owner/vehicle-stats', icon: dashboardIcon, coloredIcon: dashboardIconColored, permission: 'fleet', feature: 'fleet' },
+  { nameKey: 'admin.menu.statistics', path: '/owner/vehicle-stats', icon: dashboardIcon, coloredIcon: dashboardIconColored, permission: 'fleet', feature: 'fleet' },
   { nameKey: 'admin.menu.maintenance', path: '/owner/maintenance', icon: cautionIconColored, coloredIcon: cautionIconColored, permission: 'maintenance', feature: 'maintenance' },
   { nameKey: 'admin.menu.locations', path: '/owner/locations', icon: publicAssets.location_icon, coloredIcon: location_icon_colored, permission: 'locations', feature: null },
   { nameKey: 'admin.menu.chauffeurs', path: '/owner/chauffeurs', icon: publicAssets.users_icon, coloredIcon: publicAssets.users_icon, permission: 'chauffeurs', feature: 'chauffeurs' },
@@ -72,6 +72,10 @@ export const ownerMenuLinks = [
   { nameKey: 'admin.menu.agencyExpenses', path: '/owner/accounting/agency-expenses', icon: listIcon, coloredIcon: listIconColored, permission: 'accounting', feature: 'accounting' },
   { nameKey: 'admin.menu.vehicleExpenses', path: '/owner/accounting/vehicle-expenses', icon: listIcon, coloredIcon: listIconColored, permission: 'accounting', feature: 'accounting' },
   { nameKey: 'admin.menu.audit', path: '/owner/audit', icon: listIcon, coloredIcon: listIconColored, permission: 'audit', feature: null },
+  { nameKey: 'admin.menu.staff', path: '/owner/staff', icon: publicAssets.users_icon, coloredIcon: publicAssets.users_icon, permission: null, feature: null },
   // Always visible to owners (permission null) — agency WhatsApp config must stay reachable
   { nameKey: 'admin.menu.settings', path: '/owner/settings', icon: edit_icon, coloredIcon: edit_icon, permission: null, feature: null },
+  { nameKey: 'admin.menu.general', path: '/owner/settings/general', icon: edit_icon, coloredIcon: edit_icon, permission: null, feature: null },
+  { nameKey: 'admin.menu.branding', path: '/owner/settings/branding', icon: edit_icon, coloredIcon: edit_icon, permission: null, feature: null },
+  { nameKey: 'admin.menu.domains', path: '/owner/settings/domains', icon: edit_icon, coloredIcon: edit_icon, permission: null, feature: null },
 ];

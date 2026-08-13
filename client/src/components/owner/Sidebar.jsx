@@ -191,9 +191,9 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
         </label>
         {!collapsed && (
           <div className="admin-sidebar-brand-text min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-[var(--admin-fg)]">{user?.name || 'Admin'}</p>
+            <p className="truncate text-sm font-semibold text-[var(--admin-fg)]">{user?.name || t('admin.staff.fallbackName')}</p>
             <p className="truncate text-[11px] text-[var(--admin-fg-muted)]">
-              {user?.agencyName || user?.businessName || 'Americonfort'}
+              {user?.agencyName || user?.businessName || t('admin.staff.agencyFallback')}
             </p>
           </div>
         )}
