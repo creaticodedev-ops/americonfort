@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import Title from './Title'
 import { assets } from '../assets/assets'
-import CarCard from './CarCard'
+import CategorySection from './CategorySection'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { motion as Motion } from 'motion/react'
@@ -15,62 +15,42 @@ const FeaturedSection = () => {
 
   const sections = useMemo(() => {
     const grouped = groupCarsByCategory(cars)
-    // Home: up to 3 categories, 3 cars each — keeps the page premium, not crowded
     return grouped.slice(0, 3).map((s) => ({
-      ...s,
+      category: s.category,
+      total: s.cars.length,
       cars: s.cars.slice(0, 3),
     }))
   }, [cars])
 
   return (
-    <section className="relative py-20 md:py-28 page-pad page-shell bg-light">
-      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-sand/60 to-transparent pointer-events-none" />
+    <section className="relative py-16 md:py-20 page-pad page-shell bg-light">
+      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-sand/50 to-transparent pointer-events-none" />
 
       <Motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
+        transition={{ duration: 0.55, ease: 'easeOut' }}
+        className="relative"
       >
         <Title
           eyebrow={t('featured.eyebrow')}
           title={t('featured.title')}
           subTitle={t('featured.subtitle')}
         />
+        <div className="fleet-title-mark" aria-hidden="true" />
       </Motion.div>
 
-      <div className="mt-14 md:mt-16 space-y-14 md:space-y-16">
+      <div className="relative mt-10 md:mt-12 space-y-11 md:space-y-14">
         {sections.map((section) => (
-          <div key={section.category}>
-            <div className="flex items-end justify-between gap-3 mb-6">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-primary/70 mb-1">
-                  {t('cars.categoryLabel')}
-                </p>
-                <h3 className="font-display text-2xl sm:text-3xl text-ink">{section.category}</h3>
-              </div>
-              <Link
-                to={`/cars?category=${encodeURIComponent(section.category)}`}
-                onClick={() => window.scrollTo(0, 0)}
-                className="text-xs sm:text-sm text-primary hover:underline shrink-0"
-              >
-                {t('featured.viewCategory')}
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-              {section.cars.map((car, index) => (
-                <Motion.div
-                  key={car._id}
-                  initial={{ opacity: 0, y: 28 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.2 }}
-                  transition={{ duration: 0.5, delay: Math.min(index * 0.08, 0.32), ease: 'easeOut' }}
-                >
-                  <CarCard car={car} />
-                </Motion.div>
-              ))}
-            </div>
-          </div>
+          <CategorySection
+            key={section.category}
+            category={section.category}
+            count={section.total}
+            cars={section.cars}
+            actionTo={`/cars?category=${encodeURIComponent(section.category)}`}
+            actionLabel={t('featured.viewCategory')}
+          />
         ))}
       </div>
 
@@ -78,8 +58,8 @@ const FeaturedSection = () => {
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-14 md:mt-16"
+        transition={{ duration: 0.45, delay: 0.12 }}
+        className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-12 md:mt-14"
       >
         <Link
           to="/cars"
@@ -87,12 +67,19 @@ const FeaturedSection = () => {
           className="group inline-flex items-center gap-2 px-7 py-3 border border-ink/15 hover:border-primary hover:text-primary rounded-xl text-sm tracking-wide transition-all duration-300"
         >
           {t('featured.exploreAll')}
-          <img src={assets.arrow_icon} alt="" width={14} height={14} loading="lazy" className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+          <img
+            src={assets.arrow_icon}
+            alt=""
+            width={14}
+            height={14}
+            loading="lazy"
+            className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1"
+          />
         </Link>
         <Link
           to={AIRPORT_LANDING_PATH}
           onClick={() => window.scrollTo(0, 0)}
-          className="text-xs sm:text-sm text-muted hover:text-primary underline-offset-2 hover:underline"
+          className="text-xs sm:text-sm text-muted hover:text-primary underline-offset-4 hover:underline"
         >
           {t('featured.airportLink')}
         </Link>

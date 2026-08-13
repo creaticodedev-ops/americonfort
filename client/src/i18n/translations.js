@@ -151,7 +151,9 @@ export const en = {
   },
   carCard: {
     available: 'Available Now',
+    unavailable: 'Unavailable',
     perDay: '/ day',
+    viewDetails: 'View details',
   },
   confirmation: {
     title: 'Reservation Confirmed',
@@ -449,7 +451,9 @@ export const fr = {
   },
   carCard: {
     available: 'Disponible',
+    unavailable: 'Indisponible',
     perDay: '/ jour',
+    viewDetails: 'Voir les détails',
   },
   confirmation: {
     title: 'Réservation enregistrée',
@@ -747,7 +751,9 @@ export const es = {
   },
   carCard: {
     available: 'Disponible',
+    unavailable: 'No disponible',
     perDay: '/ día',
+    viewDetails: 'Ver detalles',
   },
   confirmation: {
     title: 'Reserva registrada',

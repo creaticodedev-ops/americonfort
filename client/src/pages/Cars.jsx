@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Title from '../components/Title'
 import Seo from '../components/Seo'
 import { assets } from '../assets/assets'
-import CarCard from '../components/CarCard'
+import CategorySection from '../components/CategorySection'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
@@ -192,7 +192,7 @@ const Cars = () => {
           transition={{ delay: 0.25, duration: 0.5 }}
           className="relative z-10 flex items-center bg-white px-4 mt-6 max-w-xl w-full h-12 rounded-xl border border-borderColor shadow-sm"
         >
-          <img src={assets.search_icon} alt="" width={18} height={18} className="w-[1.125rem] h-[1.125rem] mr-2 shrink-0" />
+          <img src={assets.search_icon} alt="" width={18} height={18} className="w-[1.125rem] h-[1.125rem] me-2 shrink-0" />
           <input
             onChange={(e) => setInput(e.target.value)}
             value={input}
@@ -204,15 +204,14 @@ const Cars = () => {
         </Motion.div>
 
         {availableCategories.length > 0 && (
-          <div className="relative z-10 mt-8 w-full max-w-4xl flex flex-wrap justify-center gap-2">
+          <nav
+            className="fleet-cat-nav relative z-10 mt-8 w-full max-w-4xl"
+            aria-label={t('cars.categoryLabel')}
+          >
             <Link
               to="/cars"
               onClick={() => selectCategory('')}
-              className={`px-3.5 py-1.5 text-xs sm:text-sm rounded-full border transition-colors ${
-                !activeCategory
-                  ? 'bg-ink text-white border-ink'
-                  : 'bg-white/80 text-muted border-borderColor hover:border-ink/30'
-              }`}
+              className={`fleet-cat-chip ${!activeCategory ? 'is-active' : ''}`}
             >
               {t('cars.allCategories')}
             </Link>
@@ -221,16 +220,14 @@ const Cars = () => {
                 key={cat}
                 to={`/cars?category=${encodeURIComponent(cat)}`}
                 onClick={() => selectCategory(cat)}
-                className={`px-3.5 py-1.5 text-xs sm:text-sm rounded-full border transition-colors ${
-                  activeCategory.toLowerCase() === cat.toLowerCase()
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white/80 text-muted border-borderColor hover:border-primary/40 hover:text-primary'
+                className={`fleet-cat-chip ${
+                  activeCategory.toLowerCase() === cat.toLowerCase() ? 'is-active' : ''
                 }`}
               >
                 {cat}
               </Link>
             ))}
-          </div>
+          </nav>
         )}
         <p className="relative z-10 mt-6 text-center text-sm text-muted">
           <Link to={AIRPORT_LANDING_PATH} className="text-primary hover:underline">
@@ -240,59 +237,46 @@ const Cars = () => {
       </Motion.div>
 
       <div className="page-pad page-shell mt-4 sm:mt-6">
-        <p className="text-gray-500 text-sm sm:text-base mb-8">
+        <p className="text-muted text-sm sm:text-base mb-6">
           {carsLoading || searchLoading
             ? t('common.loading')
             : t('cars.showing', { count: sections.reduce((n, s) => n + s.cars.length, 0) })}
         </p>
 
         {(carsLoading || searchLoading) && !filteredCars.length ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-64 rounded-xl bg-sand/60 animate-pulse" />
+              <div key={i} className="h-72 rounded-2xl bg-sand/70 animate-pulse" />
             ))}
           </div>
         ) : sections.length === 0 ? (
           <p className="text-center text-muted py-16">{t('cars.noCars')}</p>
         ) : (
-          <div className="space-y-16 sm:space-y-20">
+          <div className="space-y-12 md:space-y-16">
             {sections.map((section, sIdx) => (
-              <Motion.section
+              <Motion.div
                 key={section.category}
-                id={`category-${section.category.toLowerCase()}`}
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.15 }}
-                transition={{ duration: 0.5, delay: Math.min(sIdx * 0.05, 0.2) }}
+                viewport={{ once: true, amount: 0.12 }}
+                transition={{ duration: 0.45, delay: Math.min(sIdx * 0.04, 0.16) }}
               >
-                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6 sm:mb-8 border-b border-borderColor pb-4">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-primary/80 mb-1">
-                      {t('cars.categoryLabel')}
-                    </p>
-                    <h2 className="font-display text-3xl sm:text-4xl text-ink leading-none">
-                      {section.category}
-                    </h2>
-                  </div>
-                  <p className="text-sm text-muted">
-                    {t('cars.categoryCount', { count: section.cars.length })}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-                  {section.cars.map((car, index) => (
-                    <Motion.div
-                      key={car._id}
-                      initial={{ opacity: 0, y: 16 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.2 }}
-                      transition={{ duration: 0.4, delay: Math.min(index * 0.06, 0.24) }}
-                    >
-                      <CarCard car={car} />
-                    </Motion.div>
-                  ))}
-                </div>
-              </Motion.section>
+                <CategorySection
+                  id={`category-${section.category.toLowerCase()}`}
+                  category={section.category}
+                  count={section.cars.length}
+                  cars={section.cars}
+                  animate={false}
+                  actionTo={
+                    activeCategory
+                      ? '/cars'
+                      : `/cars?category=${encodeURIComponent(section.category)}`
+                  }
+                  actionLabel={
+                    activeCategory ? t('cars.allCategories') : t('featured.viewCategory')
+                  }
+                />
+              </Motion.div>
             ))}
           </div>
         )}

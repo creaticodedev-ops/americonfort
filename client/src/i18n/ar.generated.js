@@ -42,12 +42,12 @@ export const ar = {
     "localLink": "car rental at Casablanca Airport"
   },
   "featured": {
-    "eyebrow": "The fleet",
-    "title": "Featured vehicles",
-    "subtitle": "A refined selection of well-maintained cars, ready for business, travel, and everything in between.",
-    "exploreAll": "Explore the full fleet",
-    "viewCategory": "View category",
-    "airportLink": "Casablanca airport car rental"
+    "eyebrow": "الأسطول",
+    "title": "مركبات مميزة",
+    "subtitle": "تشكيلة مختارة من سيارات مُعتنى بها، جاهزة للعمل والسفر والاستخدام اليومي.",
+    "exploreAll": "استكشف الأسطول كاملاً",
+    "viewCategory": "عرض الفئة",
+    "airportLink": "كراء سيارة مطار الدار البيضاء"
   },
   "banner": {
     "eyebrow": "Ready when you are",
@@ -161,8 +161,10 @@ export const ar = {
     "priceHint": "Select dates and locations to see your full price breakdown."
   },
   "carCard": {
-    "available": "Available Now",
-    "perDay": "/ day"
+    "available": "متاحة",
+    "unavailable": "غير متاحة",
+    "perDay": "/ اليوم",
+    "viewDetails": "عرض التفاصيل"
   },
   "confirmation": {
     "title": "Reservation Confirmed",
