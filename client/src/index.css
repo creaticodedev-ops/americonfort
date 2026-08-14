@@ -2227,22 +2227,60 @@ html[dir='rtl'] .admin-modal-root--drawer .admin-modal-panel {
   background: var(--admin-surface-hover);
 }
 
+/* Portaled action menus — self-contained theme (render on body, outside .admin-app) */
 .admin-actions-menu {
   position: fixed;
-  z-index: 80;
+  z-index: 100;
   min-width: 13.5rem;
   max-width: min(18rem, calc(100vw - 1rem));
-  padding: 0.35rem 0;
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-lg);
-  box-shadow: var(--admin-shadow-lg);
+  padding: 0.375rem 0;
+  margin: 0;
+  border: 1px solid;
+  border-radius: var(--admin-radius-lg, 12px);
+  box-shadow: var(--admin-menu-shadow);
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  isolation: isolate;
+  opacity: 1;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.admin-app[data-theme='dark'] .admin-actions-menu {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+.admin-actions-menu[data-theme='light'] {
+  --admin-menu-surface: #ffffff;
+  --admin-menu-surface-hover: #f1f3f6;
+  --admin-menu-border: #e2e8f0;
+  --admin-menu-fg: #0f172a;
+  --admin-menu-fg-muted: #64748b;
+  --admin-menu-danger: #b91c1c;
+  --admin-menu-danger-soft: #fef2f2;
+  --admin-menu-danger-hover: #fee2e2;
+  --admin-menu-whatsapp: #128c7e;
+  --admin-menu-shadow: 0 12px 40px -12px rgba(15, 23, 42, 0.28), 0 4px 12px rgba(15, 23, 42, 0.1);
+  background-color: #ffffff;
+  border-color: #e2e8f0;
+  color: #0f172a;
+  color-scheme: light;
+}
+
+.admin-actions-menu[data-theme='dark'] {
+  --admin-menu-surface: #141b24;
+  --admin-menu-surface-hover: #1e2733;
+  --admin-menu-border: #2a3544;
+  --admin-menu-fg: #e8edf4;
+  --admin-menu-fg-muted: #94a3b8;
+  --admin-menu-danger: #f87171;
+  --admin-menu-danger-soft: rgba(185, 28, 28, 0.14);
+  --admin-menu-danger-hover: rgba(185, 28, 28, 0.24);
+  --admin-menu-whatsapp: #34d399;
+  --admin-menu-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
+  background-color: #141b24;
+  border-color: #2a3544;
+  color: #e8edf4;
+  color-scheme: dark;
 }
 
 .admin-actions-menu-item {
@@ -2251,17 +2289,22 @@ html[dir='rtl'] .admin-modal-root--drawer .admin-modal-panel {
   gap: 0.625rem;
   width: 100%;
   min-height: 2.75rem;
-  padding: 0.5rem 0.85rem;
+  padding: 0.5625rem 0.875rem;
   font-size: 0.875rem;
+  line-height: 1.25;
+  font-weight: 500;
   text-align: start;
-  color: var(--admin-fg);
-  background: var(--admin-surface);
+  color: var(--admin-menu-fg);
+  background-color: var(--admin-menu-surface);
   border: 0;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
-.admin-actions-menu-item:hover:not(:disabled) {
-  background: var(--admin-surface-hover);
+.admin-actions-menu-item:hover:not(:disabled),
+.admin-actions-menu-item:focus-visible:not(:disabled) {
+  background-color: var(--admin-menu-surface-hover);
+  outline: none;
 }
 
 .admin-actions-menu-item:disabled {
@@ -2270,22 +2313,45 @@ html[dir='rtl'] .admin-modal-root--drawer .admin-modal-panel {
 }
 
 .admin-actions-menu-item--danger {
-  color: var(--admin-danger);
+  color: var(--admin-menu-danger);
+}
+
+.admin-actions-menu-item--danger:hover:not(:disabled),
+.admin-actions-menu-item--danger:focus-visible:not(:disabled) {
+  background-color: var(--admin-menu-danger-hover);
 }
 
 .admin-actions-menu-item--whatsapp {
-  color: #128c7e;
+  color: var(--admin-menu-whatsapp);
 }
 
 .admin-actions-menu-item-icon {
-  display: flex;
-  opacity: 0.85;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  opacity: 1;
+}
+
+.admin-actions-menu-item-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.admin-actions-menu-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-actions-menu-sep {
   margin: 0.25rem 0;
-  border-top: 1px solid var(--admin-border);
-  padding: 0.35rem 0.85rem 0;
+  border-top: 1px solid var(--admin-menu-border);
+  padding: 0.35rem 0.875rem 0;
 }
 
 .admin-actions-menu-sep-label {
@@ -2295,7 +2361,23 @@ html[dir='rtl'] .admin-modal-root--drawer .admin-modal-panel {
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--admin-fg-muted);
+  color: var(--admin-menu-fg-muted);
+}
+
+.admin-actions-menu-danger-zone {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--admin-menu-border);
+  background-color: var(--admin-menu-danger-soft);
+}
+
+.admin-actions-menu-danger-zone .admin-actions-menu-item {
+  background-color: transparent;
+}
+
+.admin-actions-menu-danger-zone .admin-actions-menu-item--danger:hover:not(:disabled),
+.admin-actions-menu-danger-zone .admin-actions-menu-item--danger:focus-visible:not(:disabled) {
+  background-color: var(--admin-menu-danger-hover);
 }
 
 .admin-btn--sm {

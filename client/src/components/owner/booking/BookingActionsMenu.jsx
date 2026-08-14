@@ -1,5 +1,5 @@
-import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import React, { useId, useRef, useState } from 'react'
+import { AdminActionsMenuPanel } from '../ui/AdminActionsMenu'
 
 const baseBtn =
   'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--admin-radius)] border transition-colors ' +
@@ -22,7 +22,7 @@ const IconEye = () => (
 )
 
 /**
- * View + More (⋯) row actions. Menu portals to body — opaque surface, no transparency bleed.
+ * View + More (⋯) row actions for reservations. Menu uses AdminActionsMenuPanel (opaque, portaled).
  */
 const BookingActionsMenu = ({
   t,
@@ -33,112 +33,21 @@ const BookingActionsMenu = ({
   className = '',
 }) => {
   const [open, setOpen] = useState(false)
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, maxHeight: 360 })
   const rootRef = useRef(null)
   const moreBtnRef = useRef(null)
   const menuRef = useRef(null)
   const menuId = useId()
 
   const btnSize = size === 'sm' ? 'h-8 w-8' : 'h-9 w-9'
+  const visibleItems = items.filter((item) => !item.hidden)
 
-  useLayoutEffect(() => {
-    if (!open || !moreBtnRef.current) return undefined
-    const place = () => {
-      const rect = moreBtnRef.current.getBoundingClientRect()
-      const menuWidth = 224
-      const menuHeight = menuRef.current?.offsetHeight || 280
-      const gap = 8
-      const spaceBelow = window.innerHeight - rect.bottom - gap
-      const spaceAbove = rect.top - gap
-      const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow
-      const maxHeight = Math.max(180, openUp ? spaceAbove : spaceBelow)
-      const top = openUp
-        ? Math.max(8, rect.top - Math.min(menuHeight, maxHeight) - gap)
-        : rect.bottom + gap
-      const left = Math.min(
-        window.innerWidth - menuWidth - 8,
-        Math.max(8, rect.right - menuWidth),
-      )
-      setMenuPos({ top, left, maxHeight })
-    }
-    place()
-    const raf = requestAnimationFrame(place)
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [open, items.length])
-
-  useEffect(() => {
-    if (!open) return undefined
-    const onPointer = (event) => {
-      if (!rootRef.current?.contains(event.target) && !menuRef.current?.contains(event.target)) {
-        setOpen(false)
-      }
-    }
-    const onKey = (event) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointer)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  const close = () => setOpen(false)
 
   const run = (fn) => (event) => {
     event.stopPropagation()
-    setOpen(false)
+    close()
     fn?.()
   }
-
-  const visibleItems = items.filter((item) => !item.hidden)
-
-  const menu = open
-    ? createPortal(
-        <div
-          id={menuId}
-          ref={menuRef}
-          role="menu"
-          style={{ top: menuPos.top, left: menuPos.left, maxHeight: menuPos.maxHeight }}
-          className="admin-actions-menu"
-        >
-          {visibleItems.map((item) => {
-            if (item.separator) {
-              return (
-                <div key={item.key} className="admin-actions-menu-sep" role="separator">
-                  {item.label ? <span className="admin-actions-menu-sep-label">{item.label}</span> : null}
-                </div>
-              )
-            }
-            const toneClass =
-              item.tone === 'danger'
-                ? 'admin-actions-menu-item--danger'
-                : item.tone === 'whatsapp'
-                  ? 'admin-actions-menu-item--whatsapp'
-                  : ''
-            return (
-              <button
-                key={item.key}
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                onClick={run(item.onClick)}
-                className={`admin-actions-menu-item ${toneClass}`.trim()}
-              >
-                {item.icon ? <span className="admin-actions-menu-item-icon">{item.icon}</span> : null}
-                <span className="truncate">{item.label}</span>
-              </button>
-            )
-          })}
-        </div>,
-        document.body,
-      )
-    : null
 
   return (
     <div ref={rootRef} className={`admin-booking-row-actions ${className}`.trim()} onClick={(e) => e.stopPropagation()}>
@@ -173,7 +82,14 @@ const BookingActionsMenu = ({
         </button>
       )}
 
-      {menu}
+      <AdminActionsMenuPanel
+        open={open}
+        onClose={close}
+        anchorRef={moreBtnRef}
+        menuRef={menuRef}
+        menuId={menuId}
+        items={items}
+      />
     </div>
   )
 }

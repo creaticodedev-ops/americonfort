@@ -15,3 +15,4 @@ export {
 export { SegmentedControl, FilterBar, SearchInput, ChartCard } from './FilterBar'
 export { Icon, navIconForPath } from './adminIcons'
 export { DetailSection, DetailRow } from './DetailSection'
+export { AdminActionsMenuPanel } from './AdminActionsMenu'
