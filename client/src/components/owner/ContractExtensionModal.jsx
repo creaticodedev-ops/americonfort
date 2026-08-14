@@ -128,6 +128,7 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
       onClose={onClose}
       title={t('admin.extend.title')}
       size="lg"
+      variant="drawer"
       footer={
         <>
           <button type="button" className="admin-btn admin-btn--secondary" onClick={onClose}>

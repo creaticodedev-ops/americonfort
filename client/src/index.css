@@ -1101,19 +1101,27 @@ body.nav-open {
   }
 }
 
-/* Modal */
+/* Modal / drawer */
 .admin-modal-root {
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
   padding: 0;
 }
 
+.admin-modal-root--drawer {
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.admin-modal-root--center {
+  align-items: flex-end;
+  justify-content: center;
+}
+
 @media (min-width: 640px) {
-  .admin-modal-root {
+  .admin-modal-root--center {
     align-items: center;
     padding: 1rem;
   }
@@ -1134,28 +1142,104 @@ body.nav-open {
 .admin-modal-panel {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-height: min(92svh, 40rem);
-  overflow: auto;
+  overflow: hidden;
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-xl) var(--admin-radius-xl) 0 0;
   box-shadow: var(--admin-shadow-lg);
-  outline: none;
+}
+
+.admin-modal-root--drawer .admin-modal-panel {
+  max-height: 100svh;
+  height: 100%;
+  border-radius: var(--admin-radius-xl) 0 0 var(--admin-radius-xl);
+  border-inline-end: 0;
+  animation: adminDrawerIn 0.22s ease-out;
+}
+
+.admin-modal-root--center .admin-modal-panel {
+  border-radius: var(--admin-radius-xl) var(--admin-radius-xl) 0 0;
+  animation: adminModalIn 0.2s ease-out;
 }
 
 @media (min-width: 640px) {
-  .admin-modal-panel {
+  .admin-modal-root--drawer .admin-modal-panel {
+    width: min(100%, 28rem);
+    max-width: 28rem;
+  }
+
+  .admin-modal-root--center .admin-modal-panel {
     border-radius: var(--admin-radius-xl);
+  }
+}
+
+.admin-modal-panel--sm {
+  max-width: 24rem;
+}
+
+.admin-modal-panel--md {
+  max-width: 28rem;
+}
+
+.admin-modal-panel--lg {
+  max-width: 36rem;
+}
+
+.admin-modal-panel--xl {
+  max-width: 48rem;
+}
+
+.admin-modal-root--center .admin-modal-panel--sm {
+  width: min(100%, 24rem);
+}
+
+.admin-modal-root--center .admin-modal-panel--md {
+  width: min(100%, 28rem);
+}
+
+.admin-modal-root--center .admin-modal-panel--lg {
+  width: min(100%, 36rem);
+}
+
+.admin-modal-root--center .admin-modal-panel--xl {
+  width: min(100%, 48rem);
+}
+
+@keyframes adminDrawerIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes adminModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 .admin-modal-header {
   position: relative;
+  flex-shrink: 0;
   padding: 1.1rem 1.15rem 0.75rem;
 }
 
 .admin-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: 0.25rem 1.15rem 1rem;
 }
 
@@ -1163,6 +1247,7 @@ body.nav-open {
   display: flex;
   flex-direction: column-reverse;
   gap: 0.5rem;
+  flex-shrink: 0;
   padding: 0.85rem 1.15rem 1.15rem;
   border-top: 1px solid var(--admin-border);
   background: var(--admin-surface-2);
@@ -1172,6 +1257,24 @@ body.nav-open {
   .admin-modal-footer {
     flex-direction: row;
     justify-content: flex-end;
+  }
+}
+
+html[dir='rtl'] .admin-modal-root--drawer .admin-modal-panel {
+  border-radius: 0 var(--admin-radius-xl) var(--admin-radius-xl) 0;
+  border-inline-end: 1px solid var(--admin-border);
+  border-inline-start: 0;
+  animation: adminDrawerInRtl 0.22s ease-out;
+}
+
+@keyframes adminDrawerInRtl {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 

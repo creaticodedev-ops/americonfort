@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import StatusBadge from '../../components/owner/StatusBadge'
@@ -17,10 +17,14 @@ import { getErrorMessage } from '../../utils/apiError'
 const SignatureRequests = () => {
   const { axios, hasPermission } = useAppContext()
   const { t } = useI18n()
+  const tRef = useRef(t)
+  tRef.current = t
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const hasLoadedRef = useRef(false)
 
   const statusOpts = [
     { id: 'all', label: t('admin.status.all') },
@@ -30,21 +34,28 @@ const SignatureRequests = () => {
     { id: 'cancelled', label: t('admin.status.cancelled') },
   ]
 
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(search), 300)
+    return () => window.clearTimeout(id)
+  }, [search])
+
   const load = useCallback(async () => {
-    setLoading(true)
+    const silent = hasLoadedRef.current
+    if (!silent) setLoading(true)
     try {
       const params = new URLSearchParams({ limit: '50' })
       if (status !== 'all') params.set('status', status)
-      if (search.trim()) params.set('search', search.trim())
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim())
       const { data } = await axios.get(`/api/owner/signature-requests?${params}`)
       if (data.success) setItems(data.items || [])
-      else toast.error(data.message || t('admin.signatures.loadFailed'))
+      else toast.error(data.message || tRef.current('admin.signatures.loadFailed'))
     } catch (e) {
       toast.error(getErrorMessage(e))
     } finally {
+      hasLoadedRef.current = true
       setLoading(false)
     }
-  }, [axios, status, search, t])
+  }, [axios, status, debouncedSearch])
 
   useEffect(() => {
     load()

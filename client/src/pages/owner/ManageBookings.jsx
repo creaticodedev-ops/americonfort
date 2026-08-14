@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import ChannelBadge from '../../components/owner/ChannelBadge'
 import BookingRowActions from '../../components/owner/BookingRowActions'
 import StatusBadge from '../../components/owner/StatusBadge'
@@ -79,6 +79,10 @@ const ManageBookings = () => {
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [editing, setEditing] = useState(null)
   const [editForm, setEditForm] = useState(emptyEdit)
+  const closeEdit = useCallback(() => setEditing(null), [])
+  const patchEditForm = useCallback((patch) => {
+    setEditForm((prev) => ({ ...prev, ...patch }))
+  }, [])
   const [loading, setLoading] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
   const [fleetCars, setFleetCars] = useState([])
@@ -88,6 +92,7 @@ const ManageBookings = () => {
   const [completionLinkCache, setCompletionLinkCache] = useState({})
   const [openingWhatsApp, setOpeningWhatsApp] = useState(false)
   const [extendBooking, setExtendBooking] = useState(null)
+  const closeExtend = useCallback(() => setExtendBooking(null), [])
   const [confirmAction, setConfirmAction] = useState(null)
 
   const resolveCompletionUrl = (booking) =>
@@ -1086,7 +1091,7 @@ const ManageBookings = () => {
       {extendBooking && (
         <ContractExtensionModal
           booking={extendBooking}
-          onClose={() => setExtendBooking(null)}
+          onClose={closeExtend}
           onExtended={(result) => {
             if (result?.booking) {
               setSelectedBooking((prev) => (prev ? { ...prev, ...result.booking } : prev))
@@ -1108,13 +1113,14 @@ const ManageBookings = () => {
 
       <AdminModal
         open={Boolean(editing)}
-        onClose={() => setEditing(null)}
+        onClose={closeEdit}
         title={`${t('admin.bookings.edit')} ${t('admin.bookings.reservation')}`}
         description={editing?.reservationId}
         size="lg"
+        variant="drawer"
         footer={
           <>
-            <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setEditing(null)}>
+            <button type="button" className="admin-btn admin-btn--secondary" onClick={closeEdit}>
               {t('admin.common.cancel')}
             </button>
             <button type="submit" form="booking-edit-form" className="admin-btn admin-btn--primary">
@@ -1127,19 +1133,19 @@ const ManageBookings = () => {
           <form id="booking-edit-form" onSubmit={saveEdit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className={labelClass}>{t('admin.bookings.customerName')}</label>
-              <input className={inputClass} value={editForm.customerName} onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })} required />
+              <input className={inputClass} value={editForm.customerName} onChange={(e) => patchEditForm({ customerName: e.target.value })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.bookings.phone')}</label>
-              <PhoneInput value={editForm.customerPhone} onChange={(customerPhone) => setEditForm({ ...editForm, customerPhone })} required />
+              <PhoneInput value={editForm.customerPhone} onChange={(customerPhone) => patchEditForm({ customerPhone })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.bookings.email')}</label>
-              <input type="email" className={inputClass} value={editForm.customerEmail} onChange={(e) => setEditForm({ ...editForm, customerEmail: e.target.value })} required />
+              <input type="email" className={inputClass} value={editForm.customerEmail} onChange={(e) => patchEditForm({ customerEmail: e.target.value })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.bookings.status')}</label>
-              <select className={inputClass} value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+              <select className={inputClass} value={editForm.status} onChange={(e) => patchEditForm({ status: e.target.value })}>
                 <option value="pending">{t('admin.status.pending')}</option>
                 <option value="confirmed">{t('admin.status.confirmed')}</option>
                 <option value="ready_for_pickup">{t('admin.status.ready_for_pickup')}</option>
@@ -1150,23 +1156,23 @@ const ManageBookings = () => {
             </div>
             <div>
               <label className={labelClass}>{t('admin.invoiceUi.pickupAt')}</label>
-              <input type="datetime-local" className={inputClass} value={editForm.pickupDate} onChange={(e) => setEditForm({ ...editForm, pickupDate: e.target.value })} required />
+              <input type="datetime-local" className={inputClass} value={editForm.pickupDate} onChange={(e) => patchEditForm({ pickupDate: e.target.value })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.invoiceUi.returnAt')}</label>
-              <input type="datetime-local" className={inputClass} value={editForm.returnDate} onChange={(e) => setEditForm({ ...editForm, returnDate: e.target.value })} required />
+              <input type="datetime-local" className={inputClass} value={editForm.returnDate} onChange={(e) => patchEditForm({ returnDate: e.target.value })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.bookings.pickupLocation')}</label>
-              <input className={inputClass} value={editForm.pickupLocation} onChange={(e) => setEditForm({ ...editForm, pickupLocation: e.target.value })} required />
+              <input className={inputClass} value={editForm.pickupLocation} onChange={(e) => patchEditForm({ pickupLocation: e.target.value })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.details.dropoff')}</label>
-              <input className={inputClass} value={editForm.returnLocation} onChange={(e) => setEditForm({ ...editForm, returnLocation: e.target.value })} required />
+              <input className={inputClass} value={editForm.returnLocation} onChange={(e) => patchEditForm({ returnLocation: e.target.value })} required />
             </div>
             <div>
               <label className={labelClass}>{t('admin.bookings.paymentStatus')}</label>
-              <select className={inputClass} value={editForm.paymentStatus} onChange={(e) => setEditForm({ ...editForm, paymentStatus: e.target.value })}>
+              <select className={inputClass} value={editForm.paymentStatus} onChange={(e) => patchEditForm({ paymentStatus: e.target.value })}>
                 <option value="pending">{t('admin.status.pending')}</option>
                 <option value="paid">{t('admin.status.paid')}</option>
                 <option value="failed">{t('admin.status.failed')}</option>
@@ -1175,7 +1181,7 @@ const ManageBookings = () => {
             </div>
             <div className="sm:col-span-2">
               <label className={labelClass}>{t('admin.bookings.assignVehicle')}</label>
-              <select className={inputClass} value={editForm.carId} onChange={(e) => setEditForm({ ...editForm, carId: e.target.value })}>
+              <select className={inputClass} value={editForm.carId} onChange={(e) => patchEditForm({ carId: e.target.value })}>
                 {editVehicleOptions.length === 0 ? (
                   <option value="">{t('admin.bookingsUi.noCompatible')}</option>
                 ) : (
@@ -1189,7 +1195,7 @@ const ManageBookings = () => {
             </div>
             <div className="sm:col-span-2">
               <label className={labelClass}>{t('admin.details.notes')}</label>
-              <textarea className={inputClass} rows="3" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+              <textarea className={inputClass} rows="3" value={editForm.notes} onChange={(e) => patchEditForm({ notes: e.target.value })} />
             </div>
           </form>
         )}

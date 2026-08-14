@@ -70,8 +70,10 @@ const Maintenance = () => {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({})
+  const patchForm = (patch) => setForm((prev) => ({ ...prev, ...patch }))
   const [showRecord, setShowRecord] = useState(false)
   const [recordForm, setRecordForm] = useState(emptyRecord)
+  const patchRecordForm = (patch) => setRecordForm((prev) => ({ ...prev, ...patch }))
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth() + 1)
   const [calYear, setCalYear] = useState(() => new Date().getFullYear())
   const [filters, setFilters] = useState({
@@ -622,7 +624,7 @@ const Maintenance = () => {
                 <div key={key}>
                   <label className="text-xs text-gray-500">{label}</label>
                   {key === 'status' ? (
-                    <select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                    <select className={inputClass} value={form.status} onChange={(e) => patchForm({ status: e.target.value })}>
                       <option value="available">{t('admin.status.available')}</option>
                       <option value="booked">{t('admin.status.booked')}</option>
                       <option value="maintenance">{t('admin.fleetUi.inMaintenance')}</option>
@@ -632,14 +634,14 @@ const Maintenance = () => {
                       type={type || 'text'}
                       className={inputClass}
                       value={form[key] ?? ''}
-                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                      onChange={(e) => patchForm({ [key]: e.target.value })}
                     />
                   )}
                 </div>
               ))}
               <div className="sm:col-span-2">
                 <label className="text-xs text-gray-500">{t('admin.maint.notes')}</label>
-                <textarea className={inputClass} rows={2} value={form.maintenanceNotes} onChange={(e) => setForm({ ...form, maintenanceNotes: e.target.value })} />
+                <textarea className={inputClass} rows={2} value={form.maintenanceNotes} onChange={(e) => patchForm({ maintenanceNotes: e.target.value })} />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -657,7 +659,7 @@ const Maintenance = () => {
             <h3 className="text-lg font-semibold">{t('admin.maintenance.scheduleWork')}</h3>
             <div>
               <label className="text-xs text-gray-500">{t('admin.maint.vehicleRequired')}</label>
-              <select required className={inputClass} value={recordForm.carId} onChange={(e) => setRecordForm({ ...recordForm, carId: e.target.value })}>
+              <select required className={inputClass} value={recordForm.carId} onChange={(e) => patchRecordForm({ carId: e.target.value })}>
                 <option value="">{t('admin.maint.select')}</option>
                 {cars.map((c) => (
                   <option key={c._id} value={c._id}>{formatUnit(c)}</option>
@@ -667,13 +669,13 @@ const Maintenance = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.type')}</label>
-                <select className={inputClass} value={recordForm.type} onChange={(e) => setRecordForm({ ...recordForm, type: e.target.value })}>
+                <select className={inputClass} value={recordForm.type} onChange={(e) => patchRecordForm({ type: e.target.value })}>
                   {Object.keys(TYPE_KEYS).map((k) => <option key={k} value={k}>{t(`admin.maint.${TYPE_KEYS[k]}`)}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.status')}</label>
-                <select className={inputClass} value={recordForm.status} onChange={(e) => setRecordForm({ ...recordForm, status: e.target.value })}>
+                <select className={inputClass} value={recordForm.status} onChange={(e) => patchRecordForm({ status: e.target.value })}>
                   <option value="scheduled">{t('admin.status.scheduled')}</option>
                   <option value="in_progress">{t('admin.status.in_progress')}</option>
                   <option value="completed">{t('admin.status.completed')}</option>
@@ -682,36 +684,36 @@ const Maintenance = () => {
             </div>
             <div>
               <label className="text-xs text-gray-500">{t('admin.maint.title')}</label>
-              <input required className={inputClass} value={recordForm.title} onChange={(e) => setRecordForm({ ...recordForm, title: e.target.value })} placeholder={t('admin.maint.titlePh')} />
+              <input required className={inputClass} value={recordForm.title} onChange={(e) => patchRecordForm({ title: e.target.value })} placeholder={t('admin.maint.titlePh')} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.scheduled')}</label>
-                <input type="date" className={inputClass} value={recordForm.scheduledDate} onChange={(e) => setRecordForm({ ...recordForm, scheduledDate: e.target.value })} />
+                <input type="date" className={inputClass} value={recordForm.scheduledDate} onChange={(e) => patchRecordForm({ scheduledDate: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.cost')}</label>
-                <input type="number" min="0" step="0.01" className={inputClass} value={recordForm.cost} onChange={(e) => setRecordForm({ ...recordForm, cost: e.target.value })} />
+                <input type="number" min="0" step="0.01" className={inputClass} value={recordForm.cost} onChange={(e) => patchRecordForm({ cost: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.mileage')}</label>
-                <input type="number" className={inputClass} value={recordForm.mileageAtService} onChange={(e) => setRecordForm({ ...recordForm, mileageAtService: e.target.value })} />
+                <input type="number" className={inputClass} value={recordForm.mileageAtService} onChange={(e) => patchRecordForm({ mileageAtService: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.vendor')}</label>
-                <input className={inputClass} value={recordForm.vendor} onChange={(e) => setRecordForm({ ...recordForm, vendor: e.target.value })} />
+                <input className={inputClass} value={recordForm.vendor} onChange={(e) => patchRecordForm({ vendor: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.nextDueDate')}</label>
-                <input type="date" className={inputClass} value={recordForm.nextDueDate} onChange={(e) => setRecordForm({ ...recordForm, nextDueDate: e.target.value })} />
+                <input type="date" className={inputClass} value={recordForm.nextDueDate} onChange={(e) => patchRecordForm({ nextDueDate: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-gray-500">{t('admin.maint.nextDueKm')}</label>
-                <input type="number" className={inputClass} value={recordForm.nextDueMileage} onChange={(e) => setRecordForm({ ...recordForm, nextDueMileage: e.target.value })} />
+                <input type="number" className={inputClass} value={recordForm.nextDueMileage} onChange={(e) => patchRecordForm({ nextDueMileage: e.target.value })} />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={recordForm.setCarInMaintenance} onChange={(e) => setRecordForm({ ...recordForm, setCarInMaintenance: e.target.checked })} />
+              <input type="checkbox" checked={recordForm.setCarInMaintenance} onChange={(e) => patchRecordForm({ setCarInMaintenance: e.target.checked })} />
               {t('admin.maint.markInMaintenance')}
             </label>
             <div className="flex justify-end gap-2 pt-2">

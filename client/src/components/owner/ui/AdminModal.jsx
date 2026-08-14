@@ -11,47 +11,65 @@ export const AdminModal = ({
   footer,
   size = 'md',
   closeOnBackdrop = true,
+  variant = 'drawer',
 }) => {
   const { t } = useI18n()
   const titleId = useId()
-  const panelRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
+  // Body lock + Escape only. Must depend on `open` — never on `onClose`.
+  // Inline onClose from parents changes every render; including it re-ran cleanup,
+  // restored focus behind the drawer, and made inputs lose focus after one character.
   useEffect(() => {
     if (!open) return undefined
-    const prev = document.activeElement
+
+    const previouslyFocused = document.activeElement
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key === 'Escape') onCloseRef.current?.()
     }
     document.addEventListener('keydown', onKey)
     document.body.classList.add('nav-open')
-    panelRef.current?.focus?.()
+
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.classList.remove('nav-open')
-      if (prev && typeof prev.focus === 'function') prev.focus()
+      if (
+        previouslyFocused &&
+        typeof previouslyFocused.focus === 'function' &&
+        document.body.contains(previouslyFocused)
+      ) {
+        previouslyFocused.focus({ preventScroll: true })
+      }
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
-  const width =
-    size === 'lg' ? 'max-w-2xl' : size === 'xl' ? 'max-w-4xl' : size === 'sm' ? 'max-w-sm' : 'max-w-lg'
+  const widthClass =
+    size === 'lg'
+      ? 'admin-modal-panel--lg'
+      : size === 'xl'
+        ? 'admin-modal-panel--xl'
+        : size === 'sm'
+          ? 'admin-modal-panel--sm'
+          : 'admin-modal-panel--md'
+
+  const variantClass = variant === 'center' ? 'admin-modal-root--center' : 'admin-modal-root--drawer'
 
   return (
-    <div className="admin-modal-root" role="presentation">
+    <div className={`admin-modal-root ${variantClass}`} role="presentation">
       <button
         type="button"
         className="admin-modal-backdrop"
         aria-label={t('admin.commonUi.closeDialog')}
-        onClick={() => closeOnBackdrop && onClose?.()}
+        onClick={() => closeOnBackdrop && onCloseRef.current?.()}
       />
       <div
-        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        tabIndex={-1}
-        className={`admin-modal-panel ${width}`}
+        className={`admin-modal-panel ${widthClass}`}
       >
         <div className="admin-modal-header">
           <div className="min-w-0 pe-8">
@@ -65,7 +83,7 @@ export const AdminModal = ({
           <button
             type="button"
             className="admin-icon-btn absolute end-3 top-3"
-            onClick={onClose}
+            onClick={() => onCloseRef.current?.()}
             aria-label={t('admin.commonUi.close')}
           >
             <Icon name="x" className="h-4 w-4" />
@@ -97,6 +115,7 @@ export const ConfirmDialog = ({
     title={title}
     description={message}
     size="sm"
+    variant="center"
     footer={
       <>
         <button type="button" className="admin-btn admin-btn--secondary" onClick={onCancel} disabled={loading}>

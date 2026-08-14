@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import StatusBadge from '../../../components/owner/StatusBadge'
 import DataTable from '../../../components/owner/DataTable'
@@ -18,6 +18,104 @@ const field =
 
 const input = 'w-full h-10 px-3 rounded-lg border border-borderColor text-sm'
 
+function AgencyExpenseForm({ form, patchForm }) {
+  const { t } = useI18n()
+  return (
+    <>
+      <select className={input} value={form.category} onChange={(e) => patchForm({ category: e.target.value })}>
+        {['rent', 'utilities', 'salaries', 'marketing', 'insurance', 'taxes', 'supplies', 'software', 'other'].map((c) => (
+          <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
+        ))}
+      </select>
+      <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
+      <input className={input} type="date" value={form.expenseDate} onChange={(e) => patchForm({ expenseDate: e.target.value })} />
+      <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => patchForm({ description: e.target.value })} />
+      <select className={input} value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
+        <option value="pending">{t('admin.status.pending')}</option>
+        <option value="paid">{t('admin.status.paid')}</option>
+        <option value="cancelled">{t('admin.status.cancelled')}</option>
+      </select>
+      <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+    </>
+  )
+}
+
+function SamsarPaymentForm({ form, patchForm, samsars = [] }) {
+  const { t } = useI18n()
+  return (
+    <>
+      <select className={input} value={form.samsarId} onChange={(e) => patchForm({ samsarId: e.target.value })}>
+        <option value="">{t('admin.lists.selectSamsar')}</option>
+        {samsars.map((s) => <option key={s._id} value={s._id}>{s.fullName}</option>)}
+      </select>
+      <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
+      <input className={input} type="date" value={form.paymentDate} onChange={(e) => patchForm({ paymentDate: e.target.value })} />
+      <select className={input} value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
+        <option value="pending">{t('admin.status.pending')}</option>
+        <option value="paid">{t('admin.status.paid')}</option>
+        <option value="cancelled">{t('admin.status.cancelled')}</option>
+      </select>
+      <select className={input} value={form.paymentMethod} onChange={(e) => patchForm({ paymentMethod: e.target.value })}>
+        <option value="cash">{t('admin.lists.cash')}</option>
+        <option value="bank_transfer">{t('admin.lists.bankTransfer')}</option>
+        <option value="check">{t('admin.lists.check')}</option>
+        <option value="other">{t('admin.lists.other')}</option>
+      </select>
+      <input className={input} placeholder={t('admin.lists.bookingId')} value={form.bookingId} onChange={(e) => patchForm({ bookingId: e.target.value })} />
+      <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+    </>
+  )
+}
+
+function VehicleExpenseForm({ form, patchForm, cars = [] }) {
+  const { t } = useI18n()
+  return (
+    <>
+      <select className={input} value={form.carId} onChange={(e) => patchForm({ carId: e.target.value })}>
+        <option value="">{t('admin.lists.selectVehicle')}</option>
+        {cars.map((c) => (
+          <option key={c._id} value={c._id}>{c.brand} {c.model} {c.licensePlate || ''}</option>
+        ))}
+      </select>
+      <select className={input} value={form.category} onChange={(e) => patchForm({ category: e.target.value })}>
+        {['fuel', 'maintenance', 'repair', 'insurance', 'registration', 'tires', 'cleaning', 'parking', 'tolls', 'other'].map((c) => (
+          <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
+        ))}
+      </select>
+      <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
+      <input className={input} type="date" value={form.expenseDate} onChange={(e) => patchForm({ expenseDate: e.target.value })} />
+      <input className={input} type="number" min="0" placeholder={t('admin.lists.odometerPh')} value={form.odometer} onChange={(e) => patchForm({ odometer: e.target.value })} />
+      <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => patchForm({ description: e.target.value })} />
+      <select className={input} value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
+        <option value="pending">{t('admin.status.pending')}</option>
+        <option value="paid">{t('admin.status.paid')}</option>
+        <option value="cancelled">{t('admin.status.cancelled')}</option>
+      </select>
+      <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+    </>
+  )
+}
+
+const AccountingCreateFormBody = React.memo(function AccountingCreateFormBody({
+  FormComponent,
+  buildCreateForm,
+  form,
+  patchForm,
+  formProps,
+}) {
+  if (FormComponent) {
+    return (
+      <div className="space-y-3">
+        <FormComponent form={form} patchForm={patchForm} {...formProps} />
+      </div>
+    )
+  }
+  if (buildCreateForm) {
+    return <div className="space-y-3">{buildCreateForm(form, patchForm)}</div>
+  }
+  return null
+})
+
 /** Shared accounting list shell */
 const AccountingListPage = ({
   title,
@@ -25,11 +123,15 @@ const AccountingListPage = ({
   listUrl,
   createUrl,
   columns,
+  FormComponent,
   buildCreateForm,
+  formProps,
   initialForm,
 }) => {
   const { axios, currency } = useAppContext()
   const { t } = useI18n()
+  const tRef = useRef(t)
+  tRef.current = t
   const cur = (currency || 'MAD ').trim()
   const [items, setItems] = useState([])
   const [totals, setTotals] = useState(null)
@@ -41,9 +143,17 @@ const AccountingListPage = ({
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const hasLoadedRef = useRef(false)
+
+  const closeModal = useCallback(() => setModal(false), [])
+
+  const patchForm = useCallback((patch) => {
+    setForm((prev) => (typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }))
+  }, [])
 
   const load = useCallback(async () => {
-    setLoading(true)
+    const silent = hasLoadedRef.current
+    if (!silent) setLoading(true)
     try {
       const params = new URLSearchParams({ page: String(page), limit: '20', period: 'custom' })
       if (from) params.set('from', from)
@@ -53,19 +163,20 @@ const AccountingListPage = ({
         setItems(data.items || [])
         setPagination(data.pagination || { pages: 1, total: 0 })
         setTotals(data.totals || null)
-      } else toast.error(data.message || t('admin.lists.failed'))
+      } else toast.error(data.message || tRef.current('admin.lists.failed'))
     } catch (e) {
       toast.error(getErrorMessage(e))
     } finally {
+      hasLoadedRef.current = true
       setLoading(false)
     }
-  }, [axios, listUrl, page, from, to, t])
+  }, [axios, listUrl, page, from, to])
 
   useEffect(() => {
     load()
   }, [load])
 
-  const save = async () => {
+  const save = useCallback(async () => {
     setSaving(true)
     try {
       const { data } = await axios.post(createUrl, form)
@@ -79,7 +190,21 @@ const AccountingListPage = ({
     } finally {
       setSaving(false)
     }
-  }
+  }, [axios, createUrl, form, initialForm, load, t])
+
+  const drawerFooter = useMemo(
+    () => (
+      <>
+        <button type="button" className="admin-btn admin-btn--secondary" onClick={closeModal}>
+          {t('admin.common.cancel')}
+        </button>
+        <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
+          {saving ? t('admin.common.saving') : t('admin.common.save')}
+        </button>
+      </>
+    ),
+    [closeModal, save, saving, t],
+  )
 
   const tableColumns = columns.map((c) => ({
     key: c.key,
@@ -170,21 +295,21 @@ const AccountingListPage = ({
       />
 
       <AdminModal
-        open={Boolean(modal && buildCreateForm)}
-        onClose={() => setModal(false)}
+        open={Boolean(modal && (FormComponent || buildCreateForm))}
+        onClose={closeModal}
         title={t('admin.lists.addRecord')}
-        footer={
-          <>
-            <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setModal(false)}>
-              {t('admin.common.cancel')}
-            </button>
-            <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
-              {saving ? t('admin.common.saving') : t('admin.common.save')}
-            </button>
-          </>
-        }
+        footer={drawerFooter}
+        variant="drawer"
       >
-        <div className="space-y-3">{buildCreateForm?.(form, setForm)}</div>
+        {modal ? (
+          <AccountingCreateFormBody
+            FormComponent={FormComponent}
+            buildCreateForm={buildCreateForm}
+            form={form}
+            patchForm={patchForm}
+            formProps={formProps}
+          />
+        ) : null}
       </AdminModal>
     </AdminPage>
   )
@@ -227,6 +352,8 @@ export const SamsarPaymentsPage = () => {
       subtitle={t('admin.lists.samsarSubtitle')}
       listUrl="/api/owner/accounting/samsar-payments"
       createUrl="/api/owner/accounting/samsar-payments"
+      FormComponent={SamsarPaymentForm}
+      formProps={{ samsars }}
       initialForm={{ samsarId: '', amount: '', paymentDate: new Date().toISOString().slice(0, 10), paymentStatus: 'paid', paymentMethod: 'cash', notes: '', bookingId: '' }}
       columns={[
         { key: 'samsar', label: t('admin.lists.samsar'), render: (i) => i.samsar?.fullName || '—' },
@@ -235,29 +362,6 @@ export const SamsarPaymentsPage = () => {
         { key: 'paymentStatus', label: t('admin.lists.status'), render: (i) => <StatusBadge status={i.paymentStatus} /> },
         { key: 'booking', label: t('admin.lists.reservation'), render: (i) => i.booking?.reservationId || '—' },
       ]}
-      buildCreateForm={(form, setForm) => (
-        <>
-          <select className={input} value={form.samsarId} onChange={(e) => setForm({ ...form, samsarId: e.target.value })}>
-            <option value="">{t('admin.lists.selectSamsar')}</option>
-            {samsars.map((s) => <option key={s._id} value={s._id}>{s.fullName}</option>)}
-          </select>
-          <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-          <input className={input} type="date" value={form.paymentDate} onChange={(e) => setForm({ ...form, paymentDate: e.target.value })} />
-          <select className={input} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-            <option value="pending">{t('admin.status.pending')}</option>
-            <option value="paid">{t('admin.status.paid')}</option>
-            <option value="cancelled">{t('admin.status.cancelled')}</option>
-          </select>
-          <select className={input} value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
-            <option value="cash">{t('admin.lists.cash')}</option>
-            <option value="bank_transfer">{t('admin.lists.bankTransfer')}</option>
-            <option value="check">{t('admin.lists.check')}</option>
-            <option value="other">{t('admin.lists.other')}</option>
-          </select>
-          <input className={input} placeholder={t('admin.lists.bookingId')} value={form.bookingId} onChange={(e) => setForm({ ...form, bookingId: e.target.value })} />
-          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-        </>
-      )}
     />
   )
 }
@@ -270,6 +374,7 @@ export const AgencyExpensesPage = () => {
       subtitle={t('admin.lists.agencySubtitle')}
       listUrl="/api/owner/accounting/agency-expenses"
       createUrl="/api/owner/accounting/agency-expenses"
+      FormComponent={AgencyExpenseForm}
       initialForm={{ category: 'other', amount: '', expenseDate: new Date().toISOString().slice(0, 10), description: '', paymentStatus: 'paid', paymentMethod: 'cash', notes: '' }}
       columns={[
         { key: 'category', label: t('admin.lists.category'), render: (i) => t(`admin.cats.${i.category}`) !== `admin.cats.${i.category}` ? t(`admin.cats.${i.category}`) : i.category },
@@ -278,24 +383,6 @@ export const AgencyExpensesPage = () => {
         { key: 'expenseDate', label: t('admin.lists.date'), render: (i) => new Date(i.expenseDate).toLocaleDateString() },
         { key: 'paymentStatus', label: t('admin.lists.status'), render: (i) => <StatusBadge status={i.paymentStatus} /> },
       ]}
-      buildCreateForm={(form, setForm) => (
-        <>
-          <select className={input} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {['rent', 'utilities', 'salaries', 'marketing', 'insurance', 'taxes', 'supplies', 'software', 'other'].map((c) => (
-              <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
-            ))}
-          </select>
-          <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-          <input className={input} type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} />
-          <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <select className={input} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-            <option value="pending">{t('admin.status.pending')}</option>
-            <option value="paid">{t('admin.status.paid')}</option>
-            <option value="cancelled">{t('admin.status.cancelled')}</option>
-          </select>
-          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-        </>
-      )}
     />
   )
 }
@@ -317,6 +404,8 @@ export const VehicleExpensesPage = () => {
       subtitle={t('admin.lists.vehicleSubtitle')}
       listUrl="/api/owner/accounting/vehicle-expenses"
       createUrl="/api/owner/accounting/vehicle-expenses"
+      FormComponent={VehicleExpenseForm}
+      formProps={{ cars }}
       initialForm={{ carId: '', category: 'fuel', amount: '', expenseDate: new Date().toISOString().slice(0, 10), description: '', paymentStatus: 'paid', paymentMethod: 'cash', odometer: '', notes: '' }}
       columns={[
         { key: 'car', label: t('admin.lists.vehicle'), render: (i) => (i.car ? `${i.car.brand} ${i.car.model}` : '—') },
@@ -326,31 +415,6 @@ export const VehicleExpensesPage = () => {
         { key: 'expenseDate', label: t('admin.lists.date'), render: (i) => new Date(i.expenseDate).toLocaleDateString() },
         { key: 'paymentStatus', label: t('admin.lists.status'), render: (i) => <StatusBadge status={i.paymentStatus} /> },
       ]}
-      buildCreateForm={(form, setForm) => (
-        <>
-          <select className={input} value={form.carId} onChange={(e) => setForm({ ...form, carId: e.target.value })}>
-            <option value="">{t('admin.lists.selectVehicle')}</option>
-            {cars.map((c) => (
-              <option key={c._id} value={c._id}>{c.brand} {c.model} {c.licensePlate || ''}</option>
-            ))}
-          </select>
-          <select className={input} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {['fuel', 'maintenance', 'repair', 'insurance', 'registration', 'tires', 'cleaning', 'parking', 'tolls', 'other'].map((c) => (
-              <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
-            ))}
-          </select>
-          <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-          <input className={input} type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} />
-          <input className={input} type="number" min="0" placeholder={t('admin.lists.odometerPh')} value={form.odometer} onChange={(e) => setForm({ ...form, odometer: e.target.value })} />
-          <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <select className={input} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-            <option value="pending">{t('admin.status.pending')}</option>
-            <option value="paid">{t('admin.status.paid')}</option>
-            <option value="cancelled">{t('admin.status.cancelled')}</option>
-          </select>
-          <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-        </>
-      )}
     />
   )
 }

@@ -21,6 +21,7 @@ const ManageLocations = () => {
 
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const patchForm = (patch) => setForm((prev) => ({ ...prev, ...patch }))
   const [editingId, setEditingId] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -144,7 +145,7 @@ const ManageLocations = () => {
             placeholder={t('admin.locUi.namePh')}
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => patchForm({ name: e.target.value })}
           />
         </div>
         <div className='flex flex-col'>
@@ -155,7 +156,7 @@ const ManageLocations = () => {
             placeholder={t('admin.locUi.cityPh')}
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.city}
-            onChange={(e) => setForm({ ...form, city: e.target.value })}
+            onChange={(e) => patchForm({ city: e.target.value })}
           />
         </div>
         <div className='flex flex-col md:col-span-2'>
@@ -166,7 +167,7 @@ const ManageLocations = () => {
             placeholder={t('admin.locUi.addressPh')}
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            onChange={(e) => patchForm({ address: e.target.value })}
           />
         </div>
         <div className='flex flex-col'>
@@ -176,7 +177,7 @@ const ManageLocations = () => {
             placeholder="https://maps.google.com/..."
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.googleMapsLink}
-            onChange={(e) => setForm({ ...form, googleMapsLink: e.target.value })}
+            onChange={(e) => patchForm({ googleMapsLink: e.target.value })}
           />
         </div>
         <div className='flex flex-col'>
@@ -184,7 +185,7 @@ const ManageLocations = () => {
           <select
             className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
             value={form.locationType}
-            onChange={(e) => setForm({ ...form, locationType: e.target.value })}
+            onChange={(e) => patchForm({ locationType: e.target.value })}
           >
             <option value="airport">{t('admin.locations.typeAirport')}</option>
             <option value="hotel">{t('admin.locations.typeHotel')}</option>
@@ -202,7 +203,7 @@ const ManageLocations = () => {
               required
               className='px-3 py-2 border border-borderColor rounded-md outline-none w-40'
               value={form.deliveryFee}
-              onChange={(e) => setForm({ ...form, deliveryFee: e.target.value })}
+              onChange={(e) => patchForm({ deliveryFee: e.target.value })}
             />
             <span className='text-gray-600 text-sm'>{t('admin.locations.deliveryFeeHint')}</span>
           </div>

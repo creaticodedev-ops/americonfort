@@ -5,6 +5,77 @@ import { useI18n } from '../../i18n/I18nContext'
 const field =
   'w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
 
+const INITIAL_FORM = {
+  fullName: '',
+  phone: '',
+  email: '',
+  address: '',
+  licenseNumber: '',
+  licenseExpiry: '',
+  licenseCategory: '',
+  notes: '',
+  status: 'active',
+}
+
+function ChauffeurForm({ form, patchForm }) {
+  const { t } = useI18n()
+
+  return (
+    <>
+      <input
+        className={field}
+        placeholder={`${t('admin.chauffeurs.fullName')} *`}
+        value={form.fullName || ''}
+        onChange={(e) => patchForm({ fullName: e.target.value })}
+      />
+      <input
+        className={field}
+        placeholder={t('admin.chauffeurs.phone')}
+        value={form.phone || ''}
+        onChange={(e) => patchForm({ phone: e.target.value })}
+      />
+      <input
+        className={field}
+        placeholder={t('admin.chauffeurs.email')}
+        value={form.email || ''}
+        onChange={(e) => patchForm({ email: e.target.value })}
+      />
+      <input
+        className={field}
+        placeholder={t('admin.chauffeurs.address')}
+        value={form.address || ''}
+        onChange={(e) => patchForm({ address: e.target.value })}
+      />
+      <input
+        className={field}
+        placeholder={t('admin.chauffeurs.licenseNumber')}
+        value={form.licenseNumber || ''}
+        onChange={(e) => patchForm({ licenseNumber: e.target.value })}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          className={field}
+          type="date"
+          value={form.licenseExpiry ? String(form.licenseExpiry).slice(0, 10) : ''}
+          onChange={(e) => patchForm({ licenseExpiry: e.target.value })}
+        />
+        <input
+          className={field}
+          placeholder={t('admin.chauffeurs.licenseCategory')}
+          value={form.licenseCategory || ''}
+          onChange={(e) => patchForm({ licenseCategory: e.target.value })}
+        />
+      </div>
+      <textarea
+        className="w-full min-h-[80px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
+        placeholder={t('admin.chauffeurs.notes')}
+        value={form.notes || ''}
+        onChange={(e) => patchForm({ notes: e.target.value })}
+      />
+    </>
+  )
+}
+
 const Chauffeurs = () => {
   const { t } = useI18n()
 
@@ -27,17 +98,8 @@ const Chauffeurs = () => {
       endpoint="/api/owner/chauffeurs"
       emptyLabel={t('admin.chauffeurs.empty')}
       emptyDescription={t('admin.chauffeurs.emptyHint')}
-      initialForm={{
-        fullName: '',
-        phone: '',
-        email: '',
-        address: '',
-        licenseNumber: '',
-        licenseExpiry: '',
-        licenseCategory: '',
-        notes: '',
-        status: 'active',
-      }}
+      initialForm={INITIAL_FORM}
+      FormComponent={ChauffeurForm}
       columns={[
         { key: 'fullName', label: t('admin.chauffeurs.colName') },
         { key: 'phone', label: t('admin.chauffeurs.colPhone') },
@@ -60,60 +122,6 @@ const Chauffeurs = () => {
           render: (i) => <StatusBadge status={i.status} />,
         },
       ]}
-      buildForm={(form, setForm) => (
-        <>
-          <input
-            className={field}
-            placeholder={`${t('admin.chauffeurs.fullName')} *`}
-            value={form.fullName}
-            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-          />
-          <input
-            className={field}
-            placeholder={t('admin.chauffeurs.phone')}
-            value={form.phone || ''}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-          <input
-            className={field}
-            placeholder={t('admin.chauffeurs.email')}
-            value={form.email || ''}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <input
-            className={field}
-            placeholder={t('admin.chauffeurs.address')}
-            value={form.address || ''}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-          />
-          <input
-            className={field}
-            placeholder={t('admin.chauffeurs.licenseNumber')}
-            value={form.licenseNumber || ''}
-            onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              className={field}
-              type="date"
-              value={form.licenseExpiry ? String(form.licenseExpiry).slice(0, 10) : ''}
-              onChange={(e) => setForm({ ...form, licenseExpiry: e.target.value })}
-            />
-            <input
-              className={field}
-              placeholder={t('admin.chauffeurs.licenseCategory')}
-              value={form.licenseCategory || ''}
-              onChange={(e) => setForm({ ...form, licenseCategory: e.target.value })}
-            />
-          </div>
-          <textarea
-            className="w-full min-h-[80px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-            placeholder={t('admin.chauffeurs.notes')}
-            value={form.notes || ''}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-        </>
-      )}
     />
   )
 }
