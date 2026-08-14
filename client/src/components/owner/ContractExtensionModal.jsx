@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
-import { AdminModal } from './ui'
+import { AdminModal, AdminForm, AdminFormField, AdminFormInput, AdminFormTextarea } from './ui'
 
 const fmt = (d) => {
   if (!d) return '—'
@@ -131,23 +131,23 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
       variant="drawer"
       footer={
         <>
-          <button type="button" className="admin-btn admin-btn--secondary" onClick={onClose}>
+          <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={onClose}>
             {t('admin.common.cancel')}
           </button>
           {step > 1 && step < 4 && (
-            <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setStep((s) => s - 1)}>
+            <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={() => setStep((s) => s - 1)}>
               {t('admin.common.back')}
             </button>
           )}
           {step === 1 && (
-            <button type="button" className="admin-btn admin-btn--primary" onClick={() => setStep(2)}>
+            <button type="button" className="admin-btn admin-btn--primary admin-modal-action" onClick={() => setStep(2)}>
               {t('admin.common.continue')}
             </button>
           )}
           {step === 2 && (
             <button
               type="button"
-              className="admin-btn admin-btn--primary"
+              className="admin-btn admin-btn--primary admin-modal-action"
               disabled={!newReturnDate}
               onClick={() => setStep(3)}
             >
@@ -155,14 +155,14 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
             </button>
           )}
           {step === 3 && (
-            <button type="button" className="admin-btn admin-btn--primary" disabled={loading} onClick={runPreview}>
+            <button type="button" className="admin-btn admin-btn--primary admin-modal-action" disabled={loading} onClick={runPreview}>
               {loading ? t('admin.extend.calculating') : t('admin.extend.checkAvailability')}
             </button>
           )}
           {step === 4 && preview && !conflict && (
             <button
               type="button"
-              className="admin-btn admin-btn--primary"
+              className="admin-btn admin-btn--primary admin-modal-action"
               disabled={confirming}
               onClick={confirm}
             >
@@ -217,34 +217,32 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
       )}
 
       {step === 2 && (
-        <div className="space-y-3">
-          <label className="block text-xs font-medium text-[var(--admin-fg-secondary)]">
-            {t('admin.extend.newReturn')}
-          </label>
-          <input
-            type="datetime-local"
-            className="w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-            min={minReturn}
-            value={newReturnDate}
-            onChange={(e) => {
-              setNewReturnDate(e.target.value)
-              setPreview(null)
-              setConflict(null)
-            }}
-          />
-          <input
-            className="w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-            placeholder={t('admin.extend.reason')}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-          <textarea
-            className="w-full min-h-[70px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-            placeholder={t('admin.extend.notes')}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
+        <AdminForm>
+          <AdminFormField label={t('admin.extend.newReturn')} required>
+            <AdminFormInput
+              type="datetime-local"
+              min={minReturn}
+              value={newReturnDate}
+              onChange={(e) => {
+                setNewReturnDate(e.target.value)
+                setPreview(null)
+                setConflict(null)
+              }}
+            />
+          </AdminFormField>
+          <AdminFormField label={t('admin.extend.reason')}>
+            <AdminFormInput
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </AdminFormField>
+          <AdminFormField label={t('admin.extend.notes')}>
+            <AdminFormTextarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </AdminFormField>
+        </AdminForm>
       )}
 
       {step === 3 && (
@@ -295,6 +293,7 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
           </div>
 
           <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)] p-4 space-y-1.5">
+            <p className="text-sm text-[var(--admin-success)] font-medium">✓ {t('admin.extend.checkAvailability')}</p>
             <p>
               {t('admin.extend.originalDuration')}:{' '}
               <strong>{t('admin.extend.daysCount', { count: preview.previousDays })}</strong>
@@ -324,6 +323,15 @@ const ContractExtensionModal = ({ booking, onClose, onExtended }) => {
                 {preview.newTotal}
               </strong>
             </p>
+            {(preview.priceBreakdown?.discounts || []).length > 0 && (
+              <div className="pt-2 space-y-1 border-t border-[var(--admin-border)]">
+                {(preview.priceBreakdown.discounts || []).map((d, idx) => (
+                  <p key={idx} className="text-xs text-[var(--admin-fg-secondary)]">
+                    {d.label || t('admin.bookings.discounts')}: −{cur}{d.amount}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

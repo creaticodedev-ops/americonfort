@@ -1,9 +1,15 @@
 import React from 'react'
 import OwnerDirectoryPage, { StatusBadge } from '../../components/owner/OwnerDirectoryPage'
+import {
+  AdminFormSection,
+  AdminFormField,
+  AdminFormInput,
+  AdminFormTextarea,
+  AdminFormSelect,
+  AdminFormGrid,
+  AdminFormCheckbox,
+} from '../../components/owner/ui'
 import { useI18n } from '../../i18n/I18nContext'
-
-const field =
-  'w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
 
 const INITIAL_FORM = {
   companyName: '',
@@ -48,143 +54,151 @@ function PartnerCompanyForm({ form, patchForm }) {
 
   return (
     <>
-      <input
-        className={field}
-        placeholder={`${t('admin.partners.companyName')} *`}
-        value={form.companyName || ''}
-        onChange={(e) => patchForm({ companyName: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.partners.legalName')}
-        value={form.legalName || ''}
-        onChange={(e) => patchForm({ legalName: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.partners.contactPerson')}
-        value={form.contactPerson || ''}
-        onChange={(e) => patchForm({ contactPerson: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.partners.phone')}
-        value={form.phone || ''}
-        onChange={(e) => patchForm({ phone: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.partners.email')}
-        value={form.email || ''}
-        onChange={(e) => patchForm({ email: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.partners.address')}
-        value={form.address || ''}
-        onChange={(e) => patchForm({ address: e.target.value })}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          className={field}
-          placeholder={t('admin.partners.city')}
-          value={form.city || ''}
-          onChange={(e) => patchForm({ city: e.target.value })}
-        />
-        <input
-          className={field}
-          placeholder={t('admin.partners.country')}
-          value={form.country || ''}
-          onChange={(e) => patchForm({ country: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          className={field}
-          placeholder={t('admin.partners.taxId')}
-          value={form.taxId || ''}
-          onChange={(e) => patchForm({ taxId: e.target.value })}
-        />
-        <input
-          className={field}
-          placeholder={t('admin.partners.registration')}
-          value={form.registrationNumber || ''}
-          onChange={(e) => patchForm({ registrationNumber: e.target.value })}
-        />
-      </div>
+      <AdminFormSection>
+        <AdminFormField label={t('admin.partners.companyName')} required>
+          <AdminFormInput
+            value={form.companyName || ''}
+            onChange={(e) => patchForm({ companyName: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.partners.legalName')}>
+          <AdminFormInput
+            value={form.legalName || ''}
+            onChange={(e) => patchForm({ legalName: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.partners.contactPerson')}>
+          <AdminFormInput
+            value={form.contactPerson || ''}
+            onChange={(e) => patchForm({ contactPerson: e.target.value })}
+            autoComplete="name"
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.partners.phone')}>
+          <AdminFormInput
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={form.phone || ''}
+            onChange={(e) => patchForm({ phone: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.partners.email')}>
+          <AdminFormInput
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={form.email || ''}
+            onChange={(e) => patchForm({ email: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.partners.address')}>
+          <AdminFormInput
+            value={form.address || ''}
+            onChange={(e) => patchForm({ address: e.target.value })}
+            autoComplete="street-address"
+          />
+        </AdminFormField>
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.partners.city')}>
+            <AdminFormInput
+              value={form.city || ''}
+              onChange={(e) => patchForm({ city: e.target.value })}
+              autoComplete="address-level2"
+            />
+          </AdminFormField>
+          <AdminFormField label={t('admin.partners.country')}>
+            <AdminFormInput
+              value={form.country || ''}
+              onChange={(e) => patchForm({ country: e.target.value })}
+              autoComplete="country-name"
+            />
+          </AdminFormField>
+        </AdminFormGrid>
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.partners.taxId')}>
+            <AdminFormInput
+              value={form.taxId || ''}
+              onChange={(e) => patchForm({ taxId: e.target.value })}
+            />
+          </AdminFormField>
+          <AdminFormField label={t('admin.partners.registration')}>
+            <AdminFormInput
+              value={form.registrationNumber || ''}
+              onChange={(e) => patchForm({ registrationNumber: e.target.value })}
+            />
+          </AdminFormField>
+        </AdminFormGrid>
+      </AdminFormSection>
 
-      <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] p-3 space-y-2 bg-[var(--admin-surface-2)]">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--admin-fg-muted)]">
-          {t('admin.partners.discountSection')}
-        </p>
-        <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.partners.discountHint')}</p>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={Boolean(discount.enabled)}
-            onChange={(e) => patchDiscount({ enabled: e.target.checked })}
-          />
-          {t('admin.partners.discountEnabled')}
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <select
-            className={field}
-            value={discount.type || 'percentage'}
-            onChange={(e) => patchDiscount({ type: e.target.value })}
-            disabled={!discount.enabled}
-          >
-            <option value="percentage">{t('admin.partners.discountPercentage')}</option>
-            <option value="fixed_per_day">{t('admin.partners.discountFixedPerDay')}</option>
-            <option value="fixed">{t('admin.partners.discountFixed')}</option>
-          </select>
-          <input
-            className={field}
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder={t('admin.partners.discountValue')}
-            value={discount.value ?? 0}
-            onChange={(e) => patchDiscount({ value: e.target.value })}
-            disabled={!discount.enabled}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs text-[var(--admin-fg-muted)]">
-            {t('admin.partners.discountStart')}
-            <input
-              className={`${field} mt-1`}
+      <AdminFormSection
+        title={t('admin.partners.discountSection')}
+        description={t('admin.partners.discountHint')}
+        panel
+      >
+        <AdminFormCheckbox
+          label={t('admin.partners.discountEnabled')}
+          checked={Boolean(discount.enabled)}
+          onChange={(e) => patchDiscount({ enabled: e.target.checked })}
+        />
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.partners.colDiscount')}>
+            <AdminFormSelect
+              value={discount.type || 'percentage'}
+              onChange={(e) => patchDiscount({ type: e.target.value })}
+              disabled={!discount.enabled}
+            >
+              <option value="percentage">{t('admin.partners.discountPercentage')}</option>
+              <option value="fixed_per_day">{t('admin.partners.discountFixedPerDay')}</option>
+              <option value="fixed">{t('admin.partners.discountFixed')}</option>
+            </AdminFormSelect>
+          </AdminFormField>
+          <AdminFormField label={t('admin.partners.discountValue')}>
+            <AdminFormInput
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              value={discount.value ?? 0}
+              onChange={(e) => patchDiscount({ value: e.target.value })}
+              disabled={!discount.enabled}
+            />
+          </AdminFormField>
+        </AdminFormGrid>
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.partners.discountStart')}>
+            <AdminFormInput
               type="date"
               value={discount.startDate ? String(discount.startDate).slice(0, 10) : ''}
               onChange={(e) => patchDiscount({ startDate: e.target.value })}
               disabled={!discount.enabled}
             />
-          </label>
-          <label className="text-xs text-[var(--admin-fg-muted)]">
-            {t('admin.partners.discountEnd')}
-            <input
-              className={`${field} mt-1`}
+          </AdminFormField>
+          <AdminFormField label={t('admin.partners.discountEnd')}>
+            <AdminFormInput
               type="date"
               value={discount.endDate ? String(discount.endDate).slice(0, 10) : ''}
               onChange={(e) => patchDiscount({ endDate: e.target.value })}
               disabled={!discount.enabled}
             />
-          </label>
-        </div>
-        <textarea
-          className="w-full min-h-[60px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-          placeholder={t('admin.partners.discountNotes')}
-          value={discount.notes || ''}
-          onChange={(e) => patchDiscount({ notes: e.target.value })}
-          disabled={!discount.enabled}
-        />
-      </div>
+          </AdminFormField>
+        </AdminFormGrid>
+        <AdminFormField label={t('admin.partners.discountNotes')}>
+          <AdminFormTextarea
+            rows={2}
+            value={discount.notes || ''}
+            onChange={(e) => patchDiscount({ notes: e.target.value })}
+            disabled={!discount.enabled}
+          />
+        </AdminFormField>
+      </AdminFormSection>
 
-      <textarea
-        className="w-full min-h-[80px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-        placeholder={t('admin.partners.notes')}
-        value={form.notes || ''}
-        onChange={(e) => patchForm({ notes: e.target.value })}
-      />
+      <AdminFormField label={t('admin.partners.notes')}>
+        <AdminFormTextarea
+          value={form.notes || ''}
+          onChange={(e) => patchForm({ notes: e.target.value })}
+        />
+      </AdminFormField>
     </>
   )
 }

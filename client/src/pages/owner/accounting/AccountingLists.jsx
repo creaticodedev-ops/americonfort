@@ -8,6 +8,12 @@ import {
   PageHeader,
   FilterBar,
   AdminModal,
+  AdminForm,
+  AdminFormField,
+  AdminFormInput,
+  AdminFormTextarea,
+  AdminFormSelect,
+  AdminFormGrid,
 } from '../../../components/owner/ui'
 import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
@@ -16,26 +22,38 @@ import { getErrorMessage } from '../../../utils/apiError'
 const field =
   'h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
 
-const input = 'w-full h-10 px-3 rounded-lg border border-borderColor text-sm'
-
 function AgencyExpenseForm({ form, patchForm }) {
   const { t } = useI18n()
   return (
     <>
-      <select className={input} value={form.category} onChange={(e) => patchForm({ category: e.target.value })}>
-        {['rent', 'utilities', 'salaries', 'marketing', 'insurance', 'taxes', 'supplies', 'software', 'other'].map((c) => (
-          <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
-        ))}
-      </select>
-      <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
-      <input className={input} type="date" value={form.expenseDate} onChange={(e) => patchForm({ expenseDate: e.target.value })} />
-      <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => patchForm({ description: e.target.value })} />
-      <select className={input} value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
-        <option value="pending">{t('admin.status.pending')}</option>
-        <option value="paid">{t('admin.status.paid')}</option>
-        <option value="cancelled">{t('admin.status.cancelled')}</option>
-      </select>
-      <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+      <AdminFormField label={t('admin.lists.category')}>
+        <AdminFormSelect value={form.category} onChange={(e) => patchForm({ category: e.target.value })}>
+          {['rent', 'utilities', 'salaries', 'marketing', 'insurance', 'taxes', 'supplies', 'software', 'other'].map((c) => (
+            <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
+          ))}
+        </AdminFormSelect>
+      </AdminFormField>
+      <AdminFormGrid columns={2}>
+        <AdminFormField label={t('admin.lists.amountPh')}>
+          <AdminFormInput type="number" min="0" step="0.01" inputMode="decimal" value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
+        </AdminFormField>
+        <AdminFormField label={t('admin.lists.date')}>
+          <AdminFormInput type="date" value={form.expenseDate} onChange={(e) => patchForm({ expenseDate: e.target.value })} />
+        </AdminFormField>
+      </AdminFormGrid>
+      <AdminFormField label={t('admin.lists.description')}>
+        <AdminFormInput value={form.description} onChange={(e) => patchForm({ description: e.target.value })} />
+      </AdminFormField>
+      <AdminFormField label={t('admin.lists.status')}>
+        <AdminFormSelect value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
+          <option value="pending">{t('admin.status.pending')}</option>
+          <option value="paid">{t('admin.status.paid')}</option>
+          <option value="cancelled">{t('admin.status.cancelled')}</option>
+        </AdminFormSelect>
+      </AdminFormField>
+      <AdminFormField label={t('admin.lists.notes')}>
+        <AdminFormTextarea value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+      </AdminFormField>
     </>
   )
 }
@@ -44,25 +62,43 @@ function SamsarPaymentForm({ form, patchForm, samsars = [] }) {
   const { t } = useI18n()
   return (
     <>
-      <select className={input} value={form.samsarId} onChange={(e) => patchForm({ samsarId: e.target.value })}>
-        <option value="">{t('admin.lists.selectSamsar')}</option>
-        {samsars.map((s) => <option key={s._id} value={s._id}>{s.fullName}</option>)}
-      </select>
-      <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
-      <input className={input} type="date" value={form.paymentDate} onChange={(e) => patchForm({ paymentDate: e.target.value })} />
-      <select className={input} value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
-        <option value="pending">{t('admin.status.pending')}</option>
-        <option value="paid">{t('admin.status.paid')}</option>
-        <option value="cancelled">{t('admin.status.cancelled')}</option>
-      </select>
-      <select className={input} value={form.paymentMethod} onChange={(e) => patchForm({ paymentMethod: e.target.value })}>
-        <option value="cash">{t('admin.lists.cash')}</option>
-        <option value="bank_transfer">{t('admin.lists.bankTransfer')}</option>
-        <option value="check">{t('admin.lists.check')}</option>
-        <option value="other">{t('admin.lists.other')}</option>
-      </select>
-      <input className={input} placeholder={t('admin.lists.bookingId')} value={form.bookingId} onChange={(e) => patchForm({ bookingId: e.target.value })} />
-      <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+      <AdminFormField label={t('admin.lists.selectSamsar')} required>
+        <AdminFormSelect value={form.samsarId} onChange={(e) => patchForm({ samsarId: e.target.value })}>
+          <option value="">{t('admin.lists.selectSamsar')}</option>
+          {samsars.map((s) => <option key={s._id} value={s._id}>{s.fullName}</option>)}
+        </AdminFormSelect>
+      </AdminFormField>
+      <AdminFormGrid columns={2}>
+        <AdminFormField label={t('admin.lists.amountPh')}>
+          <AdminFormInput type="number" min="0" step="0.01" inputMode="decimal" value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
+        </AdminFormField>
+        <AdminFormField label={t('admin.lists.date')}>
+          <AdminFormInput type="date" value={form.paymentDate} onChange={(e) => patchForm({ paymentDate: e.target.value })} />
+        </AdminFormField>
+      </AdminFormGrid>
+      <AdminFormGrid columns={2}>
+        <AdminFormField label={t('admin.lists.status')}>
+          <AdminFormSelect value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
+            <option value="pending">{t('admin.status.pending')}</option>
+            <option value="paid">{t('admin.status.paid')}</option>
+            <option value="cancelled">{t('admin.status.cancelled')}</option>
+          </AdminFormSelect>
+        </AdminFormField>
+        <AdminFormField label={t('admin.lists.payment')}>
+          <AdminFormSelect value={form.paymentMethod} onChange={(e) => patchForm({ paymentMethod: e.target.value })}>
+            <option value="cash">{t('admin.lists.cash')}</option>
+            <option value="bank_transfer">{t('admin.lists.bankTransfer')}</option>
+            <option value="check">{t('admin.lists.check')}</option>
+            <option value="other">{t('admin.lists.other')}</option>
+          </AdminFormSelect>
+        </AdminFormField>
+      </AdminFormGrid>
+      <AdminFormField label={t('admin.lists.bookingId')}>
+        <AdminFormInput value={form.bookingId} onChange={(e) => patchForm({ bookingId: e.target.value })} />
+      </AdminFormField>
+      <AdminFormField label={t('admin.lists.notes')}>
+        <AdminFormTextarea value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+      </AdminFormField>
     </>
   )
 }
@@ -71,27 +107,47 @@ function VehicleExpenseForm({ form, patchForm, cars = [] }) {
   const { t } = useI18n()
   return (
     <>
-      <select className={input} value={form.carId} onChange={(e) => patchForm({ carId: e.target.value })}>
-        <option value="">{t('admin.lists.selectVehicle')}</option>
-        {cars.map((c) => (
-          <option key={c._id} value={c._id}>{c.brand} {c.model} {c.licensePlate || ''}</option>
-        ))}
-      </select>
-      <select className={input} value={form.category} onChange={(e) => patchForm({ category: e.target.value })}>
-        {['fuel', 'maintenance', 'repair', 'insurance', 'registration', 'tires', 'cleaning', 'parking', 'tolls', 'other'].map((c) => (
-          <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
-        ))}
-      </select>
-      <input className={input} type="number" min="0" step="0.01" placeholder={t('admin.lists.amountPh')} value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
-      <input className={input} type="date" value={form.expenseDate} onChange={(e) => patchForm({ expenseDate: e.target.value })} />
-      <input className={input} type="number" min="0" placeholder={t('admin.lists.odometerPh')} value={form.odometer} onChange={(e) => patchForm({ odometer: e.target.value })} />
-      <input className={input} placeholder={t('admin.lists.description')} value={form.description} onChange={(e) => patchForm({ description: e.target.value })} />
-      <select className={input} value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
-        <option value="pending">{t('admin.status.pending')}</option>
-        <option value="paid">{t('admin.status.paid')}</option>
-        <option value="cancelled">{t('admin.status.cancelled')}</option>
-      </select>
-      <textarea className="w-full min-h-[70px] px-3 py-2 rounded-lg border text-sm" placeholder={t('admin.lists.notes')} value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+      <AdminFormField label={t('admin.lists.selectVehicle')} required>
+        <AdminFormSelect value={form.carId} onChange={(e) => patchForm({ carId: e.target.value })}>
+          <option value="">{t('admin.lists.selectVehicle')}</option>
+          {cars.map((c) => (
+            <option key={c._id} value={c._id}>{c.brand} {c.model} {c.licensePlate || ''}</option>
+          ))}
+        </AdminFormSelect>
+      </AdminFormField>
+      <AdminFormField label={t('admin.lists.category')}>
+        <AdminFormSelect value={form.category} onChange={(e) => patchForm({ category: e.target.value })}>
+          {['fuel', 'maintenance', 'repair', 'insurance', 'registration', 'tires', 'cleaning', 'parking', 'tolls', 'other'].map((c) => (
+            <option key={c} value={c}>{t(`admin.cats.${c}`)}</option>
+          ))}
+        </AdminFormSelect>
+      </AdminFormField>
+      <AdminFormGrid columns={2}>
+        <AdminFormField label={t('admin.lists.amountPh')}>
+          <AdminFormInput type="number" min="0" step="0.01" inputMode="decimal" value={form.amount} onChange={(e) => patchForm({ amount: e.target.value })} />
+        </AdminFormField>
+        <AdminFormField label={t('admin.lists.date')}>
+          <AdminFormInput type="date" value={form.expenseDate} onChange={(e) => patchForm({ expenseDate: e.target.value })} />
+        </AdminFormField>
+      </AdminFormGrid>
+      <AdminFormGrid columns={2}>
+        <AdminFormField label={t('admin.lists.odometerPh')}>
+          <AdminFormInput type="number" min="0" inputMode="numeric" value={form.odometer} onChange={(e) => patchForm({ odometer: e.target.value })} />
+        </AdminFormField>
+        <AdminFormField label={t('admin.lists.status')}>
+          <AdminFormSelect value={form.paymentStatus} onChange={(e) => patchForm({ paymentStatus: e.target.value })}>
+            <option value="pending">{t('admin.status.pending')}</option>
+            <option value="paid">{t('admin.status.paid')}</option>
+            <option value="cancelled">{t('admin.status.cancelled')}</option>
+          </AdminFormSelect>
+        </AdminFormField>
+      </AdminFormGrid>
+      <AdminFormField label={t('admin.lists.description')}>
+        <AdminFormInput value={form.description} onChange={(e) => patchForm({ description: e.target.value })} />
+      </AdminFormField>
+      <AdminFormField label={t('admin.lists.notes')}>
+        <AdminFormTextarea value={form.notes} onChange={(e) => patchForm({ notes: e.target.value })} />
+      </AdminFormField>
     </>
   )
 }
@@ -105,13 +161,13 @@ const AccountingCreateFormBody = React.memo(function AccountingCreateFormBody({
 }) {
   if (FormComponent) {
     return (
-      <div className="space-y-3">
+      <AdminForm>
         <FormComponent form={form} patchForm={patchForm} {...formProps} />
-      </div>
+      </AdminForm>
     )
   }
   if (buildCreateForm) {
-    return <div className="space-y-3">{buildCreateForm(form, patchForm)}</div>
+    return <AdminForm>{buildCreateForm(form, patchForm)}</AdminForm>
   }
   return null
 })
@@ -195,10 +251,10 @@ const AccountingListPage = ({
   const drawerFooter = useMemo(
     () => (
       <>
-        <button type="button" className="admin-btn admin-btn--secondary" onClick={closeModal}>
+        <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={closeModal}>
           {t('admin.common.cancel')}
         </button>
-        <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
+        <button type="button" disabled={saving} className="admin-btn admin-btn--primary admin-modal-action" onClick={save}>
           {saving ? t('admin.common.saving') : t('admin.common.save')}
         </button>
       </>

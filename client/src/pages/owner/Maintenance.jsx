@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { AdminPage, PageHeader, StatCard, SegmentedControl } from '../../components/owner/ui'
+import { AdminPage, PageHeader, StatCard, SegmentedControl, AdminModal, AdminForm, AdminFormSection, AdminFormField, AdminFormInput, AdminFormTextarea, AdminFormSelect, AdminFormGrid, AdminFormCheckbox } from '../../components/owner/ui'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -595,134 +595,150 @@ const Maintenance = () => {
       )}
 
       {/* Edit vehicle profile modal */}
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-          <form onSubmit={saveProfile} className="bg-white rounded-t-2xl sm:rounded-xl w-full max-w-2xl max-h-[90svh] overflow-y-auto p-5 sm:p-6 space-y-4">
-            <h3 className="text-lg font-semibold">
-              {editing.fleetId ? `[${editing.fleetId}] ` : ''}{editing.brand} {editing.model}
-              {editing.licensePlate ? ` · ${editing.licensePlate}` : ''}
-            </h3>
-            <p className="text-xs text-gray-500 -mt-2">
-              {editing.vin ? `VIN ${editing.vin}` : 'No VIN'} · {editing.branch || editing.location || 'No branch'}
-            </p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {[
-                ['licensePlate', 'Plate'],
-                ['mileage', 'Mileage (km)'],
-                ['status', 'Status'],
-                ['nextServiceMileage', 'Next service km'],
-                ['nextServiceDate', 'Next service date', 'date'],
-                ['lastServiceDate', 'Last service', 'date'],
-                ['oilNextDueAt', 'Oil due date', 'date'],
-                ['oilNextDueMileage', 'Oil due km'],
-                ['tireNextDueAt', 'Tires due date', 'date'],
-                ['tireNextDueMileage', 'Tires due km'],
-                ['insuranceExpiry', 'Insurance expiry', 'date'],
-                ['registrationExpiry', 'Registration expiry', 'date'],
-                ['inspectionExpiry', 'Inspection expiry', 'date'],
-              ].map(([key, label, type]) => (
-                <div key={key}>
-                  <label className="text-xs text-gray-500">{label}</label>
-                  {key === 'status' ? (
-                    <select className={inputClass} value={form.status} onChange={(e) => patchForm({ status: e.target.value })}>
-                      <option value="available">{t('admin.status.available')}</option>
-                      <option value="booked">{t('admin.status.booked')}</option>
-                      <option value="maintenance">{t('admin.fleetUi.inMaintenance')}</option>
-                    </select>
-                  ) : (
-                    <input
-                      type={type || 'text'}
-                      className={inputClass}
-                      value={form[key] ?? ''}
-                      onChange={(e) => patchForm({ [key]: e.target.value })}
-                    />
-                  )}
-                </div>
-              ))}
-              <div className="sm:col-span-2">
-                <label className="text-xs text-gray-500">{t('admin.maint.notes')}</label>
-                <textarea className={inputClass} rows={2} value={form.maintenanceNotes} onChange={(e) => patchForm({ maintenanceNotes: e.target.value })} />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 border rounded-lg text-sm">{t('admin.common.cancel')}</button>
-              <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm">{t('admin.common.save')}</button>
-            </div>
-          </form>
-        </div>
-      )}
+      <AdminModal
+        open={Boolean(editing)}
+        onClose={() => setEditing(null)}
+        title={editing ? `${editing.fleetId ? `[${editing.fleetId}] ` : ''}${editing.brand} ${editing.model}${editing.licensePlate ? ` · ${editing.licensePlate}` : ''}` : ''}
+        description={editing ? `${editing.vin ? `VIN ${editing.vin}` : 'No VIN'} · ${editing.branch || editing.location || 'No branch'}` : ''}
+        size="lg"
+        variant="drawer"
+        footer={
+          <>
+            <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={() => setEditing(null)}>
+              {t('admin.common.cancel')}
+            </button>
+            <button type="submit" form="maintenance-profile-form" className="admin-btn admin-btn--primary admin-modal-action">
+              {t('admin.common.save')}
+            </button>
+          </>
+        }
+      >
+        {editing && (
+          <AdminForm id="maintenance-profile-form" onSubmit={saveProfile}>
+            <AdminFormSection>
+              <AdminFormGrid columns={2}>
+                <AdminFormField label="Plate">
+                  <AdminFormInput value={form.licensePlate ?? ''} onChange={(e) => patchForm({ licensePlate: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Mileage (km)">
+                  <AdminFormInput type="number" inputMode="numeric" value={form.mileage ?? ''} onChange={(e) => patchForm({ mileage: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label={t('admin.maint.status')}>
+                  <AdminFormSelect value={form.status} onChange={(e) => patchForm({ status: e.target.value })}>
+                    <option value="available">{t('admin.status.available')}</option>
+                    <option value="booked">{t('admin.status.booked')}</option>
+                    <option value="maintenance">{t('admin.fleetUi.inMaintenance')}</option>
+                  </AdminFormSelect>
+                </AdminFormField>
+                <AdminFormField label="Next service km">
+                  <AdminFormInput type="number" inputMode="numeric" value={form.nextServiceMileage ?? ''} onChange={(e) => patchForm({ nextServiceMileage: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Next service date">
+                  <AdminFormInput type="date" value={form.nextServiceDate ?? ''} onChange={(e) => patchForm({ nextServiceDate: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Last service">
+                  <AdminFormInput type="date" value={form.lastServiceDate ?? ''} onChange={(e) => patchForm({ lastServiceDate: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Oil due date">
+                  <AdminFormInput type="date" value={form.oilNextDueAt ?? ''} onChange={(e) => patchForm({ oilNextDueAt: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Oil due km">
+                  <AdminFormInput type="number" inputMode="numeric" value={form.oilNextDueMileage ?? ''} onChange={(e) => patchForm({ oilNextDueMileage: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Tires due date">
+                  <AdminFormInput type="date" value={form.tireNextDueAt ?? ''} onChange={(e) => patchForm({ tireNextDueAt: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Tires due km">
+                  <AdminFormInput type="number" inputMode="numeric" value={form.tireNextDueMileage ?? ''} onChange={(e) => patchForm({ tireNextDueMileage: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Insurance expiry">
+                  <AdminFormInput type="date" value={form.insuranceExpiry ?? ''} onChange={(e) => patchForm({ insuranceExpiry: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Registration expiry">
+                  <AdminFormInput type="date" value={form.registrationExpiry ?? ''} onChange={(e) => patchForm({ registrationExpiry: e.target.value })} />
+                </AdminFormField>
+                <AdminFormField label="Inspection expiry">
+                  <AdminFormInput type="date" value={form.inspectionExpiry ?? ''} onChange={(e) => patchForm({ inspectionExpiry: e.target.value })} />
+                </AdminFormField>
+              </AdminFormGrid>
+              <AdminFormField label={t('admin.maint.notes')}>
+                <AdminFormTextarea rows={2} value={form.maintenanceNotes} onChange={(e) => patchForm({ maintenanceNotes: e.target.value })} />
+              </AdminFormField>
+            </AdminFormSection>
+          </AdminForm>
+        )}
+      </AdminModal>
 
       {/* Schedule / log work modal */}
-      {showRecord && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-          <form onSubmit={saveRecord} className="bg-white rounded-t-2xl sm:rounded-xl w-full max-w-lg max-h-[90svh] overflow-y-auto p-5 sm:p-6 space-y-3">
-            <h3 className="text-lg font-semibold">{t('admin.maintenance.scheduleWork')}</h3>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.maint.vehicleRequired')}</label>
-              <select required className={inputClass} value={recordForm.carId} onChange={(e) => patchRecordForm({ carId: e.target.value })}>
-                <option value="">{t('admin.maint.select')}</option>
-                {cars.map((c) => (
-                  <option key={c._id} value={c._id}>{formatUnit(c)}</option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.type')}</label>
-                <select className={inputClass} value={recordForm.type} onChange={(e) => patchRecordForm({ type: e.target.value })}>
-                  {Object.keys(TYPE_KEYS).map((k) => <option key={k} value={k}>{t(`admin.maint.${TYPE_KEYS[k]}`)}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.status')}</label>
-                <select className={inputClass} value={recordForm.status} onChange={(e) => patchRecordForm({ status: e.target.value })}>
-                  <option value="scheduled">{t('admin.status.scheduled')}</option>
-                  <option value="in_progress">{t('admin.status.in_progress')}</option>
-                  <option value="completed">{t('admin.status.completed')}</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">{t('admin.maint.title')}</label>
-              <input required className={inputClass} value={recordForm.title} onChange={(e) => patchRecordForm({ title: e.target.value })} placeholder={t('admin.maint.titlePh')} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.scheduled')}</label>
-                <input type="date" className={inputClass} value={recordForm.scheduledDate} onChange={(e) => patchRecordForm({ scheduledDate: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.cost')}</label>
-                <input type="number" min="0" step="0.01" className={inputClass} value={recordForm.cost} onChange={(e) => patchRecordForm({ cost: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.mileage')}</label>
-                <input type="number" className={inputClass} value={recordForm.mileageAtService} onChange={(e) => patchRecordForm({ mileageAtService: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.vendor')}</label>
-                <input className={inputClass} value={recordForm.vendor} onChange={(e) => patchRecordForm({ vendor: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.nextDueDate')}</label>
-                <input type="date" className={inputClass} value={recordForm.nextDueDate} onChange={(e) => patchRecordForm({ nextDueDate: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">{t('admin.maint.nextDueKm')}</label>
-                <input type="number" className={inputClass} value={recordForm.nextDueMileage} onChange={(e) => patchRecordForm({ nextDueMileage: e.target.value })} />
-              </div>
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={recordForm.setCarInMaintenance} onChange={(e) => patchRecordForm({ setCarInMaintenance: e.target.checked })} />
-              {t('admin.maint.markInMaintenance')}
-            </label>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowRecord(false)} className="px-4 py-2 border rounded-lg text-sm">{t('admin.common.cancel')}</button>
-              <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm">{t('admin.common.save')}</button>
-            </div>
-          </form>
-        </div>
-      )}
+      <AdminModal
+        open={showRecord}
+        onClose={() => setShowRecord(false)}
+        title={t('admin.maintenance.scheduleWork')}
+        variant="drawer"
+        footer={
+          <>
+            <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={() => setShowRecord(false)}>
+              {t('admin.common.cancel')}
+            </button>
+            <button type="submit" form="maintenance-record-form" className="admin-btn admin-btn--primary admin-modal-action">
+              {t('admin.common.save')}
+            </button>
+          </>
+        }
+      >
+        <AdminForm id="maintenance-record-form" onSubmit={saveRecord}>
+          <AdminFormField label={t('admin.maint.vehicleRequired')} required>
+            <AdminFormSelect required value={recordForm.carId} onChange={(e) => patchRecordForm({ carId: e.target.value })}>
+              <option value="">{t('admin.maint.select')}</option>
+              {cars.map((c) => (
+                <option key={c._id} value={c._id}>{formatUnit(c)}</option>
+              ))}
+            </AdminFormSelect>
+          </AdminFormField>
+          <AdminFormGrid columns={2}>
+            <AdminFormField label={t('admin.maint.type')}>
+              <AdminFormSelect value={recordForm.type} onChange={(e) => patchRecordForm({ type: e.target.value })}>
+                {Object.keys(TYPE_KEYS).map((k) => <option key={k} value={k}>{t(`admin.maint.${TYPE_KEYS[k]}`)}</option>)}
+              </AdminFormSelect>
+            </AdminFormField>
+            <AdminFormField label={t('admin.maint.status')}>
+              <AdminFormSelect value={recordForm.status} onChange={(e) => patchRecordForm({ status: e.target.value })}>
+                <option value="scheduled">{t('admin.status.scheduled')}</option>
+                <option value="in_progress">{t('admin.status.in_progress')}</option>
+                <option value="completed">{t('admin.status.completed')}</option>
+              </AdminFormSelect>
+            </AdminFormField>
+          </AdminFormGrid>
+          <AdminFormField label={t('admin.maint.title')} required>
+            <AdminFormInput required value={recordForm.title} onChange={(e) => patchRecordForm({ title: e.target.value })} placeholder={t('admin.maint.titlePh')} />
+          </AdminFormField>
+          <AdminFormGrid columns={2}>
+            <AdminFormField label={t('admin.maint.scheduled')}>
+              <AdminFormInput type="date" value={recordForm.scheduledDate} onChange={(e) => patchRecordForm({ scheduledDate: e.target.value })} />
+            </AdminFormField>
+            <AdminFormField label={t('admin.maint.cost')}>
+              <AdminFormInput type="number" min="0" step="0.01" inputMode="decimal" value={recordForm.cost} onChange={(e) => patchRecordForm({ cost: e.target.value })} />
+            </AdminFormField>
+            <AdminFormField label={t('admin.maint.mileage')}>
+              <AdminFormInput type="number" inputMode="numeric" value={recordForm.mileageAtService} onChange={(e) => patchRecordForm({ mileageAtService: e.target.value })} />
+            </AdminFormField>
+            <AdminFormField label={t('admin.maint.vendor')}>
+              <AdminFormInput value={recordForm.vendor} onChange={(e) => patchRecordForm({ vendor: e.target.value })} />
+            </AdminFormField>
+            <AdminFormField label={t('admin.maint.nextDueDate')}>
+              <AdminFormInput type="date" value={recordForm.nextDueDate} onChange={(e) => patchRecordForm({ nextDueDate: e.target.value })} />
+            </AdminFormField>
+            <AdminFormField label={t('admin.maint.nextDueKm')}>
+              <AdminFormInput type="number" inputMode="numeric" value={recordForm.nextDueMileage} onChange={(e) => patchRecordForm({ nextDueMileage: e.target.value })} />
+            </AdminFormField>
+          </AdminFormGrid>
+          <AdminFormCheckbox
+            label={t('admin.maint.markInMaintenance')}
+            checked={recordForm.setCarInMaintenance}
+            onChange={(e) => patchRecordForm({ setCarInMaintenance: e.target.checked })}
+          />
+        </AdminForm>
+      </AdminModal>
     </AdminPage>
   )
 }

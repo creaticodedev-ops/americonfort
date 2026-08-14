@@ -15,12 +15,10 @@ export const AdminModal = ({
 }) => {
   const { t } = useI18n()
   const titleId = useId()
+  const bodyRef = useRef(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
-  // Body lock + Escape only. Must depend on `open` — never on `onClose`.
-  // Inline onClose from parents changes every render; including it re-ran cleanup,
-  // restored focus behind the drawer, and made inputs lose focus after one character.
   useEffect(() => {
     if (!open) return undefined
 
@@ -42,6 +40,24 @@ export const AdminModal = ({
         previouslyFocused.focus({ preventScroll: true })
       }
     }
+  }, [open])
+
+  // Keep focused fields visible when the mobile keyboard opens.
+  useEffect(() => {
+    if (!open) return undefined
+    const body = bodyRef.current
+    if (!body) return undefined
+
+    const onFocusIn = (e) => {
+      const target = e.target
+      if (!(target instanceof HTMLElement) || !body.contains(target)) return
+      window.requestAnimationFrame(() => {
+        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      })
+    }
+
+    body.addEventListener('focusin', onFocusIn)
+    return () => body.removeEventListener('focusin', onFocusIn)
   }, [open])
 
   if (!open) return null
@@ -72,24 +88,24 @@ export const AdminModal = ({
         className={`admin-modal-panel ${widthClass}`}
       >
         <div className="admin-modal-header">
-          <div className="min-w-0 pe-8">
-            <h2 id={titleId} className="text-base font-semibold text-[var(--admin-fg)]">
+          <div className="min-w-0 pe-10">
+            <h2 id={titleId} className="admin-modal-title">
               {title}
             </h2>
-            {description ? (
-              <p className="mt-1 text-sm text-[var(--admin-fg-secondary)]">{description}</p>
-            ) : null}
+            {description ? <p className="admin-modal-description">{description}</p> : null}
           </div>
           <button
             type="button"
-            className="admin-icon-btn absolute end-3 top-3"
+            className="admin-modal-close admin-icon-btn"
             onClick={() => onCloseRef.current?.()}
             aria-label={t('admin.commonUi.close')}
           >
-            <Icon name="x" className="h-4 w-4" />
+            <Icon name="x" className="h-5 w-5" />
           </button>
         </div>
-        <div className="admin-modal-body">{children}</div>
+        <div ref={bodyRef} className="admin-modal-body">
+          {children}
+        </div>
         {footer ? <div className="admin-modal-footer">{footer}</div> : null}
       </div>
     </div>
@@ -118,12 +134,12 @@ export const ConfirmDialog = ({
     variant="center"
     footer={
       <>
-        <button type="button" className="admin-btn admin-btn--secondary" onClick={onCancel} disabled={loading}>
+        <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={onCancel} disabled={loading}>
           {cancelText || t('admin.common.cancel')}
         </button>
         <button
           type="button"
-          className={`admin-btn ${variant === 'danger' ? 'admin-btn--danger' : 'admin-btn--primary'}`}
+          className={`admin-btn admin-modal-action ${variant === 'danger' ? 'admin-btn--danger' : 'admin-btn--primary'}`}
           onClick={onConfirm}
           disabled={loading}
         >

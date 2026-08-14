@@ -1,9 +1,13 @@
 import React from 'react'
 import OwnerDirectoryPage, { StatusBadge } from '../../components/owner/OwnerDirectoryPage'
+import {
+  AdminFormSection,
+  AdminFormField,
+  AdminFormInput,
+  AdminFormTextarea,
+  AdminFormGrid,
+} from '../../components/owner/ui'
 import { useI18n } from '../../i18n/I18nContext'
-
-const field =
-  'w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
 
 const INITIAL_FORM = {
   fullName: '',
@@ -22,56 +26,71 @@ function ChauffeurForm({ form, patchForm }) {
 
   return (
     <>
-      <input
-        className={field}
-        placeholder={`${t('admin.chauffeurs.fullName')} *`}
-        value={form.fullName || ''}
-        onChange={(e) => patchForm({ fullName: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.chauffeurs.phone')}
-        value={form.phone || ''}
-        onChange={(e) => patchForm({ phone: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.chauffeurs.email')}
-        value={form.email || ''}
-        onChange={(e) => patchForm({ email: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.chauffeurs.address')}
-        value={form.address || ''}
-        onChange={(e) => patchForm({ address: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.chauffeurs.licenseNumber')}
-        value={form.licenseNumber || ''}
-        onChange={(e) => patchForm({ licenseNumber: e.target.value })}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          className={field}
-          type="date"
-          value={form.licenseExpiry ? String(form.licenseExpiry).slice(0, 10) : ''}
-          onChange={(e) => patchForm({ licenseExpiry: e.target.value })}
+      <AdminFormSection>
+        <AdminFormField label={t('admin.chauffeurs.fullName')} required>
+          <AdminFormInput
+            value={form.fullName || ''}
+            onChange={(e) => patchForm({ fullName: e.target.value })}
+            autoComplete="name"
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.chauffeurs.phone')}>
+          <AdminFormInput
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={form.phone || ''}
+            onChange={(e) => patchForm({ phone: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.chauffeurs.email')}>
+          <AdminFormInput
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={form.email || ''}
+            onChange={(e) => patchForm({ email: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.chauffeurs.address')}>
+          <AdminFormInput
+            value={form.address || ''}
+            onChange={(e) => patchForm({ address: e.target.value })}
+            autoComplete="street-address"
+          />
+        </AdminFormField>
+      </AdminFormSection>
+
+      <AdminFormSection title={t('admin.chauffeurs.colLicense')}>
+        <AdminFormField label={t('admin.chauffeurs.licenseNumber')}>
+          <AdminFormInput
+            value={form.licenseNumber || ''}
+            onChange={(e) => patchForm({ licenseNumber: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.chauffeurs.licenseExpiry')}>
+            <AdminFormInput
+              type="date"
+              value={form.licenseExpiry ? String(form.licenseExpiry).slice(0, 10) : ''}
+              onChange={(e) => patchForm({ licenseExpiry: e.target.value })}
+            />
+          </AdminFormField>
+          <AdminFormField label={t('admin.chauffeurs.licenseCategory')}>
+            <AdminFormInput
+              value={form.licenseCategory || ''}
+              onChange={(e) => patchForm({ licenseCategory: e.target.value })}
+            />
+          </AdminFormField>
+        </AdminFormGrid>
+      </AdminFormSection>
+
+      <AdminFormField label={t('admin.chauffeurs.notes')}>
+        <AdminFormTextarea
+          value={form.notes || ''}
+          onChange={(e) => patchForm({ notes: e.target.value })}
         />
-        <input
-          className={field}
-          placeholder={t('admin.chauffeurs.licenseCategory')}
-          value={form.licenseCategory || ''}
-          onChange={(e) => patchForm({ licenseCategory: e.target.value })}
-        />
-      </div>
-      <textarea
-        className="w-full min-h-[80px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-        placeholder={t('admin.chauffeurs.notes')}
-        value={form.notes || ''}
-        onChange={(e) => patchForm({ notes: e.target.value })}
-      />
+      </AdminFormField>
     </>
   )
 }

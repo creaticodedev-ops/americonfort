@@ -1,10 +1,20 @@
-import React, { useEffect, useState } from 'react'
-import Title from '../../components/owner/Title'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { assets } from '../../assets/ownerAssets'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
+import {
+  AdminPage,
+  PageHeader,
+  AdminModal,
+  AdminForm,
+  AdminFormSection,
+  AdminFormField,
+  AdminFormInput,
+  AdminFormSelect,
+  AdminFormGrid,
+} from '../../components/owner/ui'
 
 const emptyForm = {
   name: '',
@@ -15,14 +25,91 @@ const emptyForm = {
   deliveryFee: '0',
 }
 
+function LocationForm({ form, patchForm, money, t }) {
+  return (
+    <>
+      <AdminFormSection>
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.locations.name')} required>
+            <AdminFormInput
+              required
+              placeholder={t('admin.locUi.namePh')}
+              value={form.name}
+              onChange={(e) => patchForm({ name: e.target.value })}
+            />
+          </AdminFormField>
+          <AdminFormField label={t('admin.locations.city')} required>
+            <AdminFormInput
+              required
+              placeholder={t('admin.locUi.cityPh')}
+              value={form.city}
+              onChange={(e) => patchForm({ city: e.target.value })}
+              autoComplete="address-level2"
+            />
+          </AdminFormField>
+        </AdminFormGrid>
+        <AdminFormField label={t('admin.locations.address')} required>
+          <AdminFormInput
+            required
+            placeholder={t('admin.locUi.addressPh')}
+            value={form.address}
+            onChange={(e) => patchForm({ address: e.target.value })}
+            autoComplete="street-address"
+          />
+        </AdminFormField>
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.locations.mapsLink')}>
+            <AdminFormInput
+              type="url"
+              inputMode="url"
+              placeholder="https://maps.google.com/..."
+              value={form.googleMapsLink}
+              onChange={(e) => patchForm({ googleMapsLink: e.target.value })}
+            />
+          </AdminFormField>
+          <AdminFormField label={t('admin.locations.type')}>
+            <AdminFormSelect
+              value={form.locationType}
+              onChange={(e) => patchForm({ locationType: e.target.value })}
+            >
+              <option value="airport">{t('admin.locations.typeAirport')}</option>
+              <option value="hotel">{t('admin.locations.typeHotel')}</option>
+              <option value="office">{t('admin.locations.typeOffice')}</option>
+              <option value="custom">{t('admin.locations.typeCustom')}</option>
+            </AdminFormSelect>
+          </AdminFormField>
+        </AdminFormGrid>
+        <AdminFormField label={t('admin.locations.deliveryFee')} hint={t('admin.locations.deliveryFeeHint')}>
+          <div className="flex items-center gap-2 min-w-0">
+            <AdminFormInput
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              required
+              className="max-w-[9rem]"
+              value={form.deliveryFee}
+              onChange={(e) => patchForm({ deliveryFee: e.target.value })}
+            />
+            <span className="text-sm text-[var(--admin-fg-muted)] shrink-0">{money}</span>
+          </div>
+        </AdminFormField>
+      </AdminFormSection>
+    </>
+  )
+}
+
 const ManageLocations = () => {
   const { isOwner, axios, fetchPickupLocations, currency } = useAppContext()
   const { t } = useI18n()
 
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(emptyForm)
-  const patchForm = (patch) => setForm((prev) => ({ ...prev, ...patch }))
+  const patchForm = useCallback((patch) => {
+    setForm((prev) => ({ ...prev, ...patch }))
+  }, [])
   const [editingId, setEditingId] = useState(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const fetchLocations = async () => {
@@ -34,13 +121,35 @@ const ManageLocations = () => {
     }
   }
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setForm(emptyForm)
     setEditingId(null)
-  }
+  }, [])
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false)
+    resetForm()
+  }, [resetForm])
+
+  const openAdd = useCallback(() => {
+    resetForm()
+    setDrawerOpen(true)
+  }, [resetForm])
+
+  const startEdit = useCallback((location) => {
+    setEditingId(location._id)
+    setForm({
+      name: location.name,
+      city: location.city,
+      address: location.address,
+      googleMapsLink: location.googleMapsLink || '',
+      locationType: location.locationType || 'custom',
+      deliveryFee: String(location.deliveryFee ?? 0),
+    })
+    setDrawerOpen(true)
+  }, [])
+
+  const save = useCallback(async () => {
     if (isLoading) return
 
     const fee = Number(form.deliveryFee)
@@ -65,7 +174,7 @@ const ManageLocations = () => {
 
       if (data.success) {
         toast.success(data.message)
-        resetForm()
+        closeDrawer()
         fetchLocations()
         fetchPickupLocations()
       } else {
@@ -76,19 +185,7 @@ const ManageLocations = () => {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const startEdit = (location) => {
-    setEditingId(location._id)
-    setForm({
-      name: location.name,
-      city: location.city,
-      address: location.address,
-      googleMapsLink: location.googleMapsLink || '',
-      locationType: location.locationType || 'custom',
-      deliveryFee: String(location.deliveryFee ?? 0),
-    })
-  }
+  }, [axios, closeDrawer, editingId, form, isLoading, t, fetchPickupLocations])
 
   const toggleLocation = async (locationId) => {
     try {
@@ -112,7 +209,7 @@ const ManageLocations = () => {
       const { data } = await axios.post('/api/pickup-locations/delete', { locationId })
       if (data.success) {
         toast.success(data.message)
-        if (editingId === locationId) resetForm()
+        if (editingId === locationId) closeDrawer()
         fetchLocations()
         fetchPickupLocations()
       } else {
@@ -129,99 +226,33 @@ const ManageLocations = () => {
 
   const money = currency || 'MAD '
 
+  const drawerFooter = useMemo(
+    () => (
+      <>
+        <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={closeDrawer}>
+          {t('admin.common.cancel')}
+        </button>
+        <button type="button" disabled={isLoading} className="admin-btn admin-btn--primary admin-modal-action" onClick={save}>
+          {isLoading ? t('admin.locations.saving') : editingId ? t('admin.locations.update') : t('admin.locations.add')}
+        </button>
+      </>
+    ),
+    [closeDrawer, editingId, isLoading, save, t],
+  )
+
   return (
-    <div className='px-4 pt-8 md:px-8 lg:px-10 xl:px-12 md:pt-10 w-full pb-12'>
-      <Title
+    <AdminPage>
+      <PageHeader
         title={t('admin.locations.title')}
-        subTitle={t('admin.locations.subtitle')}
+        description={t('admin.locations.subtitle')}
+        actions={
+          <button type="button" className="admin-btn admin-btn--primary" onClick={openAdd}>
+            {t('admin.locations.add')}
+          </button>
+        }
       />
 
-      <form onSubmit={handleSubmit} className='mt-6 max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-500'>
-        <div className='flex flex-col'>
-          <label>{t('admin.locations.name')}</label>
-          <input
-            type="text"
-            required
-            placeholder={t('admin.locUi.namePh')}
-            className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
-            value={form.name}
-            onChange={(e) => patchForm({ name: e.target.value })}
-          />
-        </div>
-        <div className='flex flex-col'>
-          <label>{t('admin.locations.city')}</label>
-          <input
-            type="text"
-            required
-            placeholder={t('admin.locUi.cityPh')}
-            className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
-            value={form.city}
-            onChange={(e) => patchForm({ city: e.target.value })}
-          />
-        </div>
-        <div className='flex flex-col md:col-span-2'>
-          <label>{t('admin.locations.address')}</label>
-          <input
-            type="text"
-            required
-            placeholder={t('admin.locUi.addressPh')}
-            className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
-            value={form.address}
-            onChange={(e) => patchForm({ address: e.target.value })}
-          />
-        </div>
-        <div className='flex flex-col'>
-          <label>{t('admin.locations.mapsLink')}</label>
-          <input
-            type="url"
-            placeholder="https://maps.google.com/..."
-            className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
-            value={form.googleMapsLink}
-            onChange={(e) => patchForm({ googleMapsLink: e.target.value })}
-          />
-        </div>
-        <div className='flex flex-col'>
-          <label>{t('admin.locations.type')}</label>
-          <select
-            className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none'
-            value={form.locationType}
-            onChange={(e) => patchForm({ locationType: e.target.value })}
-          >
-            <option value="airport">{t('admin.locations.typeAirport')}</option>
-            <option value="hotel">{t('admin.locations.typeHotel')}</option>
-            <option value="office">{t('admin.locations.typeOffice')}</option>
-            <option value="custom">{t('admin.locations.typeCustom')}</option>
-          </select>
-        </div>
-        <div className='flex flex-col md:col-span-2'>
-          <label>{t('admin.locations.deliveryFee')}</label>
-          <div className='flex items-center gap-2 mt-1'>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              className='px-3 py-2 border border-borderColor rounded-md outline-none w-40'
-              value={form.deliveryFee}
-              onChange={(e) => patchForm({ deliveryFee: e.target.value })}
-            />
-            <span className='text-gray-600 text-sm'>{t('admin.locations.deliveryFeeHint')}</span>
-          </div>
-        </div>
-        <div className='md:col-span-2 flex items-center gap-3'>
-          <button type="submit" className='flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-md font-medium cursor-pointer'>
-            <img src={assets.tick_icon} alt="" />
-            {isLoading ? t('admin.locations.saving') : editingId ? t('admin.locations.update') : t('admin.locations.add')}
-          </button>
-          {editingId && (
-            <button type="button" onClick={resetForm} className='px-4 py-2.5 border border-borderColor rounded-md cursor-pointer'>
-              {t('admin.common.cancel')}
-            </button>
-          )}
-        </div>
-      </form>
-
-      <div className="max-w-5xl w-full rounded-md overflow-hidden border border-borderColor mt-8 bg-white">
+      <div className="max-w-5xl w-full rounded-md overflow-hidden border border-borderColor mt-2 bg-white">
         <div className="table-scroll">
         <table className="w-full border-collapse text-left text-sm text-gray-600 max-lg:min-w-[640px]">
           <thead className="text-gray-500 bg-gray-50">
@@ -304,7 +335,19 @@ const ManageLocations = () => {
         </table>
         </div>
       </div>
-    </div>
+
+      <AdminModal
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editingId ? t('admin.locations.update') : t('admin.locations.add')}
+        variant="drawer"
+        footer={drawerFooter}
+      >
+        <AdminForm>
+          <LocationForm form={form} patchForm={patchForm} money={money} t={t} />
+        </AdminForm>
+      </AdminModal>
+    </AdminPage>
   )
 }
 

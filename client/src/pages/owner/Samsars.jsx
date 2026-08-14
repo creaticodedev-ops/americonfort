@@ -1,9 +1,14 @@
 import React from 'react'
 import OwnerDirectoryPage, { StatusBadge } from '../../components/owner/OwnerDirectoryPage'
+import {
+  AdminFormSection,
+  AdminFormField,
+  AdminFormInput,
+  AdminFormTextarea,
+  AdminFormSelect,
+  AdminFormGrid,
+} from '../../components/owner/ui'
 import { useI18n } from '../../i18n/I18nContext'
-
-const field =
-  'w-full h-10 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
 
 const INITIAL_FORM = {
   fullName: '',
@@ -21,55 +26,71 @@ function SamsarForm({ form, patchForm }) {
 
   return (
     <>
-      <input
-        className={field}
-        placeholder={`${t('admin.samsars.fullName')} *`}
-        value={form.fullName || ''}
-        onChange={(e) => patchForm({ fullName: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.samsars.phone')}
-        value={form.phone || ''}
-        onChange={(e) => patchForm({ phone: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.samsars.email')}
-        value={form.email || ''}
-        onChange={(e) => patchForm({ email: e.target.value })}
-      />
-      <input
-        className={field}
-        placeholder={t('admin.samsars.address')}
-        value={form.address || ''}
-        onChange={(e) => patchForm({ address: e.target.value })}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <select
-          className={field}
-          value={form.commissionType}
-          onChange={(e) => patchForm({ commissionType: e.target.value })}
-        >
-          <option value="percent">{t('admin.samsars.commissionPercent')}</option>
-          <option value="fixed">{t('admin.samsars.commissionFixed')}</option>
-          <option value="none">{t('admin.samsars.commissionNone')}</option>
-        </select>
-        <input
-          className={field}
-          type="number"
-          min="0"
-          placeholder={t('admin.samsars.commissionValue')}
-          value={form.commissionValue ?? 0}
-          onChange={(e) => patchForm({ commissionValue: e.target.value })}
+      <AdminFormSection>
+        <AdminFormField label={t('admin.samsars.fullName')} required>
+          <AdminFormInput
+            value={form.fullName || ''}
+            onChange={(e) => patchForm({ fullName: e.target.value })}
+            autoComplete="name"
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.samsars.phone')}>
+          <AdminFormInput
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={form.phone || ''}
+            onChange={(e) => patchForm({ phone: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.samsars.email')}>
+          <AdminFormInput
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={form.email || ''}
+            onChange={(e) => patchForm({ email: e.target.value })}
+          />
+        </AdminFormField>
+        <AdminFormField label={t('admin.samsars.address')}>
+          <AdminFormInput
+            value={form.address || ''}
+            onChange={(e) => patchForm({ address: e.target.value })}
+            autoComplete="street-address"
+          />
+        </AdminFormField>
+      </AdminFormSection>
+
+      <AdminFormSection title={t('admin.samsars.colCommission')}>
+        <AdminFormGrid columns={2}>
+          <AdminFormField label={t('admin.samsars.commissionType')}>
+            <AdminFormSelect
+              value={form.commissionType}
+              onChange={(e) => patchForm({ commissionType: e.target.value })}
+            >
+              <option value="percent">{t('admin.samsars.commissionPercent')}</option>
+              <option value="fixed">{t('admin.samsars.commissionFixed')}</option>
+              <option value="none">{t('admin.samsars.commissionNone')}</option>
+            </AdminFormSelect>
+          </AdminFormField>
+          <AdminFormField label={t('admin.samsars.commissionValue')}>
+            <AdminFormInput
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={form.commissionValue ?? 0}
+              onChange={(e) => patchForm({ commissionValue: e.target.value })}
+            />
+          </AdminFormField>
+        </AdminFormGrid>
+      </AdminFormSection>
+
+      <AdminFormField label={t('admin.samsars.notes')}>
+        <AdminFormTextarea
+          value={form.notes || ''}
+          onChange={(e) => patchForm({ notes: e.target.value })}
         />
-      </div>
-      <textarea
-        className="w-full min-h-[80px] px-3 py-2 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
-        placeholder={t('admin.samsars.notes')}
-        value={form.notes || ''}
-        onChange={(e) => patchForm({ notes: e.target.value })}
-      />
+      </AdminFormField>
     </>
   )
 }

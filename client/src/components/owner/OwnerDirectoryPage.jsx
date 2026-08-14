@@ -9,6 +9,7 @@ import {
   FilterBar,
   SearchInput,
   AdminModal,
+  AdminForm,
 } from './ui'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
@@ -20,13 +21,13 @@ const SEARCH_DEBOUNCE_MS = 300
 const DirectoryFormBody = React.memo(function DirectoryFormBody({ FormComponent, buildForm, form, patchForm, formProps }) {
   if (FormComponent) {
     return (
-      <div className="space-y-3">
+      <AdminForm>
         <FormComponent form={form} patchForm={patchForm} {...formProps} />
-      </div>
+      </AdminForm>
     )
   }
   if (buildForm) {
-    return <div className="space-y-3">{buildForm(form, patchForm)}</div>
+    return <AdminForm>{buildForm(form, patchForm)}</AdminForm>
   }
   return null
 })
@@ -202,10 +203,10 @@ const OwnerDirectoryPage = ({
   const drawerFooter = useMemo(
     () => (
       <>
-        <button type="button" className="admin-btn admin-btn--secondary" onClick={closeModal}>
+        <button type="button" className="admin-btn admin-btn--secondary admin-modal-action" onClick={closeModal}>
           {t('admin.common.cancel')}
         </button>
-        <button type="button" disabled={saving} className="admin-btn admin-btn--primary" onClick={save}>
+        <button type="button" disabled={saving} className="admin-btn admin-btn--primary admin-modal-action" onClick={save}>
           {saving ? t('admin.common.saving') : t('admin.common.save')}
         </button>
       </>
