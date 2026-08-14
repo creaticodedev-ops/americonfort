@@ -1,11 +1,28 @@
 {
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
       "source": "/index.html",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "max-age=0, must-revalidate"
         }
       ]
     },
@@ -65,7 +82,7 @@
       "destination": "/location-voiture-casablanca-aeroport/index.html"
     },
     {
-      "source": "/((?!api/|assets/).*)",
+      "source": "/((?!api/|assets/)(?!.*\\.(?:js|mjs|cjs|css|map|json|txt|xml|webp|avif|png|jpg|jpeg|gif|svg|ico|woff|woff2|html)$).*)",
       "destination": "/index.html"
     }
   ]

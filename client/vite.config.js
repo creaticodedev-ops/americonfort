@@ -12,11 +12,9 @@ const seoHeadSnippets = () => {
     snippets += `    <meta name="google-site-verification" content="${gscVerification}" />\n`
   }
   if (ga4Id) {
-    // Consent defaults before config: Google Tags with Consent Mode v2 otherwise
-    // hold analytics until update — this site has no consent banner, so grant analytics.
-    // send_page_view:false → SPA Analytics.jsx owns page_view (no duplicate on first paint).
-    snippets += `    <script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
-    <script>
+    // Classic inline stub + dynamic async tag. Never type=module.
+    // If gtag.js is blocked, the stub stays and React still mounts.
+    snippets += `    <script data-cfasync="false">
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('consent', 'default', {
@@ -31,6 +29,13 @@ const seoHeadSnippets = () => {
         send_page_view: false,
         anonymize_ip: true
       });
+      (function () {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=${ga4Id}';
+        s.onerror = function () {};
+        document.head.appendChild(s);
+      })();
     </script>
 `
   }
@@ -45,9 +50,13 @@ export default defineConfig({
     {
       name: 'americonfort-html-seo',
       transformIndexHtml(html) {
+        // Rocket Loader must never rewrite Vite module scripts.
+        let out = html
+          .replaceAll('<script type="module"', '<script data-cfasync="false" type="module"')
+          .replaceAll('<link rel="modulepreload"', '<link data-cfasync="false" rel="modulepreload"')
         const snippets = seoHeadSnippets()
-        if (!snippets) return html
-        return html.replace('</head>', `${snippets}</head>`)
+        if (snippets) out = out.replace('</head>', `${snippets}</head>`)
+        return out
       },
     },
   ],

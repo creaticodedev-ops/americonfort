@@ -88,6 +88,36 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Classic (non-module) boot: third-party analytics must never gate React. -->
+    <script data-cfasync="false">
+      (function () {
+        var THIRD_PARTY = /cloudflareinsights\.com|googletagmanager\.com|google-analytics\.com|googletagservices\.com|doubleclick\.net/i;
+        window.addEventListener('error', function (event) {
+          var el = event.target;
+          if (!el || (el.tagName !== 'SCRIPT' && el.tagName !== 'LINK' && el.tagName !== 'IMG')) return;
+          var url = el.src || el.href || '';
+          if (!THIRD_PARTY.test(url)) return;
+          event.preventDefault();
+          event.stopPropagation();
+        }, true);
+        window.addEventListener('unhandledrejection', function (event) {
+          var reason = event.reason;
+          var msg = String((reason && reason.message) || reason || '');
+          var stack = String((reason && reason.stack) || '');
+          if (!THIRD_PARTY.test(msg) && !THIRD_PARTY.test(stack)) return;
+          event.preventDefault();
+        });
+        window.addEventListener('error', function (event) {
+          var el = event.target;
+          if (!el || el.tagName !== 'SCRIPT') return;
+          var url = el.src || '';
+          if (url.indexOf('/assets/') === -1) return;
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount > 0) return;
+          root.innerHTML = '<div style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;text-align:center;color:#0f172a"><p style="font-size:1.125rem;font-weight:600">Unable to load Americonfort</p><p style="margin-top:8px;max-width:28rem;color:#64748b">The application files did not load. Refresh the page. If it happens again, clear this site cache and retry.</p><p style="margin-top:16px"><a href="/" style="color:#8f1f1f;font-weight:600">Refresh</a></p></div>';
+        }, true);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
