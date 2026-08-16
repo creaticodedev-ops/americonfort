@@ -11,7 +11,7 @@ import BookingActionsMenu from './BookingActionsMenu'
 import { formatDateTime, getBookingAttention, resId } from './bookingUtils'
 
 const inputClass =
-  'h-8 w-full min-w-0 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs text-[var(--admin-fg)] outline-none focus:shadow-[var(--admin-focus)]'
+  'h-9 w-full min-w-0 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2.5 text-sm text-[var(--admin-fg)] outline-none focus:shadow-[var(--admin-focus)]'
 const labelClass = 'mb-1 block text-[11px] font-medium text-[var(--admin-fg-muted)]'
 
 const formatCompactDate = (value) => {
@@ -58,12 +58,12 @@ const BookingInspector = ({
   const { hasPermission } = useAppContext()
   const id = resId(booking)
   const moreItems = useMemo(() => buildMoreItems?.(booking) || [], [booking, buildMoreItems])
-  const { signatureNeedsAttention, contractMissing, sigStatus } = getBookingAttention(booking)
-  const [sigOpen, setSigOpen] = useState(signatureNeedsAttention)
+  const { contractMissing, sigStatus } = getBookingAttention(booking)
+  const [sigOpen, setSigOpen] = useState(false)
 
   useEffect(() => {
-    setSigOpen(signatureNeedsAttention)
-  }, [booking._id, signatureNeedsAttention])
+    setSigOpen(false)
+  }, [booking._id])
 
   const goToSignature = () => {
     setSigOpen(true)
