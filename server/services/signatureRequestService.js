@@ -3,6 +3,7 @@ import Contract from '../models/Contract.js';
 import {
   generateCompletionLink,
   ensureBookingCompletionLink,
+  ensureWalkInContractPreview,
 } from './bookingCompletionService.js';
 import { sendCompletionInviteEmail } from './emailService.js';
 import {
@@ -11,6 +12,7 @@ import {
 } from './signatureRequestStatus.js';
 import { logAudit } from '../utils/adminOps.js';
 import { parsePagination, parseDateRange, escapeRegex } from '../utils/listQuery.js';
+import { isWalkInChannel } from '../utils/bookingChannel.js';
 
 const assertOwnerBooking = async (bookingId, ownerId) => {
   const booking = await Booking.findById(bookingId)
@@ -45,6 +47,16 @@ export const generateSignatureRequest = async ({ bookingId, ownerId, actorId, re
   b.completion.signatureCancelledBy = null;
   b.completion.linkSentAt = new Date();
   await b.save();
+
+  // Walk-in: generate unsigned contract preview when the owner requests a signature,
+  // so the customer link always opens with a reviewable contract (not only on first GET).
+  if (isWalkInChannel(b.channel) && !b.completion.signatureComplete) {
+    try {
+      await ensureWalkInContractPreview(b);
+    } catch (previewErr) {
+      console.error('[signature] Walk-in contract preview on generate:', previewErr.message);
+    }
+  }
 
   await logAudit({
     owner: ownerId,

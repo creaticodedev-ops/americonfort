@@ -44,6 +44,8 @@ bookingRouter.post('/change-payment-status', ...bookingsGate, changePaymentStatu
 bookingRouter.post('/update', ...bookingsGate, updateBooking);
 bookingRouter.post('/assign-vehicle', ...bookingsGate, assignBookingVehicle);
 bookingRouter.post('/assign-relations', ...bookingsGate, assignBookingRelations);
+bookingRouter.get('/owner/client-documents/lookup', ...bookingsGate, lookupClientDocument);
+bookingRouter.post('/owner/client-documents/link', ...bookingsGate, linkExistingClientDocument);
 bookingRouter.post(
   '/owner/:bookingId/documents',
   ...bookingsGate,
@@ -53,8 +55,6 @@ bookingRouter.post(
   uploadBookingDocuments
 );
 bookingRouter.get('/owner/:bookingId/documents/:docType', ...bookingsGate, getBookingDocumentUrl);
-bookingRouter.get('/owner/client-documents/lookup', ...bookingsGate, lookupClientDocument);
-bookingRouter.post('/owner/client-documents/link', ...bookingsGate, linkExistingClientDocument);
 bookingRouter.post('/delete', ...bookingsGate, deleteBooking);
 
 export default bookingRouter;

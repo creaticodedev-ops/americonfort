@@ -212,6 +212,12 @@ export const uploadCompletionDocument = async (req, res) => {
     const { syncCompletionDocumentsToArchive } = await import('../services/customerDocuments.js');
     syncCompletionDocumentsToArchive(booking);
     await booking.save();
+    try {
+      const { ensureClientDocumentsSynced } = await import('../services/clientDocumentService.js');
+      await ensureClientDocumentsSynced(booking.owner);
+    } catch (syncErr) {
+      console.error('[completion] ClientDocument sync:', syncErr.message);
+    }
     await tryFinalizeBookingCompletion(booking._id);
     const fresh = await Booking.findById(booking._id).populate("car");
 

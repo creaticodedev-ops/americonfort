@@ -203,6 +203,10 @@ const bookingSchema = new mongoose.Schema({
     amountPaid: { type: Number, default: 0 },
     paymentCompletedAt: { type: Date, default: null },
     stripeSessionId: { type: String, default: "" },
+    /** Unsigned walk-in contract shown on the signature-only page (before customer signs). */
+    contractPreviewUrl: { type: String, default: "" },
+    /** Timestamp when the signed walk-in contract PDF was generated (after customer signature). */
+    signedContractGeneratedAt: { type: Date, default: null },
     contractPdfUrl: { type: String, default: "" },
     invoicePdfUrl: { type: String, default: "" },
     documentsComplete: { type: Boolean, default: false },

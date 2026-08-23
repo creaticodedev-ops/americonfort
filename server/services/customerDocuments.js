@@ -113,12 +113,43 @@ export const applyAdminDocumentUpload = (booking, { docType, identityType, url, 
 export const getDocumentUrls = (booking) => {
   const archive = booking.customerDocuments || {};
   const completion = booking.completion || {};
+  // Canonical fields first; legacy aliases kept for older walk-in / online uploads.
+  const combined =
+    archive.combinedDocumentUrl
+    || archive.combinedUrl
+    || archive.combinedDocument
+    || archive.documentUrl
+    || '';
+  const license =
+    archive.drivingLicenseUrl
+    || archive.drivingLicenceUrl
+    || archive.licenseUrl
+    || completion.drivingLicenseUrl
+    || completion.drivingLicenceUrl
+    || '';
+  const identity =
+    archive.identityDocumentUrl
+    || archive.identityUrl
+    || archive.nationalIdUrl
+    || completion.identityDocumentUrl
+    || completion.identityUrl
+    || '';
+  const identityType =
+    archive.identityType
+    || archive.identityDocumentType
+    || completion.identityType
+    || '';
+  const passport =
+    archive.passportUrl
+    || (identityType === 'passport' ? identity : '')
+    || completion.passportUrl
+    || '';
   return {
-    combinedDocumentUrl: archive.combinedDocumentUrl || '',
-    drivingLicenseUrl: archive.drivingLicenseUrl || completion.drivingLicenseUrl || '',
-    identityDocumentUrl: archive.identityDocumentUrl || completion.identityDocumentUrl || '',
-    identityType: archive.identityType || completion.identityType || '',
-    passportUrl: archive.passportUrl || (archive.identityType === 'passport' ? archive.identityDocumentUrl : '') || '',
+    combinedDocumentUrl: combined,
+    drivingLicenseUrl: license,
+    identityDocumentUrl: identity,
+    identityType,
+    passportUrl: passport,
   };
 };
 

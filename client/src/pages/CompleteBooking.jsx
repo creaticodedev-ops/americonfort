@@ -17,6 +17,7 @@ import {
   SectionCard,
   formInputOnLightClass,
 } from '../components/forms/PremiumFormUI'
+import { toDateInput } from '../utils/documentFormUtils'
 
 const STEPS = ['documents', 'signature', 'done']
 
@@ -100,63 +101,95 @@ const CompleteBooking = () => {
 
   const c = booking?.completion
 
-  const load = React.useCallback(async () => {
-    try {
-      const { data } = await api.get(`/api/booking-completion/${token}`)
-      if (!data.success) throw new Error(data.message)
-      setBooking(data.booking)
-      setDetails({
-        customerFullName: data.booking.customerName || '',
-        customerEmail: data.booking.customerEmail || '',
-        customerPhone: data.booking.customerPhone || '',
-        dateOfBirth: data.booking.dateOfBirth || '',
-        nationality: data.booking.nationality || '',
-        customerAddress: data.booking.customerAddress || '',
-        placeOfBirth: data.booking.placeOfBirth || '',
-        identityDocumentNumber: data.booking.identityDocumentNumber || '',
-        identityIssuedOn: data.booking.identityIssuedOn || '',
-        driverLicenseNumber: data.booking.driverLicenseNumber || '',
-        driverLicenseExpiry: data.booking.driverLicenseExpiry || '',
-        driverLicenseIssuedOn: data.booking.driverLicenseIssuedOn || '',
-        passportNumber: data.booking.passportNumber || '',
-        secondDriverEnabled: data.booking.secondDriver?.enabled || false,
-        secondDriverFullName: data.booking.secondDriver?.fullName || '',
-        secondDriverDob: data.booking.secondDriver?.dateOfBirth || '',
-        secondDriverNationality: data.booking.secondDriver?.nationality || '',
-        secondDriverPhone: data.booking.secondDriver?.phone || '',
-        secondDriverLicenseNumber: data.booking.secondDriver?.driverLicenseNumber || '',
-        secondDriverLicenseExpiry: data.booking.secondDriver?.driverLicenseExpiry || '',
-        secondDriverPassportNumber: data.booking.secondDriver?.passportNumber || '',
-      })
-      setDetailsSaved(true)
-      setError('')
-      const signatureOnly = Boolean(data.booking.signatureOnly)
-      if (signatureOnly && data.booking.completion?.signatureComplete) {
-        setStep('done')
-      } else if (signatureOnly) {
-        setStep('signature')
-      } else if (data.booking.status === 'ready_for_pickup' || data.booking.completion?.completedAt) {
-        setStep('done')
-      } else if (!data.booking.completion?.documentsComplete) {
-        setStep('documents')
-      } else if (!data.booking.completion?.signatureComplete) {
-        setStep('signature')
-      } else {
-        setStep('done')
-      }
-      if (data.booking.completion?.identityType) {
-        setIdentityType(data.booking.completion.identityType)
-      }
-    } catch (err) {
-      setError(getErrorMessage(err) || t('completion.invalidLink'))
-    } finally {
-      setLoading(false)
-    }
-  }, [api, token, t])
-
+  // Load once per token — do NOT depend on `t` / unstable callbacks or every keystroke
+  // reloads the booking and resets controlled inputs (one-character "freeze").
   useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const { data } = await api.get(`/api/booking-completion/${token}`)
+        if (!data.success) throw new Error(data.message)
+        if (cancelled) return
+
+        let bookingPayload = data.booking
+        const signatureOnly = Boolean(bookingPayload.signatureOnly)
+        const hasContract = Boolean(
+          bookingPayload.completion?.contractPdfUrl || bookingPayload.completion?.contractPreviewUrl,
+        )
+
+        // Walk-in signature page must show the contract immediately; fetch preview if missing.
+        if (signatureOnly && !bookingPayload.completion?.signatureComplete && !hasContract) {
+          try {
+            const preview = await api.get(`/api/booking-completion/${token}/contract-preview`)
+            if (preview.data?.success && preview.data.contractPdfUrl) {
+              bookingPayload = {
+                ...bookingPayload,
+                completion: {
+                  ...bookingPayload.completion,
+                  contractPdfUrl: preview.data.contractPdfUrl,
+                },
+              }
+            }
+          } catch {
+            /* preview endpoint may fail if no template — still allow signing UI */
+          }
+        }
+
+        setBooking(bookingPayload)
+        setDetails({
+          customerFullName: bookingPayload.customerName || '',
+          customerEmail: bookingPayload.customerEmail || '',
+          customerPhone: bookingPayload.customerPhone || '',
+          dateOfBirth: toDateInput(bookingPayload.dateOfBirth),
+          nationality: bookingPayload.nationality || '',
+          customerAddress: bookingPayload.customerAddress || '',
+          placeOfBirth: bookingPayload.placeOfBirth || '',
+          identityDocumentNumber: bookingPayload.identityDocumentNumber || '',
+          identityIssuedOn: toDateInput(bookingPayload.identityIssuedOn),
+          driverLicenseNumber: bookingPayload.driverLicenseNumber || '',
+          driverLicenseExpiry: toDateInput(bookingPayload.driverLicenseExpiry),
+          driverLicenseIssuedOn: toDateInput(bookingPayload.driverLicenseIssuedOn),
+          passportNumber: bookingPayload.passportNumber || '',
+          secondDriverEnabled: bookingPayload.secondDriver?.enabled || false,
+          secondDriverFullName: bookingPayload.secondDriver?.fullName || '',
+          secondDriverDob: toDateInput(bookingPayload.secondDriver?.dateOfBirth),
+          secondDriverNationality: bookingPayload.secondDriver?.nationality || '',
+          secondDriverPhone: bookingPayload.secondDriver?.phone || '',
+          secondDriverLicenseNumber: bookingPayload.secondDriver?.driverLicenseNumber || '',
+          secondDriverLicenseExpiry: toDateInput(bookingPayload.secondDriver?.driverLicenseExpiry),
+          secondDriverPassportNumber: bookingPayload.secondDriver?.passportNumber || '',
+        })
+        setDetailsSaved(true)
+        setError('')
+
+        if (signatureOnly && bookingPayload.completion?.signatureComplete) {
+          setStep('done')
+        } else if (signatureOnly) {
+          setStep('signature')
+        } else if (bookingPayload.status === 'ready_for_pickup' || bookingPayload.completion?.completedAt) {
+          setStep('done')
+        } else if (!bookingPayload.completion?.documentsComplete) {
+          setStep('documents')
+        } else if (!bookingPayload.completion?.signatureComplete) {
+          setStep('signature')
+        } else {
+          setStep('done')
+        }
+        if (bookingPayload.completion?.identityType) {
+          setIdentityType(bookingPayload.completion.identityType)
+        }
+      } catch (err) {
+        if (!cancelled) setError(getErrorMessage(err) || t('completion.invalidLink'))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
     load()
-  }, [load])
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reload only when token changes
+  }, [token])
 
   // Stripe return
   useEffect(() => {
@@ -371,7 +404,7 @@ const CompleteBooking = () => {
   const showSecondDriverSign = signatureOnly
     ? Boolean(booking?.secondDriver?.enabled)
     : details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
-  const contractPreviewUrl = c?.contractPdfUrl || ''
+  const contractPreviewUrl = c?.contractPdfUrl || c?.contractPreviewUrl || ''
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#f5efe8_0%,_#faf8f5_45%,_#f0ebe4_100%)] pb-20">

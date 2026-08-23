@@ -24,13 +24,15 @@ export const parseMoney = (value) => {
 
 export const toDateInput = (value) => {
   if (isBlank(value)) return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) {
-    const s = String(value)
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
-    return ''
-  }
-  return d.toISOString().slice(0, 10)
+  const raw = String(value).trim()
+  // Already a valid <input type="date"> value — keep as-is (do not re-parse).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return ''
+  // Use local calendar parts to avoid UTC day-shift breaking controlled date inputs.
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export const toDateTimeLocal = (value) => {

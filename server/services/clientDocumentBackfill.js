@@ -78,11 +78,20 @@ export const extractBookingDocumentFiles = (booking) => {
 const bookingHasDocumentsQuery = {
   $or: [
     { 'customerDocuments.combinedDocumentUrl': { $nin: ['', null] } },
+    { 'customerDocuments.combinedUrl': { $nin: ['', null] } },
+    { 'customerDocuments.documentUrl': { $nin: ['', null] } },
     { 'customerDocuments.drivingLicenseUrl': { $nin: ['', null] } },
+    { 'customerDocuments.drivingLicenceUrl': { $nin: ['', null] } },
+    { 'customerDocuments.licenseUrl': { $nin: ['', null] } },
     { 'customerDocuments.identityDocumentUrl': { $nin: ['', null] } },
+    { 'customerDocuments.identityUrl': { $nin: ['', null] } },
+    { 'customerDocuments.nationalIdUrl': { $nin: ['', null] } },
     { 'customerDocuments.passportUrl': { $nin: ['', null] } },
     { 'completion.drivingLicenseUrl': { $nin: ['', null] } },
+    { 'completion.drivingLicenceUrl': { $nin: ['', null] } },
     { 'completion.identityDocumentUrl': { $nin: ['', null] } },
+    { 'completion.identityUrl': { $nin: ['', null] } },
+    { 'completion.passportUrl': { $nin: ['', null] } },
   ],
 };
 

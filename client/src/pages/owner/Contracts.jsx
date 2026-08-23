@@ -9,7 +9,7 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
-import { buildContractPatch, initContractForm } from '../../utils/documentFormUtils'
+import { buildContractPatch, initContractForm, toDateInput } from '../../utils/documentFormUtils'
 
 const formatDateTime = (value) => {
   if (!value) return '—'
@@ -290,17 +290,18 @@ const Contracts = () => {
     setGenerateForm((f) => ({
       ...f,
       bookingId,
-      dateOfBirth: booking.dateOfBirth || '',
+      // Normalize ISO timestamps to yyyy-MM-dd so controlled <input type="date"> stays editable.
+      dateOfBirth: toDateInput(booking.dateOfBirth),
       nationality: booking.nationality || '',
       driverLicenseNumber: booking.driverLicenseNumber || '',
-      driverLicenseExpiry: booking.driverLicenseExpiry || '',
+      driverLicenseExpiry: toDateInput(booking.driverLicenseExpiry),
       passportNumber: booking.passportNumber || '',
       secondDriverEnabled: Boolean(sd.enabled),
       secondDriverFullName: sd.fullName || '',
-      secondDriverDob: sd.dateOfBirth || '',
+      secondDriverDob: toDateInput(sd.dateOfBirth),
       secondDriverNationality: sd.nationality || '',
       secondDriverLicense: sd.driverLicenseNumber || '',
-      secondDriverLicenseExpiry: sd.driverLicenseExpiry || '',
+      secondDriverLicenseExpiry: toDateInput(sd.driverLicenseExpiry),
       secondDriverPassport: sd.passportNumber || '',
       secondDriverPhone: sd.phone || '',
     }))

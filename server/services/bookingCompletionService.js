@@ -266,6 +266,7 @@ export const ensureWalkInContractPreview = async (booking) => {
 
   c.contractPreviewUrl = pdfUrl || publicUploadUrl(filePath);
   populated.completion = c;
+  populated.markModified('completion');
   await populated.save();
   return c.contractPreviewUrl;
 };
@@ -287,7 +288,19 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     if (!flags.signatureComplete) {
       return { finalized: false, booking, flags };
     }
-    if (booking.completion.contractPdfUrl && booking.completion.signatureComplete) {
+    // Only skip regeneration when a signed PDF was already produced after this signature.
+    const signedAt = booking.completion.signatureSignedAt
+      ? new Date(booking.completion.signatureSignedAt).getTime()
+      : 0;
+    const signedPdfAt = booking.completion.signedContractGeneratedAt
+      ? new Date(booking.completion.signedContractGeneratedAt).getTime()
+      : 0;
+    if (
+      booking.completion.contractPdfUrl
+      && signedAt
+      && signedPdfAt
+      && signedPdfAt >= signedAt
+    ) {
       return { finalized: true, booking, flags, alreadyDone: true, walkIn: true };
     }
   } else if (!flags.documentsComplete || !flags.signatureComplete) {
@@ -296,10 +309,6 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
 
   if (!walkIn && booking.status === "ready_for_pickup" && booking.completion.completedAt) {
     return { finalized: true, booking, flags, alreadyDone: true };
-  }
-
-  if (walkIn && booking.completion.contractPdfUrl && booking.completion.signatureSignedAt) {
-    return { finalized: true, booking, flags, alreadyDone: true, walkIn: true };
   }
 
   let contractPath;
@@ -335,7 +344,8 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
       includeCompanyStamp,
       contractNumber,
       note: 'Booking completion',
-      forceFromBooking: false,
+      // Walk-in must refresh placeholders after signature so the pad appears on the PDF.
+      forceFromBooking: walkIn,
     });
   } catch (pdfError) {
     console.error('[FINALIZE] Contract PDF failed:', pdfError);
@@ -347,10 +357,14 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
   contractPdfUrl = persistedContract.pdfUrl;
 
   booking.completion.contractPdfUrl = contractPdfUrl || publicUploadUrl(contractPath);
+  if (walkIn) {
+    booking.completion.signedContractGeneratedAt = new Date();
+  }
   delete booking.completion.invoicePdfUrl;
 
   if (walkIn) {
     booking.completion.completedAt = booking.completion.completedAt || new Date();
+    booking.markModified('completion');
     await booking.save();
     return { finalized: true, booking, flags, walkIn: true };
   }
@@ -485,6 +499,7 @@ export const saveSignatureAndMaybeFinalize = async (
   }
 
   refreshCompletionFlags(booking);
+  booking.markModified('completion');
   await booking.save();
   return tryFinalizeBookingCompletion(booking._id);
 };
