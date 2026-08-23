@@ -26,6 +26,7 @@ import {
 import User from "../models/User.js";
 import { resolveDepositPercent, resolveBookingSettings, validateSecondDriverAgainstRules } from "../services/bookingRules.js";
 import { isWalkInChannel } from "../utils/bookingChannel.js";
+import { resolveClientBaseUrl } from "../services/completionToken.js";
 
 const signIfLocalUpload = (url) => {
   if (!url || typeof url !== "string") return url || "";
@@ -303,7 +304,7 @@ export const createCompletionPayment = async (req, res) => {
     const depositPercent = await depositPercentForBooking(booking);
     const amount = computePayableAmount(booking.price, paymentType, depositPercent);
     const mode = getPaymentMode();
-    const clientBase = (process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim().replace(/\/$/, "");
+    const clientBase = resolveClientBaseUrl();
     const token = req.params.token;
 
     booking.completion = booking.completion || {};

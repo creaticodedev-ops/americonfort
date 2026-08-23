@@ -6,6 +6,8 @@ import {
   generateCompletionToken,
   hashToken,
   isTokenExpired,
+  isStaleCompletionUrl,
+  resolveClientBaseUrl,
 } from "./completionToken.js";
 import { sendCompletionInviteEmail, sendFinalConfirmationEmail } from "./emailService.js";
 import { publicUploadUrl } from "./pdfDocuments.js";
@@ -35,13 +37,24 @@ export const generateCompletionLink = async (bookingId, { resend = false } = {})
   const hasStoredHash = Boolean(booking.completion.tokenHash);
   const tokenStillValid =
     hasStoredHash && !isTokenExpired(booking.completion.tokenExpiresAt);
+  // Stored URLs built with a missing/wrong CLIENT_URL (e.g. localhost) must be rotated
+  // once the public SPA origin is configured — otherwise customers receive dead links.
+  const urlStale = isStaleCompletionUrl(existingUrl);
 
-  if (!resend && existingUrl && tokenStillValid) {
+  if (!resend && existingUrl && tokenStillValid && !urlStale) {
     return {
       booking,
       completionUrl: existingUrl,
       reused: true,
     };
+  }
+
+  if (urlStale && existingUrl) {
+    console.warn(
+      '[completion] Regenerating shareable link; stored URL origin does not match',
+      resolveClientBaseUrl(),
+      { reservationId: booking.reservationId, existingUrl },
+    );
   }
 
   const { token, tokenHash, expiresAt } = generateCompletionToken();

@@ -44,8 +44,6 @@ const emptyForm = {
   driverLicenseExpiry: '',
   driverLicenseIssuedOn: '',
   passportNumber: '',
-  deliveredBy: '',
-  receivedBy: '',
   brokerReferrerType: '',
   brokerReferrerId: '',
   vehicleDeliveryDriverId: '',
@@ -77,7 +75,7 @@ const Section = ({ title, subtitle, children }) => (
 )
 
 const WalkInBooking = () => {
-  const { axios, currency, pickupLocations, user } = useAppContext()
+  const { axios, currency, pickupLocations } = useAppContext()
   const { t } = useI18n()
   const navigate = useNavigate()
   const [cars, setCars] = useState([])
@@ -178,13 +176,9 @@ const WalkInBooking = () => {
         next.kmDepart = String(selectedCar.mileage)
         changed = true
       }
-      if (!f.deliveredBy && user?.name) {
-        next.deliveredBy = user.name
-        changed = true
-      }
       return changed ? next : f
     })
-  }, [selectedCar, user?.name])
+  }, [selectedCar])
 
   const bookableLocations = useMemo(() => {
     if (!selectedCar) return pickupLocations
@@ -590,12 +584,6 @@ const WalkInBooking = () => {
                     setForm((f) => ({ ...f, vehicleDeliveryDriverId: id }))
                   }}
                 />
-              </Field>
-              <Field label={t('admin.walkIn.deliveredBy')}>
-                <input className={input} value={form.deliveredBy} onChange={(e) => setField('deliveredBy', e.target.value)} />
-              </Field>
-              <Field label={t('admin.walkIn.receivedBy')}>
-                <input className={input} value={form.receivedBy} onChange={(e) => setField('receivedBy', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.fuelLevel')}>
                 <select className={input} value={form.fuelLevelStart} onChange={(e) => setField('fuelLevelStart', e.target.value)}>
