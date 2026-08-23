@@ -5,21 +5,48 @@ import { storeDocumentImage } from '../services/documentStore.js';
 import {
   listClientDocuments,
   getClientDocumentDetail,
+  getClientDocumentStats,
 } from '../services/clientDocumentService.js';
 import { cleanupUploadedFile } from '../middleware/multer.js';
 import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
 import { logAudit } from '../utils/adminOps.js';
 
-const signDocUrl = (url) => signDocumentAccessUrl(url);
+const signDocUrl = (url) => (url ? signDocumentAccessUrl(url) : '');
+
+const mapClientRow = (row) => ({
+  ...row,
+  documentUrl: row.documentUrl ? signDocUrl(row.documentUrl) : '',
+  documentCount: row.documentCount ?? (row.files?.length || (row.documentUrl ? 1 : 0)),
+  hasDocuments: Boolean(row.documentCount || row.files?.length || row.documentUrl),
+  files: (row.files || []).map((f) => ({
+    ...f,
+    url: signDocUrl(f.url),
+  })),
+});
+
+const mapClientDetail = (detail) => ({
+  ...detail,
+  documentUrl: detail.documentUrl ? signDocUrl(detail.documentUrl) : '',
+  files: (detail.files || []).map((f) => ({
+    ...f,
+    url: signDocUrl(f.url),
+  })),
+});
+
+export const getOwnerClientDocumentStats = async (req, res) => {
+  try {
+    const stats = await getClientDocumentStats(req.user._id);
+    res.json({ success: true, stats });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to load statistics' });
+  }
+};
 
 export const listOwnerClientDocuments = async (req, res) => {
   try {
     const result = await listClientDocuments({ ownerId: req.user._id, query: req.query });
-    const items = result.items.map((row) => ({
-      ...row,
-      documentUrl: row.documentUrl ? signDocUrl(row.documentUrl) : '',
-      hasDocument: Boolean(row.documentUrl),
-    }));
+    const items = result.items.map(mapClientRow);
     res.json({ success: true, items, pagination: result.pagination });
   } catch (error) {
     console.error(error.message);
@@ -35,10 +62,7 @@ export const getOwnerClientDocument = async (req, res) => {
     }
     res.json({
       success: true,
-      document: {
-        ...detail,
-        documentUrl: detail.documentUrl ? signDocUrl(detail.documentUrl) : '',
-      },
+      document: mapClientDetail(detail),
     });
   } catch (error) {
     console.error(error.message);
@@ -65,9 +89,22 @@ export const replaceClientDocument = async (req, res) => {
     const url = await storeDocumentImage(file, `/client-docs/${doc._id}`);
     file = null;
 
+    const now = new Date();
     doc.documentUrl = url;
-    doc.uploadedAt = new Date();
+    doc.uploadedAt = now;
     doc.uploadedBy = req.user._id;
+    doc.files = doc.files || [];
+    const combinedIdx = doc.files.findIndex((f) => f.type === 'combined');
+    const fileEntry = {
+      type: 'combined',
+      url,
+      uploadedAt: now,
+      sourceBookingId: doc.lastBooking || null,
+      channel: doc.channelFlags?.walkIn ? 'walk_in' : 'online',
+    };
+    if (combinedIdx >= 0) doc.files[combinedIdx] = fileEntry;
+    else doc.files.push(fileEntry);
+
     await doc.save();
 
     await Booking.updateMany(
@@ -75,7 +112,7 @@ export const replaceClientDocument = async (req, res) => {
       {
         $set: {
           'customerDocuments.combinedDocumentUrl': url,
-          'customerDocuments.uploadedAt': new Date(),
+          'customerDocuments.uploadedAt': now,
         },
       },
     );
@@ -103,6 +140,7 @@ export const replaceClientDocument = async (req, res) => {
 };
 
 export default {
+  getOwnerClientDocumentStats,
   listOwnerClientDocuments,
   getOwnerClientDocument,
   replaceClientDocument,

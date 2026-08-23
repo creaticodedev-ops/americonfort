@@ -53,6 +53,7 @@ import {
 import {
   listOwnerClientDocuments,
   getOwnerClientDocument,
+  getOwnerClientDocumentStats,
   replaceClientDocument,
 } from "../controllers/clientDocumentController.js";
 
@@ -83,6 +84,7 @@ ownerRouter.get('/overview', ...gate('dashboard'), getAdminOverview);
 ownerRouter.get('/customers', ...gate('customers', 'customers'), getCustomers);
 ownerRouter.get('/crm/customers', ...gate('customers', 'customers'), getCrmCustomers);
 ownerRouter.get('/crm/customers/:email', ...gate('customers', 'customers'), getCrmCustomerDetail);
+ownerRouter.get('/client-documents/stats', ...gate('customers', 'customers'), getOwnerClientDocumentStats);
 ownerRouter.get('/client-documents', ...gate('customers', 'customers'), listOwnerClientDocuments);
 ownerRouter.get('/client-documents/:id', ...gate('customers', 'customers'), getOwnerClientDocument);
 ownerRouter.post(

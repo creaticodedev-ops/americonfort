@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AdminPage, PageHeader } from '../../components/owner/ui';
+import { AdminPage, PageHeader, FilterBar, SearchInput, AdminModal } from '../../components/owner/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import { getErrorMessage } from '../../utils/apiError';
@@ -13,24 +13,63 @@ const formatDate = (value) => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+const DOC_TYPE_LABELS = {
+  combined: 'admin.clientDocuments.typeCombined',
+  national_id: 'admin.clientDocuments.typeNationalId',
+  driving_license: 'admin.clientDocuments.typeDrivingLicense',
+  passport: 'admin.clientDocuments.typePassport',
+  identity: 'admin.clientDocuments.typeIdentity',
+  other: 'admin.clientDocuments.typeOther',
+};
+
+const emptyFilters = {
+  search: '',
+  documentType: 'all',
+  channel: 'all',
+  docStatus: 'available',
+  datePreset: 'all',
+  sortBy: 'updated',
+};
+
 const ClientDocuments = () => {
   const { axios } = useAppContext();
   const { t } = useI18n();
-  const [search, setSearch] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
+  const [filters, setFilters] = useState(emptyFilters);
+  const [applied, setApplied] = useState(emptyFilters);
   const [items, setItems] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    Object.entries(applied).forEach(([k, v]) => {
+      if (v && v !== 'all') params.set(k, v);
+    });
+    return params.toString();
+  }, [applied]);
+
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const { data } = await axios.get('/api/owner/client-documents/stats');
+      if (data.success) setStats(data.stats);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [axios]);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (appliedSearch.trim()) params.set('search', appliedSearch.trim());
-      const { data } = await axios.get(`/api/owner/client-documents?${params}`);
+      const { data } = await axios.get(`/api/owner/client-documents?${queryString}`);
       if (data.success) setItems(data.items || []);
       else toast.error(data.message);
     } catch (err) {
@@ -38,15 +77,27 @@ const ClientDocuments = () => {
     } finally {
       setLoading(false);
     }
-  }, [axios, appliedSearch]);
+  }, [axios, queryString]);
 
   useEffect(() => {
+    fetchStats();
     fetchList();
-  }, [fetchList]);
+  }, [fetchStats, fetchList]);
+
+  const applyFilters = (e) => {
+    e?.preventDefault?.();
+    setApplied({ ...filters });
+  };
+
+  const resetFilters = () => {
+    setFilters(emptyFilters);
+    setApplied(emptyFilters);
+  };
 
   const openDetail = async (row) => {
     setSelected(row);
     setDetail(null);
+    setDrawerOpen(true);
     setDetailLoading(true);
     try {
       const { data } = await axios.get(`/api/owner/client-documents/${row._id}`);
@@ -72,6 +123,7 @@ const ClientDocuments = () => {
         toast.success(data.message);
         openDetail(selected);
         fetchList();
+        fetchStats();
       } else toast.error(data.message);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -80,10 +132,12 @@ const ClientDocuments = () => {
     }
   };
 
-  const onSearchSubmit = (e) => {
-    e.preventDefault();
-    setAppliedSearch(search);
-  };
+  const statCards = [
+    { key: 'totalClientsWithDocuments', label: t('admin.clientDocuments.statClients'), value: stats?.totalClientsWithDocuments ?? 0 },
+    { key: 'totalDocuments', label: t('admin.clientDocuments.statDocuments'), value: stats?.totalDocuments ?? 0 },
+    { key: 'walkInClients', label: t('admin.clientDocuments.statWalkIn'), value: stats?.walkInClients ?? 0 },
+    { key: 'recentlyUpdated', label: t('admin.clientDocuments.statRecent'), value: stats?.recentlyUpdated ?? 0 },
+  ];
 
   return (
     <AdminPage>
@@ -92,144 +146,220 @@ const ClientDocuments = () => {
         description={t('admin.clientDocuments.subtitle')}
       />
 
-      <form onSubmit={onSearchSubmit} className="admin-panel mb-4">
-        <div className="admin-panel-body flex flex-col gap-3 sm:flex-row sm:items-center">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('admin.clientDocuments.searchPlaceholder')}
-            className="admin-input flex-1"
-          />
-          <button type="submit" className="admin-btn admin-btn--primary admin-btn--sm">
-            {t('admin.clientDocuments.search')}
-          </button>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-4">
+        {statCards.map((card) => (
+          <div key={card.key} className="admin-stat">
+            <p className="admin-stat-label">{card.label}</p>
+            <p className="admin-stat-value">{statsLoading ? '…' : card.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={applyFilters} className="admin-panel mb-4">
+        <div className="admin-panel-header flex-col items-start gap-1">
+          <h2 className="admin-panel-title">{t('admin.clientDocuments.filtersTitle')}</h2>
+          <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.filtersHint')}</p>
+        </div>
+        <div className="admin-panel-body space-y-4">
+          <FilterBar>
+            <SearchInput
+              value={filters.search}
+              onChange={(v) => setFilters((f) => ({ ...f, search: v }))}
+              placeholder={t('admin.clientDocuments.searchPlaceholder')}
+              className="min-w-[min(100%,280px)] flex-1"
+            />
+            <select
+              className="admin-input admin-input--sm"
+              value={filters.documentType}
+              onChange={(e) => setFilters((f) => ({ ...f, documentType: e.target.value }))}
+            >
+              <option value="all">{t('admin.clientDocuments.filterDocTypeAll')}</option>
+              <option value="combined">{t('admin.clientDocuments.typeCombined')}</option>
+              <option value="national_id">{t('admin.clientDocuments.typeNationalId')}</option>
+              <option value="driving_license">{t('admin.clientDocuments.typeDrivingLicense')}</option>
+              <option value="passport">{t('admin.clientDocuments.typePassport')}</option>
+              <option value="other">{t('admin.clientDocuments.typeOther')}</option>
+            </select>
+            <select
+              className="admin-input admin-input--sm"
+              value={filters.channel}
+              onChange={(e) => setFilters((f) => ({ ...f, channel: e.target.value }))}
+            >
+              <option value="all">{t('admin.clientDocuments.filterChannelAll')}</option>
+              <option value="walk_in">{t('admin.clientDocuments.filterWalkIn')}</option>
+              <option value="online">{t('admin.clientDocuments.filterOnline')}</option>
+            </select>
+            <select
+              className="admin-input admin-input--sm"
+              value={filters.docStatus}
+              onChange={(e) => setFilters((f) => ({ ...f, docStatus: e.target.value }))}
+            >
+              <option value="available">{t('admin.clientDocuments.filterAvailable')}</option>
+              <option value="missing">{t('admin.clientDocuments.filterMissing')}</option>
+              <option value="all">{t('admin.clientDocuments.filterStatusAll')}</option>
+            </select>
+            <select
+              className="admin-input admin-input--sm"
+              value={filters.datePreset}
+              onChange={(e) => setFilters((f) => ({ ...f, datePreset: e.target.value }))}
+            >
+              <option value="all">{t('admin.clientDocuments.filterDateAll')}</option>
+              <option value="today">{t('admin.clientDocuments.filterDateToday')}</option>
+              <option value="week">{t('admin.clientDocuments.filterDateWeek')}</option>
+              <option value="month">{t('admin.clientDocuments.filterDateMonth')}</option>
+            </select>
+            <select
+              className="admin-input admin-input--sm"
+              value={filters.sortBy}
+              onChange={(e) => setFilters((f) => ({ ...f, sortBy: e.target.value }))}
+            >
+              <option value="updated">{t('admin.clientDocuments.sortUpdated')}</option>
+              <option value="name">{t('admin.clientDocuments.sortName')}</option>
+              <option value="documents">{t('admin.clientDocuments.sortDocuments')}</option>
+              <option value="reservations">{t('admin.clientDocuments.sortReservations')}</option>
+            </select>
+          </FilterBar>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" className="admin-btn admin-btn--primary admin-btn--sm">
+              {t('admin.clientDocuments.applyFilters')}
+            </button>
+            <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={resetFilters}>
+              {t('admin.clientDocuments.resetFilters')}
+            </button>
+          </div>
         </div>
       </form>
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-7 admin-panel">
-          <div className="admin-panel-header">
-            <h2 className="admin-panel-title">{t('admin.clientDocuments.listTitle')}</h2>
-          </div>
-          <div className="admin-panel-body p-0 overflow-x-auto">
-            {loading ? (
-              <div className="p-8 flex justify-center"><Loader /></div>
-            ) : items.length === 0 ? (
-              <p className="p-6 text-sm text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.empty')}</p>
-            ) : (
-              <table className="admin-table w-full min-w-[640px]">
-                <thead>
-                  <tr>
-                    <th>{t('admin.clientDocuments.colClient')}</th>
-                    <th>{t('admin.clientDocuments.colPhone')}</th>
-                    <th>{t('admin.clientDocuments.colId')}</th>
-                    <th>{t('admin.clientDocuments.colStatus')}</th>
-                    <th>{t('admin.clientDocuments.colUpdated')}</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((row) => (
-                    <tr key={row._id} className={selected?._id === row._id ? 'is-selected' : ''}>
-                      <td className="font-medium">{row.customerName || '—'}</td>
-                      <td>{row.customerPhone || '—'}</td>
-                      <td>{row.identityDocumentNumber || row.passportNumber || '—'}</td>
-                      <td>
-                        <span className="admin-badge admin-badge--success">
-                          {t('admin.clientDocuments.available')}
-                        </span>
-                      </td>
-                      <td>{formatDate(row.updatedAt)}</td>
-                      <td>
-                        <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => openDetail(row)}>
-                          {t('admin.clientDocuments.view')}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+      <div className="admin-panel">
+        <div className="admin-panel-header">
+          <h2 className="admin-panel-title">{t('admin.clientDocuments.listTitle')}</h2>
         </div>
+        <div className="admin-panel-body p-0 overflow-x-auto">
+          {loading ? (
+            <div className="p-10 flex justify-center"><Loader /></div>
+          ) : items.length === 0 ? (
+            <div className="p-10 text-center max-w-md mx-auto">
+              <p className="font-medium text-[var(--admin-fg)]">{t('admin.clientDocuments.emptyTitle')}</p>
+              <p className="mt-2 text-sm text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.emptyDescription')}</p>
+            </div>
+          ) : (
+            <table className="admin-table w-full min-w-[720px]">
+              <thead>
+                <tr>
+                  <th>{t('admin.clientDocuments.colClient')}</th>
+                  <th>{t('admin.clientDocuments.colPhone')}</th>
+                  <th>{t('admin.clientDocuments.colDocuments')}</th>
+                  <th>{t('admin.clientDocuments.colReservations')}</th>
+                  <th>{t('admin.clientDocuments.colUpdated')}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((row) => (
+                  <tr key={row._id}>
+                    <td>
+                      <div className="font-medium">{row.customerName || '—'}</div>
+                      {(row.identityDocumentNumber || row.passportNumber) && (
+                        <div className="text-xs text-[var(--admin-fg-muted)]">
+                          {row.identityDocumentNumber || row.passportNumber}
+                        </div>
+                      )}
+                    </td>
+                    <td>{row.customerPhone || '—'}</td>
+                    <td>
+                      <span className="admin-badge admin-badge--success">{row.documentCount || 0}</span>
+                    </td>
+                    <td>{row.reservationCount || row.bookingIds?.length || 0}</td>
+                    <td>{formatDate(row.updatedAt)}</td>
+                    <td>
+                      <button type="button" className="admin-btn admin-btn--secondary admin-btn--sm" onClick={() => openDetail(row)}>
+                        {t('admin.clientDocuments.view')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
 
-        <div className="lg:col-span-5 admin-panel">
-          <div className="admin-panel-header">
-            <h2 className="admin-panel-title">{t('admin.clientDocuments.detailTitle')}</h2>
-          </div>
-          <div className="admin-panel-body">
-            {!selected ? (
-              <p className="text-sm text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.selectHint')}</p>
-            ) : detailLoading ? (
-              <div className="py-8 flex justify-center"><Loader /></div>
-            ) : detail ? (
-              <div className="space-y-4">
-                <div className="space-y-1 text-sm">
-                  <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.colClient')}:</span> {detail.customerName || '—'}</p>
-                  <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.colPhone')}:</span> {detail.customerPhone || '—'}</p>
-                  {detail.identityDocumentNumber && (
-                    <p><span className="text-[var(--admin-fg-muted)]">{t('admin.walkIn.identityDocument')}:</span> {detail.identityDocumentNumber}</p>
-                  )}
-                  {detail.passportNumber && (
-                    <p><span className="text-[var(--admin-fg-muted)]">{t('admin.walkIn.passport')}:</span> {detail.passportNumber}</p>
-                  )}
-                  <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.reservations')}:</span> {detail.reservationCount || detail.bookingIds?.length || 0}</p>
-                  <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.colUpdated')}:</span> {formatDate(detail.updatedAt)}</p>
-                </div>
+      <AdminModal
+        open={drawerOpen}
+        onClose={() => { setDrawerOpen(false); setSelected(null); setDetail(null); }}
+        title={detail?.customerName || selected?.customerName || t('admin.clientDocuments.detailTitle')}
+        variant="drawer"
+        size="md"
+      >
+        {detailLoading ? (
+          <div className="py-12 flex justify-center"><Loader /></div>
+        ) : detail ? (
+          <div className="space-y-5">
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.colPhone')}:</span> {detail.customerPhone || '—'}</p>
+              {detail.identityDocumentNumber && (
+                <p><span className="text-[var(--admin-fg-muted)]">{t('admin.walkIn.identityDocument')}:</span> {detail.identityDocumentNumber}</p>
+              )}
+              {detail.passportNumber && (
+                <p><span className="text-[var(--admin-fg-muted)]">{t('admin.walkIn.passport')}:</span> {detail.passportNumber}</p>
+              )}
+              <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.colDocuments')}:</span> {detail.documentCount || 0}</p>
+              <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.colReservations')}:</span> {detail.reservationCount || 0}</p>
+            </div>
 
-                {detail.documentUrl && (
-                  <div className="overflow-hidden rounded-xl border border-[var(--admin-border)] bg-[var(--admin-bg-subtle)]">
-                    <img
-                      src={detail.documentUrl}
-                      alt={t('admin.clientDocuments.preview')}
-                      className="max-h-[min(50vh,420px)] w-full object-contain"
-                    />
+            {(detail.files?.length ? detail.files : detail.documentUrl ? [{ type: 'combined', url: detail.documentUrl, uploadedAt: detail.uploadedAt }] : []).map((file, idx) => (
+              <div key={file._id || idx} className="rounded-xl border border-[var(--admin-border)] overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-[var(--admin-border)] px-3 py-2 bg-[var(--admin-bg-subtle)]">
+                  <div>
+                    <p className="text-sm font-medium">{t(DOC_TYPE_LABELS[file.type] || DOC_TYPE_LABELS.other)}</p>
+                    <p className="text-xs text-[var(--admin-fg-muted)]">{formatDate(file.uploadedAt)}</p>
                   </div>
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  {detail.documentUrl && (
-                    <a href={detail.documentUrl} target="_blank" rel="noreferrer" className="admin-btn admin-btn--secondary admin-btn--sm">
+                  {file.url && (
+                    <a href={file.url} target="_blank" rel="noreferrer" className="admin-btn admin-btn--ghost admin-btn--sm">
                       {t('admin.clientDocuments.download')}
                     </a>
                   )}
-                  <label className="admin-btn admin-btn--primary admin-btn--sm cursor-pointer">
-                    {replacing ? '…' : t('admin.clientDocuments.replace')}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      disabled={replacing}
-                      onChange={(e) => replaceDocument(e.target.files?.[0])}
-                    />
-                  </label>
                 </div>
-
-                {detail.bookings?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--admin-fg-muted)] mb-2">
-                      {t('admin.clientDocuments.relatedReservations')}
-                    </p>
-                    <ul className="space-y-2 text-sm">
-                      {detail.bookings.map((b) => (
-                        <li key={b._id} className="rounded-lg border border-[var(--admin-border)] px-3 py-2">
-                          <Link to="/owner/manage-bookings" className="font-medium text-[var(--admin-accent)] hover:underline">
-                            {b.reservationId}
-                          </Link>
-                          <span className="text-[var(--admin-fg-muted)]"> · {b.car?.brand} {b.car?.model}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {file.url && (
+                  <img src={file.url} alt="" className="max-h-64 w-full object-contain bg-[var(--admin-bg)]" />
                 )}
               </div>
-            ) : (
-              <p className="text-sm text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.loadFailed')}</p>
+            ))}
+
+            <label className="admin-btn admin-btn--primary admin-btn--sm cursor-pointer inline-flex">
+              {replacing ? '…' : t('admin.clientDocuments.replaceCombined')}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                disabled={replacing}
+                onChange={(e) => replaceDocument(e.target.files?.[0])}
+              />
+            </label>
+
+            {detail.bookings?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--admin-fg-muted)] mb-2">
+                  {t('admin.clientDocuments.relatedReservations')}
+                </p>
+                <ul className="space-y-2 text-sm">
+                  {detail.bookings.map((b) => (
+                    <li key={b._id} className="rounded-lg border border-[var(--admin-border)] px-3 py-2 flex flex-wrap items-center gap-2">
+                      <Link to="/owner/manage-bookings" className="font-medium text-[var(--admin-accent)] hover:underline">
+                        {b.reservationId}
+                      </Link>
+                      <span className="text-[var(--admin-fg-muted)]">{b.car?.brand} {b.car?.model}</span>
+                      <span className="admin-badge admin-badge--ghost text-[10px]">{b.channel || 'online'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
-        </div>
-      </div>
+        ) : (
+          <p className="text-sm text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.loadFailed')}</p>
+        )}
+      </AdminModal>
     </AdminPage>
   );
 };
