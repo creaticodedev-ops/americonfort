@@ -130,7 +130,12 @@ const CompleteBooking = () => {
       })
       setDetailsSaved(true)
       setError('')
-      if (data.booking.status === 'ready_for_pickup' || data.booking.completion?.completedAt) {
+      const signatureOnly = Boolean(data.booking.signatureOnly)
+      if (signatureOnly && data.booking.completion?.signatureComplete) {
+        setStep('done')
+      } else if (signatureOnly) {
+        setStep('signature')
+      } else if (data.booking.status === 'ready_for_pickup' || data.booking.completion?.completedAt) {
         setStep('done')
       } else if (!data.booking.completion?.documentsComplete) {
         setStep('documents')
@@ -275,16 +280,20 @@ const CompleteBooking = () => {
   }
 
   const runSignAndGenerate = async () => {
+    const signatureOnly = Boolean(booking?.signatureOnly)
     const secondDriverOn =
-      details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
+      Boolean(booking?.secondDriver?.enabled) ||
+      (!signatureOnly && details.secondDriverEnabled)
 
     const outcome = await contractJob.run(async () => {
-      await saveCompletionDetails({ force: true })
+      if (!signatureOnly) {
+        await saveCompletionDetails({ force: true })
+      }
       const { data } = await api.post(`/api/booking-completion/${token}/signature`, {
         signatureDataUrl: signature,
         secondDriverSignatureDataUrl: secondDriverOn ? secondDriverSignature : undefined,
         agreed: true,
-        ...buildDetailsPayload(),
+        ...(signatureOnly ? {} : buildDetailsPayload()),
       })
       if (!data.success) throw new Error(data.message || 'Signature failed')
       return data
@@ -311,8 +320,10 @@ const CompleteBooking = () => {
       toast.error(t('completion.needSignature'))
       return
     }
+    const signatureOnly = Boolean(booking?.signatureOnly)
     const secondDriverOn =
-      details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
+      Boolean(booking?.secondDriver?.enabled) ||
+      (!signatureOnly && details.secondDriverEnabled)
     if (secondDriverOn && !secondDriverSignature) {
       toast.error(t('completion.needSecondDriverSignature'))
       return
@@ -321,7 +332,7 @@ const CompleteBooking = () => {
       toast.error(t('completion.needAgree'))
       return
     }
-    if (!validateClientDetails()) return
+    if (!signatureOnly && !validateClientDetails()) return
     await runSignAndGenerate()
   }
 
@@ -356,18 +367,28 @@ const CompleteBooking = () => {
 
   const docsDone = c?.documentsComplete
   const signDone = c?.signatureComplete
-  const showSecondDriverSign =
-    details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
+  const signatureOnly = Boolean(booking?.signatureOnly)
+  const showSecondDriverSign = signatureOnly
+    ? Boolean(booking?.secondDriver?.enabled)
+    : details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
+  const contractPreviewUrl = c?.contractPdfUrl || ''
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#f5efe8_0%,_#faf8f5_45%,_#f0ebe4_100%)] pb-20">
-      <Seo title="Complete booking" path={`/complete-booking/${token || ''}`} noindex />
+      <Seo title={signatureOnly ? 'Sign contract' : 'Complete booking'} path={`/complete-booking/${token || ''}`} noindex />
       <div className="relative overflow-hidden bg-ink text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(143,31,31,0.35),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.08),transparent_40%)]" />
         <div className="relative page-pad py-12 md:py-16">
           <div className="max-w-3xl mx-auto">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">{t('completion.eyebrow')}</p>
-            <h1 className="mt-2 font-display text-3xl md:text-[2.35rem] font-medium leading-tight">{t('completion.title')}</h1>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">
+              {signatureOnly ? t('completion.walkInEyebrow') : t('completion.eyebrow')}
+            </p>
+            <h1 className="mt-2 font-display text-3xl md:text-[2.35rem] font-medium leading-tight">
+              {signatureOnly ? t('completion.walkInTitle') : t('completion.title')}
+            </h1>
+            {signatureOnly && (
+              <p className="mt-3 text-sm text-white/75 max-w-xl">{t('completion.walkInIntro')}</p>
+            )}
             <div className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 backdrop-blur-sm">
               <span className="font-medium text-white">{booking.reservationId}</span>
               <span className="text-white/40">·</span>
@@ -379,6 +400,7 @@ const CompleteBooking = () => {
 
       <div className="page-pad -mt-8">
         <div className="max-w-3xl mx-auto space-y-6">
+        {!signatureOnly && (
         <div className="rounded-3xl border border-borderColor/70 bg-white/90 p-4 sm:p-5 shadow-[0_24px_60px_-40px_rgba(22,18,16,0.5)] backdrop-blur-sm">
           <StepRail
             steps={STEPS}
@@ -387,6 +409,7 @@ const CompleteBooking = () => {
             doneFlags={[docsDone, signDone, step === 'done']}
           />
         </div>
+        )}
 
         <Motion.div
           key={step}
@@ -394,7 +417,7 @@ const CompleteBooking = () => {
           animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl border border-borderColor/70 bg-white p-5 sm:p-8 shadow-[0_24px_60px_-44px_rgba(22,18,16,0.45)]"
         >
-          {step === 'documents' && (
+          {step === 'documents' && !signatureOnly && (
             <div className="space-y-6">
               <div>
                 <h2 className="font-display text-2xl text-ink">{t('completion.docsTitle')}</h2>
@@ -607,10 +630,40 @@ const CompleteBooking = () => {
               ) : null}
 
               <div className={contractJob.isActive ? 'pointer-events-none opacity-40' : ''}>
+                {!signatureOnly && (
                 <div>
                   <h2 className="font-display text-2xl text-ink">{t('completion.signTitle')}</h2>
                   <p className="text-sm text-muted mt-1">{t('completion.signHint')}</p>
                 </div>
+                )}
+
+                {signatureOnly && contractPreviewUrl && (
+                  <div className="overflow-hidden rounded-2xl border border-borderColor bg-white mb-6">
+                    <div className="flex items-center justify-between gap-3 border-b border-borderColor px-4 py-3">
+                      <p className="text-sm font-medium text-ink">{t('completion.contractPreview')}</p>
+                      <a
+                        href={contractPreviewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        {t('completion.downloadContract')}
+                      </a>
+                    </div>
+                    <iframe
+                      title={t('completion.contractPreview')}
+                      src={contractPreviewUrl}
+                      className="h-[min(55vh,520px)] w-full bg-sand"
+                    />
+                  </div>
+                )}
+
+                {signatureOnly && (
+                  <div className="mb-4">
+                    <h2 className="font-display text-xl text-ink">{t('completion.signTitle')}</h2>
+                    <p className="text-sm text-muted mt-1">{t('completion.walkInSignHint')}</p>
+                  </div>
+                )}
 
                 <div className="mt-6 space-y-2">
                   <p className="text-sm font-semibold text-ink">{t('completion.signatureCustomerLabel')}</p>
@@ -619,9 +672,11 @@ const CompleteBooking = () => {
 
                 {showSecondDriverSign && (
                   <div className="mt-6 space-y-2">
-                    <p className="text-sm font-semibold text-ink">{t('completion.signatureSecondDriverLabel')}</p>
+                    <p className="text-sm font-semibold text-ink">
+                      {signatureOnly ? t('completion.walkInSecondDriverReadOnly') : t('completion.signatureSecondDriverLabel')}
+                    </p>
                     <p className="text-xs text-muted">
-                      {details.secondDriverFullName || booking?.secondDriver?.fullName || '—'}
+                      {booking?.secondDriver?.fullName || details.secondDriverFullName || '—'}
                     </p>
                     <SignaturePad onChange={setSecondDriverSignature} disabled={signing || signDone || contractJob.isActive} />
                   </div>
@@ -637,16 +692,22 @@ const CompleteBooking = () => {
                     className="mt-1"
                     disabled={contractJob.isActive}
                   />
-                  <span>{t('completion.agreeTerms')}</span>
+                  <span>{signatureOnly ? t('completion.walkInAgreeTerms') : t('completion.agreeTerms')}</span>
                 </label>
 
                 <button
                   type="button"
                   disabled={signing || signDone || contractJob.isActive}
                   onClick={handleSign}
-                  className="mt-4 w-full py-3 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium cursor-pointer disabled:opacity-60"
+                  className="mt-4 w-full py-3.5 rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-semibold cursor-pointer disabled:opacity-60"
                 >
-                  {signDone ? t('completion.signed') : signing ? t('completion.generatingTitle') : t('completion.signSubmit')}
+                  {signDone
+                    ? t('completion.signed')
+                    : signing
+                      ? t('completion.generatingTitle')
+                      : signatureOnly
+                        ? t('completion.walkInSignSubmit')
+                        : t('completion.signSubmit')}
                 </button>
               </div>
             </div>
@@ -655,8 +716,12 @@ const CompleteBooking = () => {
           {step === 'done' && (
             <div className="text-center py-4">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700 text-2xl">✓</div>
-              <h2 className="font-display text-3xl text-ink">{t('completion.contractReadyTitle')}</h2>
-              <p className="mt-2 text-muted text-sm max-w-md mx-auto">{t('completion.readyHint')}</p>
+              <h2 className="font-display text-3xl text-ink">
+                {signatureOnly ? t('completion.walkInSignedTitle') : t('completion.contractReadyTitle')}
+              </h2>
+              <p className="mt-2 text-muted text-sm max-w-md mx-auto">
+                {signatureOnly ? t('completion.walkInSignedHint') : t('completion.readyHint')}
+              </p>
 
               <div className="mt-8 text-left rounded-xl border border-borderColor p-4 space-y-2 text-sm text-gray-600">
                 <p><span className="font-medium text-ink">{t('confirmation.reference')}:</span> {booking.reservationId}</p>
@@ -700,7 +765,7 @@ const CompleteBooking = () => {
           )}
         </Motion.div>
 
-        {step === 'signature' && !contractJob.isActive && (
+        {step === 'signature' && !contractJob.isActive && !signatureOnly && (
           <button
             type="button"
             onClick={() => setStep('documents')}

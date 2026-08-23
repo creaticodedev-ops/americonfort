@@ -50,6 +50,21 @@ export const buildWaMeUrl = (text, dial = getEnvAgencyWhatsAppDial()) => {
   return `https://wa.me/${to}?text=${encodeURIComponent(text)}`
 }
 
+/** Customer phone from reservation — no fallback to agency/owner number. */
+export const resolveCustomerWhatsAppDial = (booking) => {
+  const dial = normalizeWhatsAppDial(booking?.customerPhone || booking?.phone)
+  if (!dial || dial.length < 9) return null
+  return dial
+}
+
+const customerDialOrError = (booking) => {
+  const dial = resolveCustomerWhatsAppDial(booking)
+  if (!dial) {
+    return { error: 'missing_phone', url: null, dial: null }
+  }
+  return { error: null, dial, url: null }
+}
+
 /** Guest reservation after form submit */
 export const buildGuestReservationWaUrl = (reservation, { currency = 'MAD', dial, whatsappSettings } = {}) => {
   const lines = [
@@ -69,7 +84,59 @@ export const buildGuestReservationWaUrl = (reservation, { currency = 'MAD', dial
   return buildWaMeUrl(lines.join('\n'), resolved)
 }
 
-/** Owner dashboard — open WhatsApp to agency with message to forward to customer */
+/** Customer confirmation — opens WhatsApp to the customer (not the agency). */
+export const buildCustomerConfirmationWaUrl = (booking, completionUrl, { currency = 'MAD' } = {}) => {
+  const dialResult = customerDialOrError(booking)
+  if (dialResult.error) return dialResult
+
+  const reservationId = booking.reservationId || `RES-${booking._id?.toString().slice(-8).toUpperCase()}`
+  const vehicle = booking.car
+    ? `${booking.car.brand} ${booking.car.model}${booking.car.licensePlate ? ` (${booking.car.licensePlate})` : ''}`
+    : booking.carName || '—'
+
+  const lines = [
+    `Hello ${booking.customerName || 'Customer'},`,
+    '',
+    'Your reservation is confirmed.',
+    `Reservation: ${reservationId}`,
+    `Vehicle: ${vehicle}`,
+    `Pickup: ${formatDateTime(booking.pickupDate)} — ${booking.pickupLocation || '—'}`,
+    `Return: ${formatDateTime(booking.returnDate)} — ${booking.returnLocation || '—'}`,
+    `Total: ${currency}${booking.price ?? '—'}`,
+    '',
+    'Complete your booking securely here:',
+    completionUrl,
+  ]
+  return { error: null, dial: dialResult.dial, url: buildWaMeUrl(lines.join('\n'), dialResult.dial) }
+}
+
+/** Customer signature request — opens WhatsApp to the customer with the signature link. */
+export const buildCustomerSignatureWaUrl = (booking, signatureUrl, { currency = 'MAD' } = {}) => {
+  const dialResult = customerDialOrError(booking)
+  if (dialResult.error) return dialResult
+
+  const reservationId = booking.reservationId || `RES-${booking._id?.toString().slice(-8).toUpperCase()}`
+  const vehicle = booking.car
+    ? `${booking.car.brand} ${booking.car.model}${booking.car.licensePlate ? ` (${booking.car.licensePlate})` : ''}`
+    : booking.carName || '—'
+
+  const lines = [
+    `Hello ${booking.customerName || 'Customer'},`,
+    '',
+    'Your rental agreement is ready. Please review and sign:',
+    '',
+    `Reservation: ${reservationId}`,
+    `Vehicle: ${vehicle}`,
+    `Pickup: ${formatDateTime(booking.pickupDate)} — ${booking.pickupLocation || '—'}`,
+    `Return: ${formatDateTime(booking.returnDate)} — ${booking.returnLocation || '—'}`,
+    `Total: ${currency}${booking.price ?? '—'}`,
+    '',
+    signatureUrl,
+  ]
+  return { error: null, dial: dialResult.dial, url: buildWaMeUrl(lines.join('\n'), dialResult.dial) }
+}
+
+/** @deprecated Owner inbox flow — use buildCustomerConfirmationWaUrl for customer confirmations. */
 export const buildOwnerCompletionWaUrl = (booking, completionUrl, { currency = 'MAD', dial, whatsappSettings } = {}) => {
   const reservationId = booking.reservationId || `RES-${booking._id?.toString().slice(-8).toUpperCase()}`
   const vehicle = booking.car
@@ -102,8 +169,11 @@ export const buildCompletionWhatsAppUrl = buildOwnerCompletionWaUrl
 
 export default {
   buildGuestReservationWaUrl,
+  buildCustomerConfirmationWaUrl,
+  buildCustomerSignatureWaUrl,
   buildOwnerCompletionWaUrl,
   buildWaMeUrl,
   getAgencyWhatsAppDial,
   getEnvAgencyWhatsAppDial,
+  resolveCustomerWhatsAppDial,
 }

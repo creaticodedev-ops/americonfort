@@ -17,6 +17,9 @@ export const normalizeChannel = (channel) => {
 /** True for public-site and WhatsApp CTA reservations (not walk-in desk). */
 export const isOnlineChannel = (channel) => normalizeChannel(channel) !== 'walk_in';
 
+/** True for desk / owner-created walk-in reservations. */
+export const isWalkInChannel = (channel) => normalizeChannel(channel) === WALK_IN_CHANNEL;
+
 /** Bucket used by analytics dashboards: online | walk_in */
 export const channelBucket = (channel) => (isOnlineChannel(channel) ? 'online' : 'walk_in');
 
@@ -33,6 +36,7 @@ export default {
   WALK_IN_CHANNEL,
   normalizeChannel,
   isOnlineChannel,
+  isWalkInChannel,
   channelBucket,
   channelQuery,
 };

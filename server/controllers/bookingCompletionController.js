@@ -7,6 +7,7 @@ import {
   refreshCompletionFlags,
   saveSignatureAndMaybeFinalize,
   tryFinalizeBookingCompletion,
+  ensureWalkInContractPreview,
 } from "../services/bookingCompletionService.js";
 import { storeDocumentImage } from "../services/documentStore.js";
 import {
@@ -24,6 +25,7 @@ import {
 } from "../utils/applyCompletionDetails.js";
 import User from "../models/User.js";
 import { resolveDepositPercent, resolveBookingSettings, validateSecondDriverAgainstRules } from "../services/bookingRules.js";
+import { isWalkInChannel } from "../utils/bookingChannel.js";
 
 const signIfLocalUpload = (url) => {
   if (!url || typeof url !== "string") return url || "";
@@ -53,6 +55,8 @@ const publicBookingView = (booking, depositPercent) => {
   return {
     reservationId: booking.reservationId,
     status: booking.status,
+    channel: booking.channel || 'online',
+    signatureOnly: isWalkInChannel(booking.channel),
     customerName: booking.customerName,
     customerEmail: booking.customerEmail,
     customerPhone: booking.customerPhone,
@@ -101,7 +105,7 @@ const publicBookingView = (booking, depositPercent) => {
       paymentType: c.paymentType || "",
       amountPaid: c.amountPaid || 0,
       amountDue: c.amountDue || 0,
-      contractPdfUrl: signIfLocalUpload(c.contractPdfUrl || ""),
+      contractPdfUrl: signIfLocalUpload(c.contractPdfUrl || c.contractPreviewUrl || ""),
       invoicePdfUrl: signIfLocalUpload(c.invoicePdfUrl || ""),
       completedAt: c.completedAt || null,
       documentsComplete: flags.documentsComplete,
@@ -121,17 +125,45 @@ const publicBookingView = (booking, depositPercent) => {
 
 export const getCompletionBooking = async (req, res) => {
   try {
-    const booking = await findBookingByCompletionToken(req.params.token);
+    let booking = await findBookingByCompletionToken(req.params.token);
     if (!booking) {
       return res.status(404).json({ success: false, message: "Invalid or expired completion link" });
     }
     refreshCompletionFlags(booking);
+    if (isWalkInChannel(booking.channel) && !booking.completion?.signatureComplete) {
+      try {
+        await ensureWalkInContractPreview(booking);
+        booking = await findBookingByCompletionToken(req.params.token);
+      } catch (previewErr) {
+        console.error('[completion] Walk-in contract preview:', previewErr.message);
+      }
+    }
     await booking.save();
     const depositPercent = await depositPercentForBooking(booking);
     res.json({ success: true, booking: publicBookingView(booking, depositPercent) });
   } catch (error) {
     const status = error.code === "TOKEN_EXPIRED" ? 410 : 400;
     res.status(status).json({ success: false, message: error.message });
+  }
+};
+
+export const getCompletionContractPreview = async (req, res) => {
+  try {
+    const booking = await findBookingByCompletionToken(req.params.token);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Invalid or expired completion link" });
+    }
+    if (!isWalkInChannel(booking.channel)) {
+      return res.status(403).json({ success: false, message: "Contract preview is not available for this reservation type" });
+    }
+    const url = await ensureWalkInContractPreview(booking);
+    res.json({
+      success: true,
+      contractPdfUrl: signIfLocalUpload(url),
+    });
+  } catch (error) {
+    const status = error.code === "TOKEN_EXPIRED" ? 410 : 500;
+    res.status(status).json({ success: false, message: error.message || "Failed to load contract preview" });
   }
 };
 
@@ -144,6 +176,12 @@ export const uploadCompletionDocument = async (req, res) => {
     }
     if (booking.status === "ready_for_pickup") {
       return res.status(400).json({ success: false, message: "This reservation is already complete" });
+    }
+    if (isWalkInChannel(booking.channel)) {
+      return res.status(403).json({
+        success: false,
+        message: "This link is for contract signature only. Document uploads are not available.",
+      });
     }
 
     const docType = req.body.docType; // driving_license | identity
@@ -200,6 +238,12 @@ export const saveCompletionDetails = async (req, res) => {
     if (booking.status === "ready_for_pickup") {
       return res.status(400).json({ success: false, message: "This reservation is already complete" });
     }
+    if (isWalkInChannel(booking.channel)) {
+      return res.status(403).json({
+        success: false,
+        message: "This link is for contract signature only. Reservation details cannot be changed here.",
+      });
+    }
 
     console.log('[SAVE_DETAILS] Incoming body', req.body);
 
@@ -238,6 +282,12 @@ export const createCompletionPayment = async (req, res) => {
     const booking = await findBookingByCompletionToken(req.params.token);
     if (!booking) {
       return res.status(404).json({ success: false, message: "Invalid or expired completion link" });
+    }
+    if (isWalkInChannel(booking.channel)) {
+      return res.status(403).json({
+        success: false,
+        message: "Online payment is not required for this reservation. Please sign the contract.",
+      });
     }
     if (booking.completion?.paymentComplete) {
       return res.json({ success: true, alreadyPaid: true, booking: publicBookingView(booking) });
@@ -391,6 +441,7 @@ export const submitCompletionSignature = async (req, res) => {
       return res.status(404).json({ success: false, message: "Invalid or expired completion link" });
     }
 
+    const walkIn = isWalkInChannel(booking.channel);
     const { signatureDataUrl, secondDriverSignatureDataUrl, agreed, ...detailsPayload } = req.body;
     if (!agreed) {
       return res.status(400).json({ success: false, message: "You must agree to the rental terms" });
@@ -399,34 +450,49 @@ export const submitCompletionSignature = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please provide your signature" });
     }
 
-    // Persist any last-minute form fields sent with the signature step
-    const hasDetailFields = [
-      'customerName',
-      'customerEmail',
-      'customerPhone',
-      'dateOfBirth',
-      'nationality',
-      'customerAddress',
-      'placeOfBirth',
-      'identityDocumentNumber',
-      'identityIssuedOn',
-      'driverLicenseNumber',
-      'driverLicenseExpiry',
-      'driverLicenseIssuedOn',
-      'passportNumber',
-      'secondDriver',
-    ].some((k) => detailsPayload[k] !== undefined);
+    if (walkIn) {
+      const blockedKeys = [
+        'customerName', 'customerEmail', 'customerPhone', 'dateOfBirth', 'nationality',
+        'customerAddress', 'placeOfBirth', 'identityDocumentNumber', 'identityIssuedOn',
+        'driverLicenseNumber', 'driverLicenseExpiry', 'driverLicenseIssuedOn', 'passportNumber',
+        'secondDriver', 'docType', 'identityType', 'paymentType',
+      ].filter((k) => detailsPayload[k] !== undefined);
+      if (blockedKeys.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Only signature data is accepted on this link.",
+          code: 'SIGNATURE_ONLY',
+        });
+      }
+    } else {
+      // Persist any last-minute form fields sent with the signature step (online flow)
+      const hasDetailFields = [
+        'customerName',
+        'customerEmail',
+        'customerPhone',
+        'dateOfBirth',
+        'nationality',
+        'customerAddress',
+        'placeOfBirth',
+        'identityDocumentNumber',
+        'identityIssuedOn',
+        'driverLicenseNumber',
+        'driverLicenseExpiry',
+        'driverLicenseIssuedOn',
+        'passportNumber',
+        'secondDriver',
+      ].some((k) => detailsPayload[k] !== undefined);
 
-    if (hasDetailFields) {
-      applyCompletionDetailsToBooking(booking, detailsPayload);
-    }
-    validateCompletionDetails(booking);
-    await booking.save();
+      if (hasDetailFields) {
+        applyCompletionDetailsToBooking(booking, detailsPayload);
+      }
+      validateCompletionDetails(booking);
+      await booking.save();
 
-    // Require docs before signature
-    refreshCompletionFlags(booking);
-    if (!booking.completion.documentsComplete) {
-      return res.status(400).json({ success: false, message: "Upload required documents first" });
+      refreshCompletionFlags(booking);
+      if (!booking.completion.documentsComplete) {
+        return res.status(400).json({ success: false, message: "Upload required documents first" });
+      }
     }
 
     if (booking.secondDriver?.enabled) {
@@ -439,11 +505,14 @@ export const submitCompletionSignature = async (req, res) => {
       signatureDataUrl,
       secondDriverSignatureDataUrl,
     });
+    const message = walkIn
+      ? (result.finalized ? "Signature saved — thank you" : "Signature saved")
+      : (result.finalized
+        ? "Signed — your reservation is ready for pickup"
+        : "Signature saved");
     res.json({
       success: true,
-      message: result.finalized
-        ? "Signed — your reservation is ready for pickup"
-        : "Signature saved",
+      message,
       finalized: result.finalized,
       booking: publicBookingView(result.booking),
     });
@@ -553,6 +622,7 @@ export const adminInitiateCompletion = initiateBookingCompletion;
 
 export default {
   getCompletionBooking,
+  getCompletionContractPreview,
   uploadCompletionDocument,
   createCompletionPayment,
   confirmDemoPayment,

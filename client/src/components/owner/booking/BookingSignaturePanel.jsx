@@ -4,7 +4,7 @@ import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
 import StatusBadge from '../StatusBadge'
-import { buildOwnerCompletionWaUrl } from '../../../utils/whatsapp'
+import { buildCustomerSignatureWaUrl } from '../../../utils/whatsapp'
 import { getBookingAttention } from './bookingUtils'
 
 /**
@@ -58,8 +58,12 @@ const BookingSignaturePanel = ({ booking, completionUrl, onUpdated, onCacheUrl }
 
   const openWhatsApp = () => {
     if (!url) return toast.error(t('admin.signatures.noLink'))
-    const wa = buildOwnerCompletionWaUrl(booking, url, { currency, whatsappSettings })
-    window.open(wa, '_blank', 'noopener,noreferrer')
+    const result = buildCustomerSignatureWaUrl(booking, url, { currency })
+    if (result.error === 'missing_phone') {
+      toast.error(t('admin.bookings.missingCustomerPhone'))
+      return
+    }
+    window.open(result.url, '_blank', 'noopener,noreferrer')
   }
 
   const canGenerate = ['none', 'expired', 'cancelled'].includes(String(status).toLowerCase())

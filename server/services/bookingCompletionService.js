@@ -15,6 +15,8 @@ import { logAudit } from "../utils/adminOps.js";
 import { storeDataUrlImage } from "./documentStore.js";
 import { resolveIncludeCompanyStamp } from "./documentSettings.js";
 import { upsertContractFromBooking } from "../controllers/contractController.js";
+import { isWalkInChannel } from "../utils/bookingChannel.js";
+import { generateContractPdf } from "./templatePdfExport.js";
 
 const formatDt = (v) => {
   if (!v) return "—";
@@ -196,9 +198,15 @@ export const findBookingByCompletionToken = async (rawToken) => {
 
 export const refreshCompletionFlags = (booking) => {
   const c = booking.completion || {};
-  c.documentsComplete = Boolean(
-    c.drivingLicenseUrl && c.identityDocumentUrl && (c.identityType === "national_id" || c.identityType === "passport")
-  );
+  const walkIn = isWalkInChannel(booking.channel);
+  if (walkIn) {
+    // Walk-in: staff collected customer data at desk — no customer document upload step.
+    c.documentsComplete = true;
+  } else {
+    c.documentsComplete = Boolean(
+      c.drivingLicenseUrl && c.identityDocumentUrl && (c.identityType === "national_id" || c.identityType === "passport")
+    );
+  }
   c.paymentComplete = Boolean(c.paymentCompletedAt && (c.amountPaid > 0 || booking.paymentStatus === "paid"));
   const needsSecondDriverSig = Boolean(booking.secondDriver?.enabled);
   const secondDriverSigOk =
@@ -214,8 +222,56 @@ export const refreshCompletionFlags = (booking) => {
   return c;
 };
 
+/** Generate (or reuse) unsigned contract PDF for walk-in signature review. */
+export const ensureWalkInContractPreview = async (booking) => {
+  if (!isWalkInChannel(booking.channel)) return null;
+
+  booking.completion = booking.completion || {};
+  const c = booking.completion;
+
+  if (c.signatureComplete && c.contractPdfUrl) {
+    return c.contractPdfUrl;
+  }
+  if (c.contractPreviewUrl && !c.signatureUrl) {
+    return c.contractPreviewUrl;
+  }
+
+  await ensureDefaultTemplates(booking.owner);
+  const populated = await Booking.findById(booking._id).populate('car').populate('owner');
+  const template = await getDefaultContractTemplate(populated.owner?._id || populated.owner);
+  if (!template) {
+    throw new Error('No contract template found. Set a default contract template in Admin → Export Templates.');
+  }
+
+  const ownerId = populated.owner?._id || populated.owner;
+  const ownerDoc =
+    populated.owner && typeof populated.owner === 'object' && populated.owner.documentSettings != null
+      ? populated.owner
+      : await User.findById(ownerId).select('documentSettings agencyName email').lean();
+  const includeCompanyStamp = resolveIncludeCompanyStamp({
+    owner: ownerDoc || populated.owner,
+    documentType: 'contracts',
+  });
+
+  const contractNumber = populated.reservationId || `CTR-${populated._id.toString().slice(-8).toUpperCase()}`;
+  const bookingObj = populated.toObject ? populated.toObject() : populated;
+  const { filePath, pdfUrl } = await generateContractPdf({
+    template: template.toObject ? template.toObject() : template,
+    booking: bookingObj,
+    contractNumber,
+    owner: ownerDoc || populated.owner,
+    includeCompanyStamp,
+  });
+
+  c.contractPreviewUrl = pdfUrl || publicUploadUrl(filePath);
+  populated.completion = c;
+  await populated.save();
+  return c.contractPreviewUrl;
+};
+
 /**
  * When docs + payment + signature are done → Ready for Pickup + PDFs + final email.
+ * Walk-in: signature only — keep status confirmed, generate signed contract PDF.
  */
 export const tryFinalizeBookingCompletion = async (bookingId) => {
   let booking = await Booking.findById(bookingId).populate('car').populate('owner');
@@ -224,12 +280,25 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
   const flags = refreshCompletionFlags(booking);
   await booking.save();
 
-  if (!flags.documentsComplete || !flags.signatureComplete) {
+  const walkIn = isWalkInChannel(booking.channel);
+
+  if (walkIn) {
+    if (!flags.signatureComplete) {
+      return { finalized: false, booking, flags };
+    }
+    if (booking.completion.contractPdfUrl && booking.completion.signatureComplete) {
+      return { finalized: true, booking, flags, alreadyDone: true, walkIn: true };
+    }
+  } else if (!flags.documentsComplete || !flags.signatureComplete) {
     return { finalized: false, booking, flags };
   }
 
-  if (booking.status === "ready_for_pickup" && booking.completion.completedAt) {
+  if (!walkIn && booking.status === "ready_for_pickup" && booking.completion.completedAt) {
     return { finalized: true, booking, flags, alreadyDone: true };
+  }
+
+  if (walkIn && booking.completion.contractPdfUrl && booking.completion.signatureSignedAt) {
+    return { finalized: true, booking, flags, alreadyDone: true, walkIn: true };
   }
 
   let contractPath;
@@ -278,6 +347,13 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
 
   booking.completion.contractPdfUrl = contractPdfUrl || publicUploadUrl(contractPath);
   delete booking.completion.invoicePdfUrl;
+
+  if (walkIn) {
+    booking.completion.completedAt = booking.completion.completedAt || new Date();
+    await booking.save();
+    return { finalized: true, booking, flags, walkIn: true };
+  }
+
   booking.completion.completedAt = new Date();
   booking.status = "ready_for_pickup";
 
@@ -418,6 +494,7 @@ export default {
   ensureBookingCompletionLink,
   findBookingByCompletionToken,
   refreshCompletionFlags,
+  ensureWalkInContractPreview,
   tryFinalizeBookingCompletion,
   markCompletionPayment,
   saveSignatureAndMaybeFinalize,

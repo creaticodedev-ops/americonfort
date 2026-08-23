@@ -703,8 +703,8 @@ export const createWalkInBooking = async (req, res) => {
       return res.status(409).json({ success: false, message: 'Car is not available for the selected dates' });
     }
 
-    let status = BOOKING_STATUSES.includes(requestedStatus) ? requestedStatus : 'confirmed';
-    if (status === 'cancelled') status = 'confirmed';
+    // Walk-in reservations are created by staff — always confirmed at creation.
+    const status = 'confirmed';
 
     const paymentStatus =
       markPaid || requestedPayment === 'paid'
@@ -815,12 +815,8 @@ export const createWalkInBooking = async (req, res) => {
     }
 
     let completionMeta = null;
-    if (sendCompletionLink && normalizedEmail && ['confirmed', 'pending'].includes(status)) {
+    if (sendCompletionLink && normalizedEmail) {
       try {
-        if (status === 'pending') {
-          booking.status = 'confirmed';
-          await booking.save();
-        }
         completionMeta = await initiateBookingCompletion(booking);
       } catch (err) {
         console.error('Walk-in completion link failed:', err.message);

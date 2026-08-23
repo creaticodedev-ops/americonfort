@@ -4,6 +4,7 @@ import {
   confirmStripePayment,
   createCompletionPayment,
   getCompletionBooking,
+  getCompletionContractPreview,
   resendCompletionLink,
   ensureCompletionLink,
   saveCompletionDetails,
@@ -32,6 +33,7 @@ completionRouter.get("/owner/email-diagnostics", ...ownerGate, emailDiagnostics)
 completionRouter.post("/owner/test-email", ...ownerGate, sendTestEmail);
 
 completionRouter.get("/:token", tokenLimit, getCompletionBooking);
+completionRouter.get("/:token/contract-preview", tokenLimit, getCompletionContractPreview);
 completionRouter.post(
   "/:token/documents",
   documentUploadLimit,

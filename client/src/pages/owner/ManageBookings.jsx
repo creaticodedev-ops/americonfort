@@ -14,7 +14,7 @@ import { escapeHtml, getErrorMessage } from '../../utils/apiError'
 import PhoneInput from '../../components/PhoneInput'
 import { isPhoneValid } from '../../utils/phoneValidation'
 import { Link } from 'react-router-dom'
-import { buildOwnerCompletionWaUrl, buildWaMeUrl, getAgencyWhatsAppDial } from '../../utils/whatsapp'
+import { buildCustomerConfirmationWaUrl, buildWaMeUrl, getAgencyWhatsAppDial } from '../../utils/whatsapp'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import ContractExtensionModal from '../../components/owner/ContractExtensionModal'
 import {
@@ -264,11 +264,11 @@ const ManageBookings = () => {
   }
 
   const openCompletionWaMe = (booking, completionUrl) => {
-    const url = buildOwnerCompletionWaUrl(booking, completionUrl, {
-      currency,
-      whatsappSettings,
-    })
-    window.open(url, '_blank', 'noopener,noreferrer')
+    const result = buildCustomerConfirmationWaUrl(booking, completionUrl, { currency })
+    if (result.error === 'missing_phone') {
+      throw new Error(t('admin.bookings.missingCustomerPhone'))
+    }
+    window.open(result.url, '_blank', 'noopener,noreferrer')
   }
 
   /** Ensures completion link exists, then opens wa.me (no WhatsApp send API). */
