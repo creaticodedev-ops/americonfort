@@ -28,6 +28,7 @@ import {
   locationAvailabilityFilter,
 } from "../utils/carLocations.js";
 import { normalizeToE164 } from "../utils/phoneValidation.js";
+import { resolveWalkInOperationalRefs } from "../utils/bookingOperationalRefs.js";
 import {
   findBusyCarIds,
   groupCarsForCatalog,
@@ -575,8 +576,9 @@ export const createWalkInBooking = async (req, res) => {
       identityIssuedOn,
       deliveredBy,
       receivedBy,
-      brokerReferrer,
-      vehicleDeliveryDriver,
+      brokerReferrerType,
+      brokerReferrerId,
+      vehicleDeliveryDriverId,
       clientDocumentId,
       fuelLevelStart,
       kmDepart,
@@ -755,6 +757,13 @@ export const createWalkInBooking = async (req, res) => {
         ? Number(franchiseAmount)
         : securityDeposit;
 
+    const operationalRefs = await resolveWalkInOperationalRefs({
+      ownerId,
+      brokerReferrerType,
+      brokerReferrerId,
+      vehicleDeliveryDriverId,
+    });
+
     const booking = await Booking.create({
       reservationId,
       car: carId,
@@ -784,8 +793,11 @@ export const createWalkInBooking = async (req, res) => {
       driverLicenseExpiry: driverLicenseExpiry || '',
       driverLicenseIssuedOn: driverLicenseIssuedOn || '',
       passportNumber: passportNumber || '',
-      brokerReferrer: brokerReferrer || '',
-      vehicleDeliveryDriver: vehicleDeliveryDriver || '',
+      brokerReferrer: operationalRefs.brokerReferrer,
+      vehicleDeliveryDriver: operationalRefs.vehicleDeliveryDriver,
+      brokerReferrerSamsar: operationalRefs.brokerReferrerSamsar,
+      brokerReferrerPartner: operationalRefs.brokerReferrerPartner,
+      vehicleDeliveryDriverChauffeur: operationalRefs.vehicleDeliveryDriverChauffeur,
       deliveredBy: deliveredBy || '',
       receivedBy: receivedBy || '',
       fuelLevelStart: fuelLevelStart || '',

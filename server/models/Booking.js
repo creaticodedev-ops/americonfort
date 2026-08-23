@@ -54,8 +54,16 @@ const bookingSchema = new mongoose.Schema({
   driverLicenseIssuedOn: { type: String, default: "" },
   passportNumber: { type: String, default: "" },
   /** Contract operational fields (filled at desk / pickup) */
+  /** @deprecated legacy plain-text snapshot — prefer brokerReferrerSamsar / brokerReferrerPartner refs */
   brokerReferrer: { type: String, default: "" },
+  /** @deprecated legacy plain-text snapshot — prefer vehicleDeliveryDriverChauffeur ref */
   vehicleDeliveryDriver: { type: String, default: "" },
+  /** Broker / referrer — individual intermediary (Samsar record) */
+  brokerReferrerSamsar: { type: ObjectId, ref: "Samsar", default: null, index: true },
+  /** Broker / referrer — partner company (Hotel, agency partner, etc.) */
+  brokerReferrerPartner: { type: ObjectId, ref: "PartnerCompany", default: null, index: true },
+  /** Staff driver who delivered the vehicle (distinct from booking.chauffeur assignment) */
+  vehicleDeliveryDriverChauffeur: { type: ObjectId, ref: "Chauffeur", default: null, index: true },
   deliveredBy: { type: String, default: "" },
   receivedBy: { type: String, default: "" },
   fuelLevelStart: { type: String, default: "" },

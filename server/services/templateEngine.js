@@ -2,6 +2,11 @@ import { defaultAgencyName } from '../utils/brand.js';
 import { logoToDataUri, embedCompletionSignatures } from '../utils/uploadPaths.js';
 import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
 import { displayCustomerEmail, resolveIdentityDocument } from '../utils/contractFields.js';
+import {
+  resolveBrokerReferrerLabel,
+  resolveVehicleDeliveryDriverLabel,
+  populateOperationalRefs,
+} from '../utils/bookingOperationalRefs.js';
 
 export const TEMPLATE_VARIABLES = [
   { key: 'contract_number', label: 'Contract Number', group: 'contract' },
@@ -271,8 +276,8 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
       mergedBooking?.vin,
     ].find((value) => value !== undefined && value !== null && String(value).trim() !== '') || '—',
     delivered_by: firstNonEmpty(mergedBooking, ['deliveredBy']) || '—',
-    broker_referrer: firstNonEmpty(mergedBooking, ['brokerReferrer']) || '—',
-    vehicle_delivery_driver: firstNonEmpty(mergedBooking, ['vehicleDeliveryDriver']) || '—',
+    broker_referrer: resolveBrokerReferrerLabel(mergedBooking) || '—',
+    vehicle_delivery_driver: resolveVehicleDeliveryDriverLabel(mergedBooking) || '—',
     received_by: firstNonEmpty(mergedBooking, ['receivedBy']) || '—',
     fuel_level_start: firstNonEmpty(mergedBooking, ['fuelLevelStart']) || '—',
     km_depart: mergedBooking?.kmDepart != null && mergedBooking?.kmDepart !== '' ? String(mergedBooking.kmDepart) : (car.mileage != null ? String(car.mileage) : '—'),
@@ -382,7 +387,8 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
  */
 export const buildTemplateVariablesAsync = async (booking, options = {}) => {
   const readyBooking = await embedCompletionSignatures(booking);
-  return buildTemplateVariables(readyBooking, options);
+  const withRefs = await populateOperationalRefs(readyBooking);
+  return buildTemplateVariables(withRefs, options);
 };
 
 const normalizeTemplateKey = (key) => String(key)

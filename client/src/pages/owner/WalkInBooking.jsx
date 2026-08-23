@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AdminPage, PageHeader } from '../../components/owner/ui'
+import { AdminPage, PageHeader, DirectorySearchSelect } from '../../components/owner/ui'
 import ChannelBadge from '../../components/owner/ChannelBadge'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
@@ -46,8 +46,9 @@ const emptyForm = {
   passportNumber: '',
   deliveredBy: '',
   receivedBy: '',
-  brokerReferrer: '',
-  vehicleDeliveryDriver: '',
+  brokerReferrerType: '',
+  brokerReferrerId: '',
+  vehicleDeliveryDriverId: '',
   fuelLevelStart: '',
   kmDepart: '',
   kmRetour: '',
@@ -89,6 +90,10 @@ const WalkInBooking = () => {
   const [existingClientDoc, setExistingClientDoc] = useState(null)
   const [useExistingDoc, setUseExistingDoc] = useState(false)
   const [lookupBusy, setLookupBusy] = useState(false)
+  const [samsars, setSamsars] = useState([])
+  const [partners, setPartners] = useState([])
+  const [chauffeurs, setChauffeurs] = useState([])
+  const [directoriesLoading, setDirectoriesLoading] = useState(true)
 
   const input =
     'w-full rounded-xl border border-borderColor bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/10'
@@ -105,6 +110,58 @@ const WalkInBooking = () => {
       }
     })()
   }, [axios])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setDirectoriesLoading(true)
+      try {
+        const [samsarRes, partnerRes, chauffeurRes] = await Promise.allSettled([
+          axios.get('/api/owner/samsars?limit=200&status=active'),
+          axios.get('/api/owner/partner-companies?limit=200&status=active'),
+          axios.get('/api/owner/chauffeurs?limit=200&status=active'),
+        ])
+        if (cancelled) return
+        if (samsarRes.status === 'fulfilled' && samsarRes.value.data.success) {
+          setSamsars(samsarRes.value.data.items || [])
+        }
+        if (partnerRes.status === 'fulfilled' && partnerRes.value.data.success) {
+          setPartners(partnerRes.value.data.items || [])
+        }
+        if (chauffeurRes.status === 'fulfilled' && chauffeurRes.value.data.success) {
+          setChauffeurs(chauffeurRes.value.data.items || [])
+        }
+      } finally {
+        if (!cancelled) setDirectoriesLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [axios])
+
+  const brokerOptions = useMemo(() => [
+    ...samsars.map((s) => ({
+      id: s._id,
+      type: 'samsar',
+      label: s.fullName,
+      group: t('admin.menu.samsars'),
+      sublabel: s.phone || '',
+    })),
+    ...partners.map((p) => ({
+      id: p._id,
+      type: 'partner',
+      label: p.companyName,
+      group: t('admin.menu.partnerCompanies'),
+      sublabel: p.contactPerson || p.phone || '',
+    })),
+  ], [samsars, partners, t])
+
+  const driverOptions = useMemo(() => chauffeurs.map((c) => ({
+    id: c._id,
+    type: 'chauffeur',
+    label: c.fullName,
+    group: t('admin.menu.chauffeurs'),
+    sublabel: c.phone || c.licenseNumber || '',
+  })), [chauffeurs, t])
 
   const selectedCar = useMemo(() => cars.find((c) => c._id === form.car), [cars, form.car])
 
@@ -501,10 +558,38 @@ const WalkInBooking = () => {
           <Section title={t('admin.walkIn.handoverSection')} subtitle={t('admin.walkIn.handoverHint')}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t('admin.walkIn.brokerReferrer')}>
-                <input className={input} value={form.brokerReferrer} onChange={(e) => setField('brokerReferrer', e.target.value)} />
+                <DirectorySearchSelect
+                  value={form.brokerReferrerId}
+                  valueType={form.brokerReferrerType}
+                  options={brokerOptions}
+                  disabled={directoriesLoading}
+                  placeholder={t('admin.walkIn.brokerReferrerPlaceholder')}
+                  emptyLabel={t('admin.walkIn.brokerReferrerEmpty')}
+                  emptyHint={t('admin.walkIn.brokerReferrerEmptyHint')}
+                  manageLinks={[
+                    { to: '/owner/samsars', label: t('admin.menu.samsars') },
+                    { to: '/owner/partner-companies', label: t('admin.menu.partnerCompanies') },
+                  ]}
+                  onChange={({ id, type }) => {
+                    setForm((f) => ({ ...f, brokerReferrerId: id, brokerReferrerType: type }))
+                  }}
+                />
               </Field>
               <Field label={t('admin.walkIn.vehicleDeliveryDriver')}>
-                <input className={input} value={form.vehicleDeliveryDriver} onChange={(e) => setField('vehicleDeliveryDriver', e.target.value)} />
+                <DirectorySearchSelect
+                  value={form.vehicleDeliveryDriverId}
+                  options={driverOptions}
+                  disabled={directoriesLoading}
+                  placeholder={t('admin.walkIn.vehicleDeliveryDriverPlaceholder')}
+                  emptyLabel={t('admin.walkIn.vehicleDeliveryDriverEmpty')}
+                  emptyHint={t('admin.walkIn.vehicleDeliveryDriverEmptyHint')}
+                  manageLinks={[
+                    { to: '/owner/chauffeurs', label: t('admin.menu.chauffeurs') },
+                  ]}
+                  onChange={({ id }) => {
+                    setForm((f) => ({ ...f, vehicleDeliveryDriverId: id }))
+                  }}
+                />
               </Field>
               <Field label={t('admin.walkIn.deliveredBy')}>
                 <input className={input} value={form.deliveredBy} onChange={(e) => setField('deliveredBy', e.target.value)} />
