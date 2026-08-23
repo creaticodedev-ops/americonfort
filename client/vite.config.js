@@ -82,6 +82,15 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
+        // Keep hashed filenames, but avoid chunk basenames that ad blockers
+        // commonly false-positive (e.g. AdminModal-*.js → ERR_BLOCKED_BY_CLIENT).
+        chunkFileNames: (chunkInfo) => {
+          const raw = chunkInfo.name || 'chunk'
+          const safe = raw
+            .replace(/AdminModal/gi, 'OwnerDialog')
+            .replace(/Advert/gi, 'Promo')
+          return `assets/${safe}-[hash].js`
+        },
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           // Keep phone UI/CSS out of shared chunks so they stay with lazy routes.

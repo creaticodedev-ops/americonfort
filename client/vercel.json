@@ -10,6 +10,27 @@
       ]
     },
     {
+      "source": "/((?!assets/).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
       "source": "/index.html",
       "headers": [
         {
@@ -18,11 +39,15 @@
         },
         {
           "key": "CDN-Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "no-store"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "no-store"
         },
         {
           "key": "Cloudflare-CDN-Cache-Control",
-          "value": "max-age=0, must-revalidate"
+          "value": "no-store"
         }
       ]
     },

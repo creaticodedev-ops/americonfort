@@ -1,7 +1,7 @@
 export { AdminPage, PageHeader } from './AdminPage'
 export { StatCard } from './StatCard'
 export { EmptyState, ErrorState, Skeleton, SkeletonRows } from './EmptyState'
-export { AdminModal, ConfirmDialog } from './AdminModal'
+export { AdminModal, ConfirmDialog } from './OwnerDialog'
 export {
   AdminForm,
   AdminFormSection,
