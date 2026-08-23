@@ -15,6 +15,7 @@ import { logAudit } from "../utils/adminOps.js";
 import { storeDataUrlImage } from "./documentStore.js";
 import { resolveIncludeCompanyStamp } from "./documentSettings.js";
 import { upsertContractFromBooking } from "../controllers/contractController.js";
+import { nextContractNumber } from "./contractNumberService.js";
 import { isWalkInChannel } from "../utils/bookingChannel.js";
 import { generateContractPdf } from "./templatePdfExport.js";
 
@@ -253,7 +254,7 @@ export const ensureWalkInContractPreview = async (booking) => {
     documentType: 'contracts',
   });
 
-  const contractNumber = populated.reservationId || `CTR-${populated._id.toString().slice(-8).toUpperCase()}`;
+  const contractNumber = populated.reservationId || `PREVIEW-${populated._id.toString().slice(-6).toUpperCase()}`;
   const bookingObj = populated.toObject ? populated.toObject() : populated;
   const { filePath, pdfUrl } = await generateContractPdf({
     template: template.toObject ? template.toObject() : template,
@@ -313,8 +314,8 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     throw new Error('No contract template found. Set a default contract template in Admin → Export Templates.');
   }
 
-  const contractNumber = booking.reservationId || `CTR-${booking._id.toString().slice(-8).toUpperCase()}`;
   const ownerId = booking.owner?._id || booking.owner;
+  const contractNumber = await nextContractNumber(ownerId);
   const ownerDoc =
     booking.owner && typeof booking.owner === 'object' && booking.owner.documentSettings != null
       ? booking.owner

@@ -52,6 +52,7 @@ export const ownerMenuLinks = [
   { nameKey: 'admin.menu.walkIn', path: '/owner/walk-in', icon: addIcon, coloredIcon: addIconColored, permission: 'bookings', feature: 'bookings' },
   { nameKey: 'admin.menu.calendar', path: '/owner/calendar', icon: calendar_icon_colored, coloredIcon: calendar_icon_colored, permission: 'calendar', feature: 'calendar' },
   { nameKey: 'admin.menu.customers', path: '/owner/customers', icon: publicAssets.users_icon, coloredIcon: publicAssets.users_icon, permission: 'customers', feature: 'customers' },
+  { nameKey: 'admin.menu.clientDocuments', path: '/owner/client-documents', icon: upload_icon, coloredIcon: upload_icon, permission: 'customers', feature: 'customers' },
   { nameKey: 'admin.menu.signatureRequests', path: '/owner/signature-requests', icon: listIcon, coloredIcon: listIconColored, permission: 'signature_requests', feature: 'signature_requests' },
   { nameKey: 'admin.menu.addCar', path: '/owner/add-car', icon: addIcon, coloredIcon: addIconColored, permission: 'fleet', feature: 'fleet' },
   { nameKey: 'admin.menu.fleet', path: '/owner/manage-cars', icon: carIcon, coloredIcon: carIconColored, permission: 'fleet', feature: 'fleet' },

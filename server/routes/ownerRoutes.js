@@ -50,6 +50,11 @@ import {
   getDocumentSettings,
   updateDocumentSettings,
 } from "../controllers/settingsController.js";
+import {
+  listOwnerClientDocuments,
+  getOwnerClientDocument,
+  replaceClientDocument,
+} from "../controllers/clientDocumentController.js";
 
 const ownerRouter = express.Router();
 /** perm = staff RBAC; feature = SaaS plan entitlement (backend authority). */
@@ -78,6 +83,15 @@ ownerRouter.get('/overview', ...gate('dashboard'), getAdminOverview);
 ownerRouter.get('/customers', ...gate('customers', 'customers'), getCustomers);
 ownerRouter.get('/crm/customers', ...gate('customers', 'customers'), getCrmCustomers);
 ownerRouter.get('/crm/customers/:email', ...gate('customers', 'customers'), getCrmCustomerDetail);
+ownerRouter.get('/client-documents', ...gate('customers', 'customers'), listOwnerClientDocuments);
+ownerRouter.get('/client-documents/:id', ...gate('customers', 'customers'), getOwnerClientDocument);
+ownerRouter.post(
+  '/client-documents/:id/replace',
+  ...gate('customers', 'customers'),
+  upload.single('file'),
+  handleMulterError,
+  replaceClientDocument,
+);
 ownerRouter.post('/crm/rate', ...gate('customers', 'customers'), rateCustomer);
 ownerRouter.post('/crm/note', ...gate('customers', 'customers'), addCustomerNote);
 ownerRouter.post('/crm/status', ...gate('customers', 'customers'), updateCustomerStatus);

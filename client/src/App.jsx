@@ -36,6 +36,7 @@ const VehicleStatsListPage = lazy(() => import('./pages/owner/VehicleStatsListPa
 const ManageBookings = lazy(() => import('./pages/owner/ManageBookings'))
 const WalkInBooking = lazy(() => import('./pages/owner/WalkInBooking'))
 const Customers = lazy(() => import('./pages/owner/Customers'))
+const ClientDocuments = lazy(() => import('./pages/owner/ClientDocuments'))
 const BookingCalendar = lazy(() => import('./pages/owner/BookingCalendar'))
 const ManageLocations = lazy(() => import('./pages/owner/ManageLocations'))
 const Maintenance = lazy(() => import('./pages/owner/Maintenance'))
@@ -135,6 +136,7 @@ const App = () => {
                 <Route path="manage-bookings" element={withPerm('bookings', ManageBookings)} />
                 <Route path="walk-in" element={withPerm('bookings', WalkInBooking)} />
                 <Route path="customers" element={withPerm('customers', Customers)} />
+                <Route path="client-documents" element={withPerm('customers', ClientDocuments)} />
                 <Route path="signature-requests" element={withPerm('signature_requests', SignatureRequests)} />
                 <Route path="locations" element={withPerm('locations', ManageLocations)} />
                 <Route path="calendar" element={withPerm('calendar', BookingCalendar)} />

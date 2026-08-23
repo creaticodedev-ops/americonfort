@@ -43,9 +43,15 @@ const aggregateGuestStats = async (ownerId, email) => {
  * Sync guest CRM profile from booking data (admin-only CRM).
  */
 export const upsertGuestFromBooking = async (booking) => {
-  if (!booking?.customerEmail || !booking?.owner) return null;
+  if (!booking?.owner) return null;
 
-  const email = booking.customerEmail.trim().toLowerCase();
+  let email = booking.customerEmail?.trim()?.toLowerCase() || '';
+  if (!email && booking.customerPhone) {
+    const digits = String(booking.customerPhone).replace(/\D/g, '');
+    if (digits) email = `walkin+${digits}@local.americonfort`;
+  }
+  if (!email) return null;
+
   const ownerId = asObjectId(booking.owner);
   const city = (booking.pickupLocation || '').split(',')[0]?.trim()
     || (booking.pickupLocation || '').split('-')[0]?.trim()

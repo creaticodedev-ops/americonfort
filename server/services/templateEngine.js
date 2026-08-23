@@ -271,6 +271,8 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
       mergedBooking?.vin,
     ].find((value) => value !== undefined && value !== null && String(value).trim() !== '') || '—',
     delivered_by: firstNonEmpty(mergedBooking, ['deliveredBy']) || '—',
+    broker_referrer: firstNonEmpty(mergedBooking, ['brokerReferrer']) || '—',
+    vehicle_delivery_driver: firstNonEmpty(mergedBooking, ['vehicleDeliveryDriver']) || '—',
     received_by: firstNonEmpty(mergedBooking, ['receivedBy']) || '—',
     fuel_level_start: firstNonEmpty(mergedBooking, ['fuelLevelStart']) || '—',
     km_depart: mergedBooking?.kmDepart != null && mergedBooking?.kmDepart !== '' ? String(mergedBooking.kmDepart) : (car.mileage != null ? String(car.mileage) : '—'),
@@ -366,6 +368,10 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     secondDriverLicenseExpiry: values.second_driver_license_expiry,
     secondDriverPassport: values.second_driver_passport,
     secondDriverPhone: values.second_driver_phone,
+    brokerReferrer: values.broker_referrer,
+    vehicleDeliveryDriver: values.vehicle_delivery_driver,
+    deliveredBy: values.delivered_by,
+    receivedBy: values.received_by,
   };
 };
 

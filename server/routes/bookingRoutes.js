@@ -24,6 +24,8 @@ import upload, { handleMulterError } from "../middleware/multer.js";
 import {
     getBookingDocumentUrl,
     uploadBookingDocuments,
+    lookupClientDocument,
+    linkExistingClientDocument,
 } from "../controllers/bookingDocumentController.js";
 
 const bookingRouter = express.Router();
@@ -51,6 +53,8 @@ bookingRouter.post(
   uploadBookingDocuments
 );
 bookingRouter.get('/owner/:bookingId/documents/:docType', ...bookingsGate, getBookingDocumentUrl);
+bookingRouter.get('/owner/client-documents/lookup', ...bookingsGate, lookupClientDocument);
+bookingRouter.post('/owner/client-documents/link', ...bookingsGate, linkExistingClientDocument);
 bookingRouter.post('/delete', ...bookingsGate, deleteBooking);
 
 export default bookingRouter;

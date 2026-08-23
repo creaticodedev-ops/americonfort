@@ -46,6 +46,8 @@ const emptyForm = {
   passportNumber: '',
   deliveredBy: '',
   receivedBy: '',
+  brokerReferrer: '',
+  vehicleDeliveryDriver: '',
   fuelLevelStart: '',
   kmDepart: '',
   kmRetour: '',
@@ -82,12 +84,11 @@ const WalkInBooking = () => {
   const [quote, setQuote] = useState(null)
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState(null)
-  const [docFiles, setDocFiles] = useState({
-    driving_license: null,
-    national_id: null,
-    passport: null,
-  })
+  const [docFiles, setDocFiles] = useState({ combined: null })
   const [uploadingDoc, setUploadingDoc] = useState('')
+  const [existingClientDoc, setExistingClientDoc] = useState(null)
+  const [useExistingDoc, setUseExistingDoc] = useState(false)
+  const [lookupBusy, setLookupBusy] = useState(false)
 
   const input =
     'w-full rounded-xl border border-borderColor bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/10'
@@ -192,14 +193,47 @@ const WalkInBooking = () => {
     pickupLocations,
   ])
 
-  const uploadDocument = async (bookingId, file, docType, identityType) => {
+  const lookupExistingClient = React.useCallback(async () => {
+    if (!form.phone && !form.identityDocumentNumber && !form.passportNumber) {
+      setExistingClientDoc(null)
+      setUseExistingDoc(false)
+      return
+    }
+    setLookupBusy(true)
+    try {
+      const params = new URLSearchParams()
+      if (form.phone) params.set('phone', form.phone)
+      if (form.identityDocumentNumber) params.set('identityDocumentNumber', form.identityDocumentNumber)
+      if (form.passportNumber) params.set('passportNumber', form.passportNumber)
+      const { data } = await axios.get(`/api/bookings/owner/client-documents/lookup?${params}`)
+      if (data.success && data.found) {
+        setExistingClientDoc(data.document)
+      } else {
+        setExistingClientDoc(null)
+        setUseExistingDoc(false)
+      }
+    } catch {
+      setExistingClientDoc(null)
+      setUseExistingDoc(false)
+    } finally {
+      setLookupBusy(false)
+    }
+  }, [axios, form.phone, form.identityDocumentNumber, form.passportNumber])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      lookupExistingClient()
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [lookupExistingClient])
+
+  const uploadDocument = async (bookingId, file) => {
     if (!file || !bookingId) return
-    setUploadingDoc(docType)
+    setUploadingDoc('combined')
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('docType', docType)
-      if (docType === 'identity') formData.append('identityType', identityType || 'national_id')
+      formData.append('docType', 'combined')
       const { data } = await axios.post(`/api/bookings/owner/${bookingId}/documents`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
@@ -212,17 +246,32 @@ const WalkInBooking = () => {
     }
   }
 
+  const linkExistingDocument = async (bookingId) => {
+    if (!existingClientDoc?._id) return
+    setUploadingDoc('link')
+    try {
+      const { data } = await axios.post('/api/bookings/owner/client-documents/link', {
+        bookingId,
+        clientDocumentId: existingClientDoc._id,
+      })
+      if (data.success) toast.success(data.message)
+      else toast.error(data.message)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setUploadingDoc('')
+    }
+  }
+
   const uploadPendingDocuments = async (bookingId) => {
-    if (docFiles.driving_license) {
-      await uploadDocument(bookingId, docFiles.driving_license, 'driving_license')
+    if (useExistingDoc && existingClientDoc?._id) {
+      await linkExistingDocument(bookingId)
+      return
     }
-    if (docFiles.national_id) {
-      await uploadDocument(bookingId, docFiles.national_id, 'identity', 'national_id')
+    if (docFiles.combined) {
+      await uploadDocument(bookingId, docFiles.combined)
     }
-    if (docFiles.passport) {
-      await uploadDocument(bookingId, docFiles.passport, 'passport')
-    }
-    setDocFiles({ driving_license: null, national_id: null, passport: null })
+    setDocFiles({ combined: null })
   }
 
   const onSubmit = async (e) => {
@@ -247,6 +296,7 @@ const WalkInBooking = () => {
     try {
       const payload = {
         ...form,
+        clientDocumentId: useExistingDoc && existingClientDoc?._id ? existingClientDoc._id : undefined,
         franchiseAmount: form.franchiseAmount === '' ? undefined : Number(form.franchiseAmount),
         secondDriver: form.secondDriver.enabled
           ? form.secondDriver
@@ -450,6 +500,12 @@ const WalkInBooking = () => {
 
           <Section title={t('admin.walkIn.handoverSection')} subtitle={t('admin.walkIn.handoverHint')}>
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('admin.walkIn.brokerReferrer')}>
+                <input className={input} value={form.brokerReferrer} onChange={(e) => setField('brokerReferrer', e.target.value)} />
+              </Field>
+              <Field label={t('admin.walkIn.vehicleDeliveryDriver')}>
+                <input className={input} value={form.vehicleDeliveryDriver} onChange={(e) => setField('vehicleDeliveryDriver', e.target.value)} />
+              </Field>
               <Field label={t('admin.walkIn.deliveredBy')}>
                 <input className={input} value={form.deliveredBy} onChange={(e) => setField('deliveredBy', e.target.value)} />
               </Field>
@@ -481,25 +537,48 @@ const WalkInBooking = () => {
             </div>
           </Section>
 
-          <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHint')}>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {[
-                ['driving_license', t('admin.walkIn.uploadLicense')],
-                ['national_id', t('admin.walkIn.uploadNationalId')],
-                ['passport', t('admin.walkIn.uploadPassport')],
-              ].map(([key, label]) => (
-                <div key={key} className="rounded-xl border border-dashed border-borderColor bg-sand/20 p-3">
-                  <label className="text-xs font-medium text-gray-600">{label}</label>
+          <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHintCombined')}>
+            {lookupBusy && (
+              <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.walkIn.lookupClient')}</p>
+            )}
+            {existingClientDoc && (
+              <div className="rounded-xl border border-[color-mix(in_srgb,var(--admin-success)_35%,var(--admin-border))] bg-[var(--admin-success-soft)] p-3 text-sm">
+                <p className="font-medium text-[var(--admin-success)]">{t('admin.walkIn.existingDocsTitle')}</p>
+                <p className="mt-1 text-xs text-[var(--admin-fg-muted)]">
+                  {existingClientDoc.customerName} · {existingClientDoc.customerPhone}
+                  {' · '}
+                  {t('admin.walkIn.existingDocsCount', { count: existingClientDoc.reservationCount || 0 })}
+                </p>
+                <label className="mt-2 flex items-start gap-2 cursor-pointer">
                   <input
-                    type="file"
-                    accept="image/*"
-                    className="mt-2 block w-full text-xs"
-                    onChange={(e) => setDocFiles((d) => ({ ...d, [key]: e.target.files?.[0] || null }))}
+                    type="checkbox"
+                    checked={useExistingDoc}
+                    onChange={(e) => {
+                      setUseExistingDoc(e.target.checked)
+                      if (e.target.checked) setDocFiles({ combined: null })
+                    }}
+                    className="mt-0.5"
                   />
-                  {docFiles[key] && <p className="mt-1 truncate text-[11px] text-emerald-700">{docFiles[key].name}</p>}
-                </div>
-              ))}
-            </div>
+                  <span className="text-xs">{t('admin.walkIn.useExistingDocs')}</span>
+                </label>
+              </div>
+            )}
+            {!useExistingDoc && (
+              <div className="rounded-xl border border-dashed border-borderColor bg-sand/20 p-4">
+                <label className="text-sm font-medium text-gray-700">{t('admin.walkIn.uploadCombined')}</label>
+                <p className="mt-1 text-xs text-muted">{t('admin.walkIn.uploadCombinedHint')}</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={Boolean(uploadingDoc)}
+                  className="mt-3 block w-full text-sm"
+                  onChange={(e) => setDocFiles({ combined: e.target.files?.[0] || null })}
+                />
+                {docFiles.combined && (
+                  <p className="mt-2 truncate text-xs text-emerald-700">{docFiles.combined.name}</p>
+                )}
+              </div>
+            )}
           </Section>
         </div>
 

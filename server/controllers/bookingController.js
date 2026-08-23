@@ -575,6 +575,9 @@ export const createWalkInBooking = async (req, res) => {
       identityIssuedOn,
       deliveredBy,
       receivedBy,
+      brokerReferrer,
+      vehicleDeliveryDriver,
+      clientDocumentId,
       fuelLevelStart,
       kmDepart,
       kmRetour,
@@ -713,7 +716,8 @@ export const createWalkInBooking = async (req, res) => {
           ? requestedPayment
           : 'pending';
 
-    const guestEmail = normalizedEmail || '';
+    const guestEmail = normalizedEmail
+      || (phoneCheck.e164 ? `walkin+${phoneCheck.e164.replace(/\D/g, '')}@local.americonfort` : '');
 
     let secondDriverPayload = {
       enabled: false,
@@ -780,6 +784,8 @@ export const createWalkInBooking = async (req, res) => {
       driverLicenseExpiry: driverLicenseExpiry || '',
       driverLicenseIssuedOn: driverLicenseIssuedOn || '',
       passportNumber: passportNumber || '',
+      brokerReferrer: brokerReferrer || '',
+      vehicleDeliveryDriver: vehicleDeliveryDriver || '',
       deliveredBy: deliveredBy || '',
       receivedBy: receivedBy || '',
       fuelLevelStart: fuelLevelStart || '',
@@ -812,6 +818,26 @@ export const createWalkInBooking = async (req, res) => {
       });
     } catch (paymentError) {
       console.error('Payment record create failed:', paymentError.message);
+    }
+
+    if (clientDocumentId && mongoose.isValidObjectId(clientDocumentId)) {
+      try {
+        const { linkBookingToClientDocument } = await import('../services/clientDocumentService.js');
+        const { applyWalkInCombinedDocument } = await import('../services/customerDocuments.js');
+        const ClientDocument = (await import('../models/ClientDocument.js')).default;
+        const clientDoc = await ClientDocument.findOne({ _id: clientDocumentId, owner: ownerId });
+        if (clientDoc?.documentUrl) {
+          applyWalkInCombinedDocument(booking, {
+            url: clientDoc.documentUrl,
+            uploadedBy: ownerId,
+            clientDocumentId: clientDoc._id,
+          });
+          await booking.save();
+          await linkBookingToClientDocument(booking._id, clientDoc._id);
+        }
+      } catch (linkErr) {
+        console.error('Walk-in client document link failed:', linkErr.message);
+      }
     }
 
     let completionMeta = null;

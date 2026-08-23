@@ -10,6 +10,7 @@ import { logAudit } from '../utils/adminOps.js';
 import { ensureDefaultTemplates } from './exportTemplateController.js';
 import { resolveContractTemplate } from '../utils/resolveExportTemplate.js';
 import { streamPdfFile } from '../utils/streamPdfFile.js';
+import { nextContractNumber } from '../services/contractNumberService.js';
 import {
   snapshotTemplate,
   buildContractSourceData,
@@ -33,27 +34,7 @@ const syncBookingCompletionPdfUrl = async (contract) => {
   });
 };
 
-const generateContractNumber = async (ownerId) => {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const prefix = `CTR-${year}-`;
-
-  const last = await Contract.findOne({
-    owner: ownerId,
-    contractNumber: { $regex: `^${prefix}` },
-  })
-    .sort({ contractNumber: -1 })
-    .select('contractNumber')
-    .lean();
-
-  let seq = 1;
-  if (last?.contractNumber) {
-    const parts = last.contractNumber.split('-');
-    const n = parseInt(parts[parts.length - 1], 10);
-    if (!Number.isNaN(n)) seq = n + 1;
-  }
-
-  return `${prefix}${String(seq).padStart(4, '0')}`;
-};
+const generateContractNumber = async (ownerId) => nextContractNumber(ownerId);
 
 /** Upsert a Contract instance from a booking (admin generate + completion). */
 export const upsertContractFromBooking = async ({

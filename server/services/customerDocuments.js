@@ -8,6 +8,7 @@ export const syncCompletionDocumentsToArchive = (booking) => {
 
   if (!booking.customerDocuments) {
     booking.customerDocuments = {
+      combinedDocumentUrl: '',
       drivingLicenseUrl: '',
       identityType: '',
       identityDocumentUrl: '',
@@ -33,9 +34,31 @@ export const syncCompletionDocumentsToArchive = (booking) => {
   return booking;
 };
 
+export const applyWalkInCombinedDocument = (booking, { url, uploadedBy, clientDocumentId = null }) => {
+  if (!booking.customerDocuments) {
+    booking.customerDocuments = {
+      combinedDocumentUrl: '',
+      drivingLicenseUrl: '',
+      identityType: '',
+      identityDocumentUrl: '',
+      passportUrl: '',
+      uploadedAt: null,
+      source: 'walk_in',
+    };
+  }
+  booking.customerDocuments.combinedDocumentUrl = url;
+  booking.customerDocuments.uploadedAt = new Date();
+  booking.customerDocuments.source = 'walk_in';
+  if (uploadedBy) booking.customerDocuments.uploadedBy = uploadedBy;
+  if (clientDocumentId) booking.clientDocument = clientDocumentId;
+  booking.markModified('customerDocuments');
+  return booking;
+};
+
 export const applyAdminDocumentUpload = (booking, { docType, identityType, url, uploadedBy }) => {
   if (!booking.customerDocuments) {
     booking.customerDocuments = {
+      combinedDocumentUrl: '',
       drivingLicenseUrl: '',
       identityType: '',
       identityDocumentUrl: '',
@@ -46,6 +69,16 @@ export const applyAdminDocumentUpload = (booking, { docType, identityType, url, 
   }
 
   const archive = booking.customerDocuments;
+
+  if (docType === 'combined') {
+    archive.combinedDocumentUrl = url;
+    archive.uploadedAt = new Date();
+    archive.source = booking.channel === 'walk_in' ? 'walk_in' : 'admin';
+    if (uploadedBy) archive.uploadedBy = uploadedBy;
+    booking.markModified('customerDocuments');
+    return booking;
+  }
+
   if (docType === 'driving_license') {
     archive.drivingLicenseUrl = url;
   } else if (docType === 'identity') {
@@ -81,6 +114,7 @@ export const getDocumentUrls = (booking) => {
   const archive = booking.customerDocuments || {};
   const completion = booking.completion || {};
   return {
+    combinedDocumentUrl: archive.combinedDocumentUrl || '',
     drivingLicenseUrl: archive.drivingLicenseUrl || completion.drivingLicenseUrl || '',
     identityDocumentUrl: archive.identityDocumentUrl || completion.identityDocumentUrl || '',
     identityType: archive.identityType || completion.identityType || '',
@@ -90,6 +124,7 @@ export const getDocumentUrls = (booking) => {
 
 export default {
   syncCompletionDocumentsToArchive,
+  applyWalkInCombinedDocument,
   applyAdminDocumentUpload,
   getDocumentUrls,
 };

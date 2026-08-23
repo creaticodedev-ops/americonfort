@@ -21,6 +21,7 @@ export const OWNER_NAV_GROUPS = [
       '/owner/chauffeurs',
       '/owner/maintenance',
       '/owner/customers',
+      '/owner/client-documents',
       '/owner/walk-in',
     ],
   },

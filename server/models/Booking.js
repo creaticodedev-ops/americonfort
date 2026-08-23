@@ -54,6 +54,8 @@ const bookingSchema = new mongoose.Schema({
   driverLicenseIssuedOn: { type: String, default: "" },
   passportNumber: { type: String, default: "" },
   /** Contract operational fields (filled at desk / pickup) */
+  brokerReferrer: { type: String, default: "" },
+  vehicleDeliveryDriver: { type: String, default: "" },
   deliveredBy: { type: String, default: "" },
   receivedBy: { type: String, default: "" },
   fuelLevelStart: { type: String, default: "" },
@@ -113,6 +115,7 @@ const bookingSchema = new mongoose.Schema({
   },
   /** Permanent archive of customer identity documents */
   customerDocuments: {
+    combinedDocumentUrl: { type: String, default: "" },
     drivingLicenseUrl: { type: String, default: "" },
     identityType: {
       type: String,
@@ -148,6 +151,8 @@ const bookingSchema = new mongoose.Schema({
   },
   /** Staff user who created a walk-in reservation */
   createdBy: { type: ObjectId, ref: "User", default: null },
+  /** Linked agency client document archive (walk-in combined photo) */
+  clientDocument: { type: ObjectId, ref: "ClientDocument", default: null },
   /** Future-ready partner / staff links (nullable) */
   chauffeur: { type: ObjectId, ref: "Chauffeur", default: null, index: true },
   samsar: { type: ObjectId, ref: "Samsar", default: null, index: true },
