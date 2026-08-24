@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { preloadCriticalFonts, loadExtendedLatinFonts } from './fonts'
 import './index.css'
+import './styles/admin-dash.css'
 import App from './App.jsx'
 import { BrowserRouter } from 'react-router-dom'
 import { AppProvider } from './context/AppContext.jsx'
