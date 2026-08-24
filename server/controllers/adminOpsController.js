@@ -68,7 +68,9 @@ export const getOpsDashboard = async (req, res) => {
     const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
     const operationalStatuses = ['pending', 'confirmed', 'ready_for_pickup', 'active'];
     const returnStatuses = ['confirmed', 'ready_for_pickup', 'active'];
+    const onRentStatuses = ['ready_for_pickup', 'active'];
     const listFields = 'reservationId customerName pickupDate returnDate status channel price createdAt car';
+    const now = new Date();
 
     const walkInMatch = { channel: 'walk_in' };
     const onlineMatch = { channel: { $ne: 'walk_in' } };
@@ -81,7 +83,7 @@ export const getOpsDashboard = async (req, res) => {
       todayBookings,
       onlineBookingsToday,
       walkInBookingsToday,
-      activeRentals,
+      onRentBookings,
       pendingBookings,
       monthlyRevenueAgg,
       onlineRevenueMonthAgg,
@@ -99,7 +101,14 @@ export const getOpsDashboard = async (req, res) => {
       Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today } }),
       Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today }, ...onlineMatch }),
       Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today }, ...walkInMatch }),
-      Booking.countDocuments({ owner: ownerId, status: 'active' }),
+      // Vehicles currently out: pickup reached, status still on-rent (includes overdue returns)
+      Booking.find({
+        owner: ownerId,
+        status: { $in: onRentStatuses },
+        pickupDate: { $lte: now },
+      })
+        .select('car')
+        .lean(),
       Booking.countDocuments({ owner: ownerId, status: 'pending' }),
       Booking.aggregate([
         { $match: { owner: ownerOid, status: { $in: revenueStatuses }, createdAt: { $gte: monthStart } } },
@@ -161,11 +170,20 @@ export const getOpsDashboard = async (req, res) => {
     const onlineRevenueMonth = sumPrice(onlineRevenueMonthAgg);
     const walkInRevenueMonth = sumPrice(walkInRevenueMonthAgg);
 
-    const availableVehicles = cars.filter((c) => c.isAvaliable && c.status !== 'maintenance').length;
-    const maintenanceVehicles = cars.filter((c) => c.status === 'maintenance' || !c.isAvaliable).length;
-    const rentedVehicles = activeRentals;
+    const rentedCarIds = new Set(
+      onRentBookings.map((b) => (b.car ? String(b.car) : '')).filter(Boolean),
+    );
+    const activeRentals = onRentBookings.length;
+    const maintenanceVehicles = cars.filter((c) => c.status === 'maintenance').length;
+    // Partition fleet: maintenance wins, then on-rent, else available
+    const rentedVehicles = cars.filter(
+      (c) => c.status !== 'maintenance' && rentedCarIds.has(String(c._id)),
+    ).length;
+    const availableVehicles = cars.filter(
+      (c) => c.status !== 'maintenance' && !rentedCarIds.has(String(c._id)),
+    ).length;
     const occupancyRate = cars.length > 0
-      ? Math.round((activeRentals / cars.length) * 100)
+      ? Math.round((rentedVehicles / cars.length) * 100)
       : 0;
 
     // Fleet utilization: days booked this month / (cars * days elapsed)
@@ -223,11 +241,22 @@ export const getRevenueAnalytics = async (req, res) => {
     const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
 
     const now = new Date();
+    const todayStart = startOfDay(now);
     const yearStart = new Date(now.getFullYear(), 0, 1);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
+
+    const prevWeekStart = new Date(weekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(monthStart.getTime() - 1);
+    const prevYearStart = new Date(now.getFullYear() - 1, 0, 1);
+    const prevYearEnd = new Date(yearStart.getTime() - 1);
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
     const eightWeeksAgo = new Date(now);
     eightWeeksAgo.setDate(now.getDate() - 56);
@@ -244,20 +273,84 @@ export const getRevenueAnalytics = async (req, res) => {
       monthlyGroups,
       yearlyGroups,
       weekSlice,
+      topVehicleGroups,
+      paidCount,
     ] = await Promise.all([
       Booking.aggregate([
         { $match: revenueMatch },
         {
           $group: {
             _id: null,
+            todayRevenue: {
+              $sum: { $cond: [{ $gte: ['$createdAt', todayStart] }, '$price', 0] },
+            },
+            yesterdayRevenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ['$createdAt', yesterdayStart] },
+                      { $lt: ['$createdAt', todayStart] },
+                    ],
+                  },
+                  '$price',
+                  0,
+                ],
+              },
+            },
             weeklyRevenue: {
               $sum: { $cond: [{ $gte: ['$createdAt', weekStart] }, '$price', 0] },
+            },
+            prevWeeklyRevenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ['$createdAt', prevWeekStart] },
+                      { $lt: ['$createdAt', weekStart] },
+                    ],
+                  },
+                  '$price',
+                  0,
+                ],
+              },
             },
             monthlyRevenue: {
               $sum: { $cond: [{ $gte: ['$createdAt', monthStart] }, '$price', 0] },
             },
+            prevMonthlyRevenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ['$createdAt', prevMonthStart] },
+                      { $lte: ['$createdAt', prevMonthEnd] },
+                    ],
+                  },
+                  '$price',
+                  0,
+                ],
+              },
+            },
             yearlyRevenue: {
               $sum: { $cond: [{ $gte: ['$createdAt', yearStart] }, '$price', 0] },
+            },
+            prevYearlyRevenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ['$createdAt', prevYearStart] },
+                      { $lte: ['$createdAt', prevYearEnd] },
+                    ],
+                  },
+                  '$price',
+                  0,
+                ],
+              },
+            },
+            monthBookingCount: {
+              $sum: { $cond: [{ $gte: ['$createdAt', monthStart] }, 1, 0] },
             },
           },
         },
@@ -312,6 +405,7 @@ export const getRevenueAnalytics = async (req, res) => {
           $group: {
             _id: { y: { $year: '$createdAt' }, m: { $month: '$createdAt' } },
             amount: { $sum: '$price' },
+            count: { $sum: 1 },
           },
         },
       ]),
@@ -324,7 +418,6 @@ export const getRevenueAnalytics = async (req, res) => {
           },
         },
       ]),
-      // Week buckets use JS weekKey — load only the last ~8 weeks of lean rows.
       Booking.find({
         owner: ownerId,
         status: { $in: revenueStatuses },
@@ -332,25 +425,76 @@ export const getRevenueAnalytics = async (req, res) => {
       })
         .select('price createdAt')
         .lean(),
+      Booking.aggregate([
+        { $match: { ...revenueMatch, car: { $ne: null } } },
+        {
+          $group: {
+            _id: '$car',
+            revenue: { $sum: '$price' },
+            rentals: { $sum: 1 },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: 'cars',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'car',
+          },
+        },
+        { $unwind: { path: '$car', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 1,
+            revenue: 1,
+            rentals: 1,
+            brand: '$car.brand',
+            model: '$car.model',
+            licensePlate: '$car.licensePlate',
+            category: '$car.category',
+          },
+        },
+      ]),
+      Booking.countDocuments({
+        owner: ownerId,
+        status: { $in: revenueStatuses },
+        paymentStatus: 'paid',
+      }),
     ]);
 
     const periods = periodTotals[0] || {};
     const life = lifetime[0] || {};
+    const bookingCount = life.bookingCount || 0;
+    const totalRevenue = life.totalRevenue || 0;
+    const averageRevenuePerRental = bookingCount > 0
+      ? Math.round((totalRevenue / bookingCount) * 100) / 100
+      : 0;
+
+    const pctChange = (current, previous) => {
+      const cur = Number(current) || 0;
+      const prev = Number(previous) || 0;
+      if (prev === 0) return cur > 0 ? 100 : 0;
+      return Math.round(((cur - prev) / prev) * 1000) / 10;
+    };
 
     const monthlyMap = new Map(
       monthlyGroups.map((g) => [
         `${g._id.y}-${String(g._id.m).padStart(2, '0')}`,
-        g.amount || 0,
+        { amount: g.amount || 0, count: g.count || 0 },
       ]),
     );
     const monthlyTrend = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = monthKey(d);
+      const row = monthlyMap.get(key) || { amount: 0, count: 0 };
       monthlyTrend.push({
         key,
         label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
-        amount: monthlyMap.get(key) || 0,
+        amount: row.amount,
+        count: row.count,
       });
     }
 
@@ -372,16 +516,40 @@ export const getRevenueAnalytics = async (req, res) => {
       yearlyTrend.push({ key: y, label: y, amount: yearlyMap.get(y) || 0 });
     }
 
+    const topVehicles = (topVehicleGroups || []).map((row) => ({
+      carId: row._id,
+      brand: row.brand || '',
+      model: row.model || '',
+      licensePlate: row.licensePlate || '',
+      category: row.category || '',
+      revenue: row.revenue || 0,
+      rentals: row.rentals || 0,
+    }));
+
     res.json({
       success: true,
       analytics: {
+        todayRevenue: periods.todayRevenue || 0,
+        yesterdayRevenue: periods.yesterdayRevenue || 0,
         weeklyRevenue: periods.weeklyRevenue || 0,
+        prevWeeklyRevenue: periods.prevWeeklyRevenue || 0,
         monthlyRevenue: periods.monthlyRevenue || 0,
+        prevMonthlyRevenue: periods.prevMonthlyRevenue || 0,
         yearlyRevenue: periods.yearlyRevenue || 0,
-        totalRevenue: life.totalRevenue || 0,
-        bookingCount: life.bookingCount || 0,
+        prevYearlyRevenue: periods.prevYearlyRevenue || 0,
+        monthBookingCount: periods.monthBookingCount || 0,
+        totalRevenue,
+        bookingCount,
+        paidBookingCount: paidCount || 0,
+        averageRevenuePerRental,
         onlineBookingCount: life.onlineBookingCount || 0,
         walkInBookingCount: life.walkInBookingCount || 0,
+        comparisons: {
+          todayVsYesterday: pctChange(periods.todayRevenue, periods.yesterdayRevenue),
+          weekVsPrev: pctChange(periods.weeklyRevenue, periods.prevWeeklyRevenue),
+          monthVsPrev: pctChange(periods.monthlyRevenue, periods.prevMonthlyRevenue),
+          yearVsPrev: pctChange(periods.yearlyRevenue, periods.prevYearlyRevenue),
+        },
         monthlyTrend,
         weeklyTrend,
         yearlyTrend,
@@ -389,6 +557,7 @@ export const getRevenueAnalytics = async (req, res) => {
         byChannel,
         onlineRevenue: life.onlineRevenue || 0,
         walkInRevenue: life.walkInRevenue || 0,
+        topVehicles,
       },
     });
   } catch (error) {

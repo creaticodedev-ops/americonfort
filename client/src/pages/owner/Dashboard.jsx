@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RevenueChart from '../../components/owner/RevenueChart'
+import RevenueEarningsOverview from '../../components/owner/RevenueEarningsOverview'
 import StatusBadge from '../../components/owner/StatusBadge'
 import {
   AdminPage,
@@ -74,23 +75,6 @@ const Dashboard = () => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwner, axios, canAccounting, canSignatures, period])
-
-  const statusDistribution = useMemo(() => {
-    const raw = analytics?.byStatus
-    if (!raw) return []
-    if (Array.isArray(raw)) {
-      return raw.map((row) => ({
-        key: row._id || row.status || row.key,
-        label: String(row._id || row.status || row.key || '').replace(/_/g, ' '),
-        value: Number(row.count ?? row.value ?? 0),
-      }))
-    }
-    return Object.entries(raw).map(([key, value]) => ({
-      key,
-      label: key.replace(/_/g, ' '),
-      value: Number(value) || 0,
-    }))
-  }, [analytics])
 
   const money = (n) =>
     `${currency}${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -374,35 +358,15 @@ const Dashboard = () => {
           </ul>
         </ChartCard>
 
-        <ChartCard title={t('admin.ops.reservationStatus')}>
-          {statusDistribution.length === 0 ? (
-            <EmptyState title={t('admin.ops.noDistribution')} description={t('admin.ops.noDistributionHint')} />
-          ) : (
-            <div className="space-y-2.5">
-              {statusDistribution.map((row) => {
-                const max = Math.max(1, ...statusDistribution.map((r) => r.value))
-                const pct = Math.round((row.value / max) * 100)
-                return (
-                  <div key={row.key}>
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-[var(--admin-fg-secondary)]">
-                      {t(`admin.status.${row.key}`) !== `admin.status.${row.key}`
-                        ? t(`admin.status.${row.key}`)
-                        : row.label}
-                    </span>
-                      <span className="tabular-nums font-medium text-[var(--admin-fg)]">{row.value}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[var(--admin-surface-2)] overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-[var(--admin-accent)]"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+        <ChartCard
+          title={t('admin.ops.earningsOverview')}
+          action={
+            <Link to="/owner/analytics" className="text-xs font-medium text-[var(--admin-accent)]">
+              {t('admin.ops.viewAnalytics')}
+            </Link>
+          }
+        >
+          <RevenueEarningsOverview analytics={analytics} currency={currency} />
         </ChartCard>
       </div>
 
