@@ -13,6 +13,7 @@ import {
   getOwnerCarById,
   getOwnerCars,
   getVehicleStats,
+  getFleetVehicleStats,
   toggleCarAvailability,
   toggleCarWebsiteVisibility,
   updateCar,
@@ -68,6 +69,7 @@ const gate = (perm, feature) => [
 
 ownerRouter.post("/add-car", ...gate('fleet', 'fleet'), upload.single("image"), handleMulterError, addCar);
 ownerRouter.get("/cars", ...gate('fleet', 'fleet'), getOwnerCars);
+ownerRouter.get("/vehicle-stats", ...gate('fleet', 'fleet'), getFleetVehicleStats);
 ownerRouter.get("/cars/:id", ...gate('fleet', 'fleet'), getOwnerCarById);
 ownerRouter.get("/cars/:id/stats", ...gate('fleet', 'fleet'), getVehicleStats);
 ownerRouter.get("/vehicles/:id", ...gate('fleet', 'fleet'), getOwnerCarById);

@@ -13,6 +13,7 @@ export {
   AdminFormCheckbox,
 } from './AdminForm'
 export { SegmentedControl, FilterBar, SearchInput, ChartCard } from './FilterBar'
+export { PeriodRangeFilter, rangeForPeriod, isoDateFromValue } from './PeriodRangeFilter'
 export { DirectorySearchSelect } from './DirectorySearchSelect'
 export { Icon, navIconForPath } from './adminIcons'
 export { DetailSection, DetailRow } from './DetailSection'

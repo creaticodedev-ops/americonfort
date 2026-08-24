@@ -20,6 +20,8 @@ export const StatCard = ({
   spark,
   onClick,
   to,
+  compact = false,
+  className = '',
 }) => {
   const deltaPositive = typeof delta === 'number' ? delta >= 0 : null
   const inner = (
@@ -48,7 +50,7 @@ export const StatCard = ({
     </>
   )
 
-  const cls = `admin-stat ${toneClass[tone] || ''} ${onClick || to ? 'admin-stat--interactive' : ''}`
+  const cls = `admin-stat ${toneClass[tone] || ''} ${compact ? 'admin-stat--sm' : ''} ${onClick || to ? 'admin-stat--interactive' : ''} ${className}`
 
   if (to) {
     return (

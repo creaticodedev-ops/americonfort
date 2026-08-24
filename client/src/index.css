@@ -924,7 +924,35 @@ body.nav-open {
   line-height: 1.15;
 }
 
-.admin-stat--success { border-color: color-mix(in srgb, var(--admin-success) 28%, var(--admin-border)); }
+.admin-stat--sm {
+  min-height: 0;
+  padding: 0.75rem 0.9rem;
+}
+
+.admin-stat--sm .admin-stat-value {
+  margin-top: 0.3rem;
+  font-size: 1.2rem;
+}
+
+.admin-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--admin-fg-secondary);
+}
+
+.admin-rank-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--admin-warning);
+}
+
+.admin-rank-dot--best { background: var(--admin-success); }
+.admin-rank-dot--average { background: var(--admin-warning); }
+.admin-rank-dot--under { background: var(--admin-danger); }
 .admin-stat--warning { border-color: color-mix(in srgb, var(--admin-warning) 28%, var(--admin-border)); }
 .admin-stat--danger { border-color: color-mix(in srgb, var(--admin-danger) 28%, var(--admin-border)); }
 .admin-stat--info { border-color: color-mix(in srgb, var(--admin-info) 28%, var(--admin-border)); }
