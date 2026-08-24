@@ -98,6 +98,7 @@ const CompleteBooking = () => {
   })
   const [detailsSaved, setDetailsSaved] = useState(true)
   const [savingDetails, setSavingDetails] = useState(false)
+  const [contractBlobUrl, setContractBlobUrl] = useState('')
 
   const c = booking?.completion
 
@@ -112,28 +113,7 @@ const CompleteBooking = () => {
         if (cancelled) return
 
         let bookingPayload = data.booking
-        const signatureOnly = Boolean(bookingPayload.signatureOnly)
-        const hasContract = Boolean(
-          bookingPayload.completion?.contractPdfUrl || bookingPayload.completion?.contractPreviewUrl,
-        )
-
-        // Walk-in signature page must show the contract immediately; fetch preview if missing.
-        if (signatureOnly && !bookingPayload.completion?.signatureComplete && !hasContract) {
-          try {
-            const preview = await api.get(`/api/booking-completion/${token}/contract-preview`)
-            if (preview.data?.success && preview.data.contractPdfUrl) {
-              bookingPayload = {
-                ...bookingPayload,
-                completion: {
-                  ...bookingPayload.completion,
-                  contractPdfUrl: preview.data.contractPdfUrl,
-                },
-              }
-            }
-          } catch {
-            /* preview endpoint may fail if no template — still allow signing UI */
-          }
-        }
+        const signatureOnlyMode = Boolean(bookingPayload.signatureOnly)
 
         setBooking(bookingPayload)
         setDetails({
@@ -162,9 +142,9 @@ const CompleteBooking = () => {
         setDetailsSaved(true)
         setError('')
 
-        if (signatureOnly && bookingPayload.completion?.signatureComplete) {
+        if (signatureOnlyMode && bookingPayload.completion?.signatureComplete) {
           setStep('done')
-        } else if (signatureOnly) {
+        } else if (signatureOnlyMode) {
           setStep('signature')
         } else if (bookingPayload.status === 'ready_for_pickup' || bookingPayload.completion?.completedAt) {
           setStep('done')
@@ -178,6 +158,27 @@ const CompleteBooking = () => {
         if (bookingPayload.completion?.identityType) {
           setIdentityType(bookingPayload.completion.identityType)
         }
+
+        // Walk-in: fetch PDF as blob so preview works even when /uploads is ephemeral
+        // and API CSP blocks cross-origin iframes.
+        if (signatureOnlyMode && token) {
+          try {
+            const pdfRes = await api.get(`/api/booking-completion/${token}/contract-preview`, {
+              params: { format: 'pdf' },
+              responseType: 'blob',
+              headers: { Accept: 'application/pdf' },
+            })
+            if (!cancelled && pdfRes.data instanceof Blob && pdfRes.data.size > 0) {
+              const objectUrl = URL.createObjectURL(pdfRes.data)
+              setContractBlobUrl((prev) => {
+                if (prev) URL.revokeObjectURL(prev)
+                return objectUrl
+              })
+            }
+          } catch {
+            /* template/PDF generation may fail — signing UI still available */
+          }
+        }
       } catch (err) {
         if (!cancelled) setError(getErrorMessage(err) || t('completion.invalidLink'))
       } finally {
@@ -190,6 +191,10 @@ const CompleteBooking = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reload only when token changes
   }, [token])
+
+  useEffect(() => () => {
+    if (contractBlobUrl) URL.revokeObjectURL(contractBlobUrl)
+  }, [contractBlobUrl])
 
   // Stripe return
   useEffect(() => {
@@ -404,13 +409,17 @@ const CompleteBooking = () => {
   const showSecondDriverSign = signatureOnly
     ? Boolean(booking?.secondDriver?.enabled)
     : details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
-  // Prefer token-gated stream endpoint (regenerates PDF if ephemeral disk lost the file).
+  // Prefer token-gated PDF stream (regenerates if ephemeral disk lost the file).
+  // Blob URL avoids API CSP frame-ancestors blocking cross-origin iframes.
   const streamedPreviewUrl = token
-    ? `${resolveApiBaseUrl()}/api/booking-completion/${token}/contract-pdf`
+    ? `${resolveApiBaseUrl()}/api/booking-completion/${token}/contract-preview?format=pdf`
     : ''
   const contractPreviewUrl = signatureOnly
-    ? (streamedPreviewUrl || c?.contractPdfUrl || c?.contractPreviewUrl || '')
+    ? (contractBlobUrl || streamedPreviewUrl || c?.contractPdfUrl || c?.contractPreviewUrl || '')
     : (c?.contractPdfUrl || c?.contractPreviewUrl || '')
+  const contractDownloadUrl = signatureOnly
+    ? (streamedPreviewUrl || c?.contractPdfUrl || c?.contractPreviewUrl || '')
+    : (c?.contractPdfUrl || '')
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#f5efe8_0%,_#faf8f5_45%,_#f0ebe4_100%)] pb-20">
@@ -680,14 +689,16 @@ const CompleteBooking = () => {
                   <div className="overflow-hidden rounded-2xl border border-borderColor bg-white mb-6">
                     <div className="flex items-center justify-between gap-3 border-b border-borderColor px-4 py-3">
                       <p className="text-sm font-medium text-ink">{t('completion.contractPreview')}</p>
-                      <a
-                        href={contractPreviewUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-medium text-primary hover:underline"
-                      >
-                        {t('completion.downloadContract')}
-                      </a>
+                      {contractDownloadUrl ? (
+                        <a
+                          href={contractDownloadUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          {t('completion.downloadContract')}
+                        </a>
+                      ) : null}
                     </div>
                     <iframe
                       title={t('completion.contractPreview')}
@@ -770,30 +781,32 @@ const CompleteBooking = () => {
                 <p><span className="font-medium text-ink">{t('confirmation.total')}:</span> {currency}{booking.price}</p>
               </div>
 
-              {c?.contractPdfUrl || streamedPreviewUrl ? (
+              {contractPreviewUrl || c?.contractPdfUrl ? (
                 <div className="mt-8 overflow-hidden rounded-2xl border border-borderColor bg-white text-left">
                   <div className="flex items-center justify-between gap-3 border-b border-borderColor px-4 py-3">
                     <p className="text-sm font-medium text-ink">{t('completion.contractPreview')}</p>
-                    <a
-                      href={streamedPreviewUrl || c.contractPdfUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-medium text-primary hover:underline"
-                    >
-                      {t('completion.downloadContract')}
-                    </a>
+                    {(contractDownloadUrl || c?.contractPdfUrl) && (
+                      <a
+                        href={contractDownloadUrl || c.contractPdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        {t('completion.downloadContract')}
+                      </a>
+                    )}
                   </div>
                   <iframe
                     title={t('completion.contractPreview')}
-                    src={streamedPreviewUrl || c.contractPdfUrl}
+                    src={contractPreviewUrl || c.contractPdfUrl}
                     className="h-[min(70vh,640px)] w-full bg-sand"
                   />
                 </div>
               ) : null}
 
               <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                {(c?.contractPdfUrl || streamedPreviewUrl) && (
-                  <a href={streamedPreviewUrl || c.contractPdfUrl} target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm">
+                {(contractDownloadUrl || c?.contractPdfUrl) && (
+                  <a href={contractDownloadUrl || c.contractPdfUrl} target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm">
                     {t('completion.downloadContract')}
                   </a>
                 )}

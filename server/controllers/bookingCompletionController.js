@@ -78,7 +78,7 @@ const publicBookingView = (booking, depositPercent, { token } = {}) => {
   // Token-gated stream URL — survives ephemeral /uploads disks and is iframe-safe.
   const streamedContractUrl =
     token && walkIn
-      ? `${apiBase || ""}/api/booking-completion/${token}/contract-pdf`
+      ? `${apiBase || ""}/api/booking-completion/${token}/contract-preview?format=pdf`
       : "";
 
   return {
@@ -189,15 +189,37 @@ export const getCompletionContractPreview = async (req, res) => {
     if (!isWalkInChannel(booking.channel)) {
       return res.status(403).json({ success: false, message: "Contract preview is not available for this reservation type" });
     }
-    await ensureWalkInContractPreview(booking);
+
+    const wantsPdf =
+      String(req.query.format || "").toLowerCase() === "pdf"
+      || String(req.headers.accept || "").includes("application/pdf");
+
+    let url = await ensureWalkInContractPreview(booking);
+    let filePath = resolveLocalUploadPath(url);
+    if (!filePath) {
+      url = await ensureWalkInContractPreview(booking, { force: true });
+      filePath = resolveLocalUploadPath(url);
+    }
+
+    if (wantsPdf) {
+      if (!filePath) {
+        return res.status(404).json({ success: false, message: "Contract PDF could not be generated" });
+      }
+      allowPdfFraming(res);
+      const name = `${booking.reservationId || "contract"}-preview`;
+      return streamPdfFile(res, filePath, name, { inline: true });
+    }
+
     const apiBase = (process.env.API_PUBLIC_URL || "").replace(/\/$/, "");
     res.json({
       success: true,
-      contractPdfUrl: `${apiBase}/api/booking-completion/${req.params.token}/contract-pdf`,
+      contractPdfUrl: `${apiBase}/api/booking-completion/${req.params.token}/contract-preview?format=pdf`,
     });
   } catch (error) {
     const status = error.code === "TOKEN_EXPIRED" ? 410 : 500;
-    res.status(status).json({ success: false, message: error.message || "Failed to load contract preview" });
+    if (!res.headersSent) {
+      res.status(status).json({ success: false, message: error.message || "Failed to load contract preview" });
+    }
   }
 };
 
