@@ -33,20 +33,22 @@ export const StatCard = ({
         ) : null}
       </div>
       <p className="admin-stat-value tabular-nums">{value}</p>
-      <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
-        {typeof delta === 'number' ? (
-          <span
-            className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
-              deltaPositive ? 'text-[var(--admin-success)]' : 'text-[var(--admin-danger)]'
-            }`}
-          >
-            <Icon name={deltaPositive ? 'trend-up' : 'trend-down'} className="h-3 w-3" />
-            {Math.abs(delta).toFixed(1)}%
-            {deltaLabel ? <span className="text-[var(--admin-fg-muted)] font-normal"> {deltaLabel}</span> : null}
-          </span>
-        ) : null}
-        {hint ? <p className="text-[11px] text-[var(--admin-fg-muted)] leading-snug">{hint}</p> : null}
-      </div>
+      {typeof delta === 'number' || hint ? (
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
+          {typeof delta === 'number' ? (
+            <span
+              className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
+                deltaPositive ? 'text-[var(--admin-success)]' : 'text-[var(--admin-danger)]'
+              }`}
+            >
+              <Icon name={deltaPositive ? 'trend-up' : 'trend-down'} className="h-3 w-3" />
+              {Math.abs(delta).toFixed(1)}%
+              {deltaLabel ? <span className="text-[var(--admin-fg-muted)] font-normal"> {deltaLabel}</span> : null}
+            </span>
+          ) : null}
+          {hint ? <p className="text-[11px] text-[var(--admin-fg-muted)] leading-snug">{hint}</p> : null}
+        </div>
+      ) : null}
     </>
   )
 

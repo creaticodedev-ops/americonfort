@@ -998,6 +998,42 @@ body.nav-open {
   margin-bottom: 1rem;
 }
 
+.admin-filter-bar--stack {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.admin-filter-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-filter-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-inline-start: auto;
+}
+
+.admin-filter-more {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--admin-border);
+}
+
+@media (min-width: 640px) {
+  .admin-filter-more {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .admin-search {
   display: inline-flex;
   align-items: center;
@@ -2637,6 +2673,44 @@ html[dir='rtl'] .admin-detail-section-chevron.is-open,
   min-height: 2rem;
   padding-inline: 0.65rem;
   font-size: 0.75rem;
+}
+
+.admin-fleet-thumb {
+  width: 5.25rem;
+  height: 3.5rem;
+  border-radius: calc(var(--admin-radius) + 1px);
+  object-fit: cover;
+  object-position: center;
+  background: var(--admin-surface-2);
+  flex-shrink: 0;
+  border: 1px solid var(--admin-border);
+}
+
+.admin-fleet-thumb--lg {
+  width: 6.5rem;
+  height: 4.35rem;
+}
+
+.admin-fleet-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--admin-fg-muted);
+}
+
+.admin-filter-bar .admin-form-control {
+  min-height: 2.25rem;
+  height: 2.25rem;
+  width: auto;
+  min-width: 8.5rem;
+  padding: 0 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.admin-filter-more .admin-form-control {
+  width: 100%;
+  min-width: 0;
 }
 
 .admin-btn--danger-text {

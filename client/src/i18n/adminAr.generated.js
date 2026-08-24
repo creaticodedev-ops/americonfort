@@ -399,7 +399,12 @@ export const adminAr = {
     "hideConfirm": "إخفاء \"{{name}}\" من الموقع العام ؟ تظل الحجوزات الحالية سليمة.",
     "statusAvailable": "متاح",
     "statusOffline": "من خلال المنافذ التقليدية",
-    "statusMaintenance": "قيد الصيانة"
+    "statusMaintenance": "قيد الصيانة",
+    "moreFilters": "المزيد من عوامل التصفية",
+    "lessFilters": "عوامل تصفية أقل",
+    "websiteOn": "ظاهر",
+    "websiteOff": "مخفي",
+    "showingCount": "{{count}} مركبة"
   },
   "vehicleStats": {
     "title": "إحصائيات المركبات",
