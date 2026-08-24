@@ -275,10 +275,11 @@ export const computeVehiclePeriodMetrics = ({
   const durationSum = nonCancelled.reduce((sum, booking) => sum + bookingCalendarDays(booking), 0);
 
   const currentlyRented = bookings.some((booking) => {
-    if (booking.status === 'cancelled' || booking.status === 'completed') return false;
+    // Align with ops fleet snapshot: vehicle is out once pickup started and rental isn't closed
+    if (!['ready_for_pickup', 'active'].includes(booking.status)) return false;
     const span = bookingSpan(booking);
     if (!span) return false;
-    return span.start <= now && span.end >= now && ACTIVE_BOOKING_STATUSES.includes(booking.status);
+    return span.start <= now;
   });
 
   const lastInPeriod = [...nonCancelled]
