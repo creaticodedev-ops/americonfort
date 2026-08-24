@@ -38,11 +38,52 @@ export const resolveVehicleDeliveryDriverLabel = (booking) => {
   return legacy;
 };
 
+/**
+ * Overlay broker / delivery-driver refs only.
+ * Never replace the whole booking — a lean re-fetch would depopulate `car`
+ * and wipe inlined completion signature data URIs used for PDF embedding.
+ */
+export const mergeOperationalRefsOntoBooking = (booking, refsDoc) => {
+  if (!booking) return booking;
+  if (!refsDoc) return booking;
+  return {
+    ...booking,
+    brokerReferrerSamsar: refsDoc.brokerReferrerSamsar ?? booking.brokerReferrerSamsar,
+    brokerReferrerPartner: refsDoc.brokerReferrerPartner ?? booking.brokerReferrerPartner,
+    vehicleDeliveryDriverChauffeur:
+      refsDoc.vehicleDeliveryDriverChauffeur ?? booking.vehicleDeliveryDriverChauffeur,
+    brokerReferrer: booking.brokerReferrer || refsDoc.brokerReferrer || '',
+    vehicleDeliveryDriver: booking.vehicleDeliveryDriver || refsDoc.vehicleDeliveryDriver || '',
+  };
+};
+
 export const populateOperationalRefs = async (booking) => {
   if (!booking?._id || !mongoose.isValidObjectId(booking._id)) return booking;
-  const doc = await Booking.findById(booking._id).populate(OPERATIONAL_REF_POPULATE).lean();
+  const doc = await Booking.findById(booking._id)
+    .select(
+      'brokerReferrerSamsar brokerReferrerPartner vehicleDeliveryDriverChauffeur brokerReferrer vehicleDeliveryDriver',
+    )
+    .populate(OPERATIONAL_REF_POPULATE)
+    .lean();
   if (!doc) return booking;
-  return { ...booking, ...doc };
+  return mergeOperationalRefsOntoBooking(booking, doc);
+};
+
+/** Ensure `booking.car` is a vehicle document, not a bare ObjectId. */
+export const ensureCarPopulated = async (booking) => {
+  if (!booking) return booking;
+  const car = booking.car;
+  const populated =
+    car &&
+    typeof car === 'object' &&
+    (car.brand || car.model || car.licensePlate || car.category || car.fuel_type);
+  if (populated) return booking;
+  const id = car && typeof car === 'object' ? car._id : car;
+  if (!id || !mongoose.isValidObjectId(id)) return booking;
+  const { default: Car } = await import('../models/Car.js');
+  const full = await Car.findById(id).lean();
+  if (!full) return booking;
+  return { ...booking, car: full };
 };
 
 export const resolveWalkInOperationalRefs = async ({

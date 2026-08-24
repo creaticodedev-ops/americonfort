@@ -225,6 +225,10 @@ export const buildContractStructuredFromBooking = (booking, {
     vehicleYear: pick(car.year, variables.car_year),
     vehiclePlate: pick(car.licensePlate, car.registrationNumber, variables.car_registration),
     vehicleCategory: pick(car.category, variables.car_category),
+    vehicleFuel: pick(car.fuel_type, car.fuelType, variables.car_fuel),
+    vehicleTransmission: pick(car.transmission, variables.car_transmission),
+    brokerReferrer: pick(variables.broker_referrer),
+    vehicleDeliveryDriver: pick(variables.vehicle_delivery_driver),
     secondDriver: {
       enabled: Boolean(sd.enabled),
       fullName: sd.fullName || '',

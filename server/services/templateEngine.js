@@ -6,6 +6,7 @@ import {
   resolveBrokerReferrerLabel,
   resolveVehicleDeliveryDriverLabel,
   populateOperationalRefs,
+  ensureCarPopulated,
 } from '../utils/bookingOperationalRefs.js';
 
 export const TEMPLATE_VARIABLES = [
@@ -30,6 +31,8 @@ export const TEMPLATE_VARIABLES = [
   { key: 'car_year', label: 'Car Year', group: 'vehicle' },
   { key: 'car_category', label: 'Car Category', group: 'vehicle' },
   { key: 'car_registration', label: 'Registration', group: 'vehicle' },
+  { key: 'car_fuel', label: 'Fuel type', group: 'vehicle' },
+  { key: 'car_transmission', label: 'Transmission', group: 'vehicle' },
   { key: 'delivered_by', label: 'Delivered By', group: 'rental' },
   { key: 'received_by', label: 'Received By', group: 'rental' },
   { key: 'fuel_level_start', label: 'Fuel Level (Start)', group: 'rental' },
@@ -225,10 +228,22 @@ export const buildSecondDriverSection = (booking) => {
 /**
  * Build variable map from booking (+ car, owner, contract) for template substitution.
  */
+const resolveVehicleRecord = (booking) => {
+  const car = booking?.car;
+  if (
+    car &&
+    typeof car === 'object' &&
+    (car.brand || car.model || car.licensePlate || car.category || car.fuel_type || car.transmission)
+  ) {
+    return car;
+  }
+  return {};
+};
+
 export const buildTemplateVariables = (booking, { contractNumber, owner, agency = {}, template = {}, includeCompanyStamp = true } = {}) => {
   // Customer/rental fields live on the booking root; completion holds workflow URLs only.
   const mergedBooking = { ...(booking || {}) };
-  const car = mergedBooking?.car || {};
+  const car = resolveVehicleRecord(mergedBooking);
   const b = mergedBooking?.priceBreakdown || {};
   const currency = agency.currency || process.env.CURRENCY || 'MAD';
   const sd = mergedBooking?.secondDriver || {};
@@ -275,6 +290,8 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
       mergedBooking?.fleetId,
       mergedBooking?.vin,
     ].find((value) => value !== undefined && value !== null && String(value).trim() !== '') || '—',
+    car_fuel: firstNonEmpty(car, ['fuel_type', 'fuelType', 'fuel']) || '—',
+    car_transmission: firstNonEmpty(car, ['transmission', 'gearbox']) || '—',
     delivered_by: firstNonEmpty(mergedBooking, ['deliveredBy']) || '—',
     broker_referrer: resolveBrokerReferrerLabel(mergedBooking) || '—',
     vehicle_delivery_driver: resolveVehicleDeliveryDriverLabel(mergedBooking) || '—',
@@ -350,6 +367,14 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     carYear: values.car_year,
     carCategory: values.car_category,
     carRegistration: values.car_registration,
+    carFuel: values.car_fuel,
+    carTransmission: values.car_transmission,
+    fuel_type: values.car_fuel,
+    transmission: values.car_transmission,
+    vehicle_brand: values.car_brand,
+    vehicle_model: values.car_model,
+    vehicle_year: values.car_year,
+    vehicle_category: values.car_category,
     pickupDate: values.pickup_date,
     returnDate: values.return_date,
     pickupLocation: values.pickup_location,
@@ -387,7 +412,8 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
  */
 export const buildTemplateVariablesAsync = async (booking, options = {}) => {
   const readyBooking = await embedCompletionSignatures(booking);
-  const withRefs = await populateOperationalRefs(readyBooking);
+  const withCar = await ensureCarPopulated(readyBooking);
+  const withRefs = await populateOperationalRefs(withCar);
   return buildTemplateVariables(withRefs, options);
 };
 

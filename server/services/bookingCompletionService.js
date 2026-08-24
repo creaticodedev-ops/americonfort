@@ -295,7 +295,7 @@ export const ensureWalkInContractPreview = async (booking, { force = false } = {
  * When docs + payment + signature are done → Ready for Pickup + PDFs + final email.
  * Walk-in: signature only — keep status confirmed, generate signed contract PDF.
  */
-export const tryFinalizeBookingCompletion = async (bookingId) => {
+export const tryFinalizeBookingCompletion = async (bookingId, { inlineSignatures } = {}) => {
   let booking = await Booking.findById(bookingId).populate('car').populate('owner');
   if (!booking) return null;
 
@@ -320,6 +320,7 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
       && signedAt
       && signedPdfAt
       && signedPdfAt >= signedAt
+      && resolveLocalUploadPath(booking.completion.contractPdfUrl)
     ) {
       return { finalized: true, booking, flags, alreadyDone: true, walkIn: true };
     }
@@ -353,12 +354,25 @@ export const tryFinalizeBookingCompletion = async (bookingId) => {
     owner: ownerDoc || booking.owner,
     documentType: 'contracts',
   });
+  const bookingForPdf = (() => {
+    const obj = booking.toObject ? booking.toObject() : booking;
+    if (!inlineSignatures) return obj;
+    const completion = { ...(obj.completion || {}) };
+    if (String(inlineSignatures.signatureDataUrl || '').startsWith('data:image')) {
+      completion.signatureUrl = inlineSignatures.signatureDataUrl;
+    }
+    if (String(inlineSignatures.secondDriverSignatureDataUrl || '').startsWith('data:image')) {
+      completion.secondDriverSignatureUrl = inlineSignatures.secondDriverSignatureDataUrl;
+    }
+    return { ...obj, completion };
+  })();
+
   let persistedContract;
   try {
     // Never overwrite manually edited contracts during completion
     persistedContract = await upsertContractFromBooking({
       owner: booking.owner,
-      booking,
+      booking: bookingForPdf,
       user: booking.owner,
       template,
       includeCompanyStamp,
@@ -521,7 +535,12 @@ export const saveSignatureAndMaybeFinalize = async (
   refreshCompletionFlags(booking);
   booking.markModified('completion');
   await booking.save();
-  return tryFinalizeBookingCompletion(booking._id);
+  return tryFinalizeBookingCompletion(booking._id, {
+    inlineSignatures: {
+      signatureDataUrl,
+      secondDriverSignatureDataUrl,
+    },
+  });
 };
 
 export default {

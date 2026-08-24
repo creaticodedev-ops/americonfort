@@ -73,6 +73,10 @@ export const DEFAULT_CONTRACT_BODY = `
       <tr><td>Marque</td><td>{{car_make}}</td></tr>
       <tr><td>Immatriculation</td><td>{{car_registration}}</td></tr>
       <tr><td>Catégorie / Année</td><td>{{car_category}} / {{car_year}}</td></tr>
+      <tr><td>Carburant</td><td>{{car_fuel}}</td></tr>
+      <tr><td>Boîte de vitesses</td><td>{{car_transmission}}</td></tr>
+      <tr><td>Intermédiaire / Apporteur</td><td>{{broker_referrer}}</td></tr>
+      <tr><td>Chauffeur de livraison</td><td>{{vehicle_delivery_driver}}</td></tr>
       <tr><td>Livré par</td><td>{{delivered_by}}</td></tr>
       <tr><td>Réceptionné par</td><td>{{received_by}}</td></tr>
       <tr><td>Date / heure départ</td><td>{{pickup_date}}</td></tr>

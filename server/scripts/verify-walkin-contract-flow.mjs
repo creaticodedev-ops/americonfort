@@ -98,6 +98,8 @@ const WALK_IN = {
     pricePerDay: 600,
     securityDeposit: 5000,
     mileage: 45210,
+    fuel_type: 'Diesel',
+    transmission: 'Manual',
   },
   owner: { agencyName: 'HDN Car Test', email: 'agency@example.com' },
   completion: { signatureUrl: '', secondDriverSignatureUrl: '' },
@@ -140,6 +142,8 @@ const expectedPairs = [
   ['second_driver_name', 'Amine Benali'],
   ['second_driver_license', 'PERM-778899'],
   ['car_registration', '12345-A-6'],
+  ['car_fuel', 'Diesel'],
+  ['car_transmission', 'Manual'],
 ];
 
 for (const [key, expected] of expectedPairs) {
@@ -179,6 +183,8 @@ const mustAppearInHtml = [
   'Amine Benali',
   'PERM-778899',
   '12345-A-6',
+  'Diesel',
+  'Manual',
   'MAD 5000.00',
 ];
 
