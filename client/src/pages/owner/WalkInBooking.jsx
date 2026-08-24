@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AdminPage, PageHeader, DirectorySearchSelect } from '../../components/owner/ui'
+import { AdminPage, PageHeader, DirectorySearchSelect, AdminSearchSelect } from '../../components/owner/ui'
 import ChannelBadge from '../../components/owner/ChannelBadge'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
@@ -161,6 +161,51 @@ const WalkInBooking = () => {
     sublabel: c.phone || c.licenseNumber || '',
   })), [chauffeurs, t])
 
+  const vehicleOptions = useMemo(
+    () =>
+      cars.map((c) => {
+        const title = [c.brand, c.model].filter(Boolean).join(' ').trim() || '—'
+        const plate = String(c.licensePlate || '').trim()
+        const metaParts = [
+          c.pricePerDay != null ? `${currency}${c.pricePerDay}/day` : null,
+          c.branch || null,
+          c.fleetId ? String(c.fleetId) : null,
+        ].filter(Boolean)
+        return {
+          value: c._id,
+          label: title,
+          description: plate || t('admin.walkIn.noPlate'),
+          meta: metaParts.join(' · '),
+          searchText: [title, plate, c.fleetId, c.branch, c.category].filter(Boolean).join(' '),
+        }
+      }),
+    [cars, currency, t],
+  )
+
+  const fuelOptions = useMemo(
+    () => [
+      { value: '1/8', label: '1/8' },
+      { value: '1/4', label: '1/4' },
+      { value: '3/8', label: '3/8' },
+      { value: '1/2', label: '1/2' },
+      { value: '5/8', label: '5/8' },
+      { value: '3/4', label: '3/4' },
+      { value: '7/8', label: '7/8' },
+      { value: 'Full', label: t('admin.walkUi.fuelFull') },
+    ],
+    [t],
+  )
+
+  const statusOptions = useMemo(
+    () => [
+      { value: 'pending', label: t('admin.status.pending') },
+      { value: 'confirmed', label: t('admin.status.confirmed') },
+      { value: 'ready_for_pickup', label: t('admin.status.ready_for_pickup') },
+      { value: 'active', label: t('admin.walkUi.activeOut') },
+    ],
+    [t],
+  )
+
   const selectedCar = useMemo(() => cars.find((c) => c._id === form.car), [cars, form.car])
 
   useEffect(() => {
@@ -187,6 +232,17 @@ const WalkInBooking = () => {
     const citySet = new Set(cities.map((c) => c.toLowerCase()))
     return pickupLocations.filter((l) => citySet.has(String(l.city || '').toLowerCase()))
   }, [selectedCar, pickupLocations])
+
+  const locationOptions = useMemo(
+    () =>
+      bookableLocations.map((l) => ({
+        value: l._id,
+        label: l.city || l.name || '—',
+        description: l.name && l.city && l.name !== l.city ? l.name : (l.address || ''),
+        searchText: [l.city, l.name, l.address].filter(Boolean).join(' '),
+      })),
+    [bookableLocations],
+  )
 
   useEffect(() => {
     const ids = new Set(bookableLocations.map((l) => String(l._id)))
@@ -512,16 +568,16 @@ const WalkInBooking = () => {
           <Section title={t('admin.walkIn.rental')} subtitle={t('admin.walkIn.rentalHint')}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t('admin.walkIn.vehicle')} required className="sm:col-span-2">
-                <select className={input} required value={form.car} onChange={(e) => setField('car', e.target.value)}>
-                  <option value="">{t('admin.walkIn.selectVehicle')}</option>
-                  {cars.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.fleetId ? `[${c.fleetId}] ` : ''}{c.brand} {c.model} — {currency}{c.pricePerDay}/day
-                      {c.licensePlate ? ` · ${c.licensePlate}` : ''}
-                      {c.branch ? ` · ${c.branch}` : ''}
-                    </option>
-                  ))}
-                </select>
+                <AdminSearchSelect
+                  value={form.car}
+                  options={vehicleOptions}
+                  placeholder={t('admin.walkIn.selectVehicle')}
+                  emptyLabel={t('admin.walkIn.noVehicles')}
+                  searchable
+                  clearable
+                  onChange={(v) => setField('car', v)}
+                  aria-label={t('admin.walkIn.vehicle')}
+                />
               </Field>
               <Field label={t('admin.walkIn.pickup')} required>
                 <input type="datetime-local" className={input} required value={form.pickupDate} onChange={(e) => setField('pickupDate', e.target.value)} />
@@ -530,20 +586,28 @@ const WalkInBooking = () => {
                 <input type="datetime-local" className={input} required value={form.returnDate} onChange={(e) => setField('returnDate', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.pickupLoc')} required>
-                <select className={input} required value={form.pickupLocationId} onChange={(e) => setField('pickupLocationId', e.target.value)}>
-                  <option value="">{t('admin.walkIn.selectLoc')}</option>
-                  {bookableLocations.map((l) => (
-                    <option key={l._id} value={l._id}>{l.city} — {l.name}</option>
-                  ))}
-                </select>
+                <AdminSearchSelect
+                  value={form.pickupLocationId}
+                  options={locationOptions}
+                  placeholder={t('admin.walkIn.selectLoc')}
+                  emptyLabel={t('admin.walkIn.noLocations')}
+                  searchable
+                  clearable
+                  onChange={(v) => setField('pickupLocationId', v)}
+                  aria-label={t('admin.walkIn.pickupLoc')}
+                />
               </Field>
               <Field label={t('admin.walkIn.returnLoc')} required>
-                <select className={input} required value={form.returnLocationId} onChange={(e) => setField('returnLocationId', e.target.value)}>
-                  <option value="">{t('admin.walkIn.selectLoc')}</option>
-                  {bookableLocations.map((l) => (
-                    <option key={l._id} value={l._id}>{l.city} — {l.name}</option>
-                  ))}
-                </select>
+                <AdminSearchSelect
+                  value={form.returnLocationId}
+                  options={locationOptions}
+                  placeholder={t('admin.walkIn.selectLoc')}
+                  emptyLabel={t('admin.walkIn.noLocations')}
+                  searchable
+                  clearable
+                  onChange={(v) => setField('returnLocationId', v)}
+                  aria-label={t('admin.walkIn.returnLoc')}
+                />
               </Field>
               <Field label={t('admin.walkIn.notes')} className="sm:col-span-2">
                 <textarea rows={2} className={input} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />
@@ -559,6 +623,7 @@ const WalkInBooking = () => {
                   valueType={form.brokerReferrerType}
                   options={brokerOptions}
                   disabled={directoriesLoading}
+                  loading={directoriesLoading}
                   placeholder={t('admin.walkIn.brokerReferrerPlaceholder')}
                   emptyLabel={t('admin.walkIn.brokerReferrerEmpty')}
                   emptyHint={t('admin.walkIn.brokerReferrerEmptyHint')}
@@ -576,6 +641,7 @@ const WalkInBooking = () => {
                   value={form.vehicleDeliveryDriverId}
                   options={driverOptions}
                   disabled={directoriesLoading}
+                  loading={directoriesLoading}
                   placeholder={t('admin.walkIn.vehicleDeliveryDriverPlaceholder')}
                   emptyLabel={t('admin.walkIn.vehicleDeliveryDriverEmpty')}
                   emptyHint={t('admin.walkIn.vehicleDeliveryDriverEmptyHint')}
@@ -588,17 +654,15 @@ const WalkInBooking = () => {
                 />
               </Field>
               <Field label={t('admin.walkIn.fuelLevel')}>
-                <select className={input} value={form.fuelLevelStart} onChange={(e) => setField('fuelLevelStart', e.target.value)}>
-                  <option value="">{t('admin.walkIn.fuelSelect')}</option>
-                  <option value="1/8">1/8</option>
-                  <option value="1/4">1/4</option>
-                  <option value="3/8">3/8</option>
-                  <option value="1/2">1/2</option>
-                  <option value="5/8">5/8</option>
-                  <option value="3/4">3/4</option>
-                  <option value="7/8">7/8</option>
-                  <option value="Full">{t('admin.walkUi.fuelFull')}</option>
-                </select>
+                <AdminSearchSelect
+                  value={form.fuelLevelStart}
+                  options={fuelOptions}
+                  placeholder={t('admin.walkIn.fuelSelect')}
+                  searchable={false}
+                  clearable
+                  onChange={(v) => setField('fuelLevelStart', v)}
+                  aria-label={t('admin.walkIn.fuelLevel')}
+                />
               </Field>
               <Field label={t('admin.walkIn.franchiseAmount')}>
                 <input type="number" min={0} className={input} value={form.franchiseAmount} onChange={(e) => setField('franchiseAmount', e.target.value)} />
@@ -660,12 +724,14 @@ const WalkInBooking = () => {
         <aside className="lg:col-span-4 space-y-4 lg:sticky lg:top-24 self-start">
           <Section title={t('admin.walkIn.options')}>
             <Field label={t('admin.walkIn.initialStatus')}>
-              <select className={input} value={form.status} onChange={(e) => setField('status', e.target.value)}>
-                <option value="pending">{t('admin.status.pending')}</option>
-                <option value="confirmed">{t('admin.status.confirmed')}</option>
-                <option value="ready_for_pickup">{t('admin.status.ready_for_pickup')}</option>
-                <option value="active">{t('admin.walkUi.activeOut')}</option>
-              </select>
+              <AdminSearchSelect
+                value={form.status}
+                options={statusOptions}
+                searchable={false}
+                clearable={false}
+                onChange={(v) => setField('status', v || 'confirmed')}
+                aria-label={t('admin.walkIn.initialStatus')}
+              />
             </Field>
             <label className="flex items-center gap-2 text-sm text-ink">
               <input type="checkbox" checked={form.markPaid} onChange={(e) => setField('markPaid', e.target.checked)} />

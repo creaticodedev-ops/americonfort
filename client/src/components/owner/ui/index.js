@@ -15,6 +15,7 @@ export {
 export { SegmentedControl, FilterBar, SearchInput, ChartCard } from './FilterBar'
 export { PeriodRangeFilter, rangeForPeriod, isoDateFromValue } from './PeriodRangeFilter'
 export { DirectorySearchSelect } from './DirectorySearchSelect'
+export { AdminSearchSelect } from './AdminSearchSelect'
 export { Icon, navIconForPath } from './adminIcons'
 export { DetailSection, DetailRow } from './DetailSection'
 export { AdminActionsMenuPanel } from './AdminActionsMenu'
