@@ -56,6 +56,90 @@ const ClientDocuments = () => {
     return params.toString();
   }, [applied]);
 
+  const documentTypeLabel = useCallback((value) => {
+    if (value === 'all') return t('admin.clientDocuments.filterDocTypeAll');
+    return t(DOC_TYPE_LABELS[value] || DOC_TYPE_LABELS.other);
+  }, [t]);
+
+  const channelLabel = useCallback((value) => {
+    if (value === 'walk_in') return t('admin.clientDocuments.filterWalkIn');
+    if (value === 'online') return t('admin.clientDocuments.filterOnline');
+    return t('admin.clientDocuments.filterChannelAll');
+  }, [t]);
+
+  const docStatusLabel = useCallback((value) => {
+    if (value === 'available') return t('admin.clientDocuments.filterAvailable');
+    if (value === 'missing') return t('admin.clientDocuments.filterMissing');
+    return t('admin.clientDocuments.filterStatusAll');
+  }, [t]);
+
+  const dateLabel = useCallback((value) => {
+    if (value === 'today') return t('admin.clientDocuments.filterDateToday');
+    if (value === 'week') return t('admin.clientDocuments.filterDateWeek');
+    if (value === 'month') return t('admin.clientDocuments.filterDateMonth');
+    return t('admin.clientDocuments.filterDateAll');
+  }, [t]);
+
+  const sortLabel = useCallback((value) => {
+    if (value === 'name') return t('admin.clientDocuments.sortName');
+    if (value === 'documents') return t('admin.clientDocuments.sortDocuments');
+    if (value === 'reservations') return t('admin.clientDocuments.sortReservations');
+    return t('admin.clientDocuments.sortUpdated');
+  }, [t]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    if (applied.search?.trim()) {
+      chips.push({
+        key: 'search',
+        label: t('admin.clientDocuments.chipSearch', { q: applied.search.trim() }),
+        clearTo: '',
+      });
+    }
+    if (applied.documentType !== 'all') {
+      chips.push({
+        key: 'documentType',
+        label: t('admin.clientDocuments.chipDocType', { value: documentTypeLabel(applied.documentType) }),
+        clearTo: 'all',
+      });
+    }
+    if (applied.channel !== 'all') {
+      chips.push({
+        key: 'channel',
+        label: t('admin.clientDocuments.chipChannel', { value: channelLabel(applied.channel) }),
+        clearTo: 'all',
+      });
+    }
+    if (applied.docStatus !== emptyFilters.docStatus) {
+      chips.push({
+        key: 'docStatus',
+        label: t('admin.clientDocuments.chipStatus', { value: docStatusLabel(applied.docStatus) }),
+        clearTo: emptyFilters.docStatus,
+      });
+    }
+    if (applied.datePreset !== 'all') {
+      chips.push({
+        key: 'datePreset',
+        label: t('admin.clientDocuments.chipDate', { value: dateLabel(applied.datePreset) }),
+        clearTo: 'all',
+      });
+    }
+    if (applied.sortBy !== emptyFilters.sortBy) {
+      chips.push({
+        key: 'sortBy',
+        label: t('admin.clientDocuments.chipSort', { value: sortLabel(applied.sortBy) }),
+        clearTo: emptyFilters.sortBy,
+      });
+    }
+    return chips;
+  }, [applied, t, documentTypeLabel, channelLabel, docStatusLabel, dateLabel, sortLabel]);
+
+  const hasActiveFilters = activeFilterChips.length > 0;
+  const draftDirty = useMemo(
+    () => JSON.stringify(filters) !== JSON.stringify(applied),
+    [filters, applied],
+  );
+
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
     try {
@@ -94,6 +178,12 @@ const ClientDocuments = () => {
   const resetFilters = () => {
     setFilters(emptyFilters);
     setApplied(emptyFilters);
+  };
+
+  const removeChip = (key, clearTo) => {
+    const next = { ...applied, [key]: clearTo };
+    setFilters(next);
+    setApplied(next);
   };
 
   const openDetail = async (row) => {
@@ -141,6 +231,9 @@ const ClientDocuments = () => {
     { key: 'recentlyUpdated', label: t('admin.clientDocuments.statRecent'), value: stats?.recentlyUpdated ?? 0 },
   ];
 
+  const selectClass = (isActive) =>
+    `admin-form-control admin-filter-select${isActive ? ' is-filtered' : ''}`;
+
   return (
     <AdminPage>
       <PageHeader
@@ -184,23 +277,32 @@ const ClientDocuments = () => {
         ))}
       </div>
 
-      <form onSubmit={applyFilters} className="admin-panel mb-4">
-        <div className="admin-panel-header flex-col items-start gap-1">
-          <h2 className="admin-panel-title">{t('admin.clientDocuments.filtersTitle')}</h2>
-          <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.filtersHint')}</p>
+      <form onSubmit={applyFilters} className="admin-docs-filters mb-4">
+        <div className="admin-docs-filters__head">
+          <div>
+            <h2 className="admin-docs-filters__title">{t('admin.clientDocuments.filtersTitle')}</h2>
+            <p className="admin-docs-filters__hint">{t('admin.clientDocuments.filtersHint')}</p>
+          </div>
+          {hasActiveFilters && (
+            <span className="admin-docs-filters__count">
+              {t('admin.clientDocuments.activeCount', { count: activeFilterChips.length })}
+            </span>
+          )}
         </div>
-        <div className="admin-panel-body space-y-4">
-          <FilterBar>
+
+        <FilterBar className="admin-filter-bar--stack !mb-0 !border-0 !bg-transparent !p-0">
+          <div className="admin-filter-bar-row">
             <SearchInput
               value={filters.search}
               onChange={(v) => setFilters((f) => ({ ...f, search: v }))}
               placeholder={t('admin.clientDocuments.searchPlaceholder')}
-              className="min-w-[min(100%,280px)] flex-1"
+              className={`min-w-[min(100%,280px)] flex-1${filters.search?.trim() ? ' is-filtered' : ''}`}
             />
             <select
-              className="admin-input admin-input--sm"
+              className={selectClass(filters.documentType !== 'all')}
               value={filters.documentType}
               onChange={(e) => setFilters((f) => ({ ...f, documentType: e.target.value }))}
+              aria-label={t('admin.clientDocuments.filterDocTypeAll')}
             >
               <option value="all">{t('admin.clientDocuments.filterDocTypeAll')}</option>
               <option value="combined">{t('admin.clientDocuments.typeCombined')}</option>
@@ -210,27 +312,30 @@ const ClientDocuments = () => {
               <option value="other">{t('admin.clientDocuments.typeOther')}</option>
             </select>
             <select
-              className="admin-input admin-input--sm"
+              className={selectClass(filters.channel !== 'all')}
               value={filters.channel}
               onChange={(e) => setFilters((f) => ({ ...f, channel: e.target.value }))}
+              aria-label={t('admin.clientDocuments.filterChannelAll')}
             >
               <option value="all">{t('admin.clientDocuments.filterChannelAll')}</option>
               <option value="walk_in">{t('admin.clientDocuments.filterWalkIn')}</option>
               <option value="online">{t('admin.clientDocuments.filterOnline')}</option>
             </select>
             <select
-              className="admin-input admin-input--sm"
+              className={selectClass(filters.docStatus !== emptyFilters.docStatus)}
               value={filters.docStatus}
               onChange={(e) => setFilters((f) => ({ ...f, docStatus: e.target.value }))}
+              aria-label={t('admin.clientDocuments.filterAvailable')}
             >
               <option value="available">{t('admin.clientDocuments.filterAvailable')}</option>
               <option value="missing">{t('admin.clientDocuments.filterMissing')}</option>
               <option value="all">{t('admin.clientDocuments.filterStatusAll')}</option>
             </select>
             <select
-              className="admin-input admin-input--sm"
+              className={selectClass(filters.datePreset !== 'all')}
               value={filters.datePreset}
               onChange={(e) => setFilters((f) => ({ ...f, datePreset: e.target.value }))}
+              aria-label={t('admin.clientDocuments.filterDateAll')}
             >
               <option value="all">{t('admin.clientDocuments.filterDateAll')}</option>
               <option value="today">{t('admin.clientDocuments.filterDateToday')}</option>
@@ -238,30 +343,68 @@ const ClientDocuments = () => {
               <option value="month">{t('admin.clientDocuments.filterDateMonth')}</option>
             </select>
             <select
-              className="admin-input admin-input--sm"
+              className={selectClass(filters.sortBy !== emptyFilters.sortBy)}
               value={filters.sortBy}
               onChange={(e) => setFilters((f) => ({ ...f, sortBy: e.target.value }))}
+              aria-label={t('admin.clientDocuments.sortUpdated')}
             >
               <option value="updated">{t('admin.clientDocuments.sortUpdated')}</option>
               <option value="name">{t('admin.clientDocuments.sortName')}</option>
               <option value="documents">{t('admin.clientDocuments.sortDocuments')}</option>
               <option value="reservations">{t('admin.clientDocuments.sortReservations')}</option>
             </select>
-          </FilterBar>
-          <div className="flex flex-wrap gap-2">
-            <button type="submit" className="admin-btn admin-btn--primary admin-btn--sm">
-              {t('admin.clientDocuments.applyFilters')}
-            </button>
-            <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={resetFilters}>
-              {t('admin.clientDocuments.resetFilters')}
+            <div className="admin-filter-bar-actions">
+              <button type="submit" className="admin-btn admin-btn--primary admin-btn--sm">
+                {t('admin.clientDocuments.applyFilters')}
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost admin-btn--sm"
+                onClick={resetFilters}
+                disabled={!hasActiveFilters && !draftDirty}
+              >
+                {t('admin.clientDocuments.resetFilters')}
+              </button>
+            </div>
+          </div>
+        </FilterBar>
+
+        {hasActiveFilters && (
+          <div className="admin-filter-active" role="status" aria-live="polite">
+            <span className="admin-filter-active__label">{t('admin.clientDocuments.activeFilters')}</span>
+            <div className="admin-filter-chips">
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className="admin-filter-chip"
+                  onClick={() => removeChip(chip.key, chip.clearTo)}
+                  title={t('admin.clientDocuments.removeFilter')}
+                >
+                  <span className="admin-filter-chip__text">{chip.label}</span>
+                  <span className="admin-filter-chip__x" aria-hidden="true">×</span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="admin-filter-active__clear"
+              onClick={resetFilters}
+            >
+              {t('admin.clientDocuments.clearAllFilters')}
             </button>
           </div>
-        </div>
+        )}
       </form>
 
       <div className="admin-panel">
         <div className="admin-panel-header">
           <h2 className="admin-panel-title">{t('admin.clientDocuments.listTitle')}</h2>
+          {!loading && (
+            <p className="text-xs text-[var(--admin-fg-muted)]">
+              {t('admin.clientDocuments.showingCount', { count: items.length })}
+            </p>
+          )}
         </div>
         <div className="admin-panel-body p-0 overflow-x-auto">
           {loading ? (
@@ -296,7 +439,7 @@ const ClientDocuments = () => {
                     </td>
                     <td>{row.customerPhone || '—'}</td>
                     <td>
-                      <span className="admin-badge admin-badge--success">{row.documentCount || 0}</span>
+                      <span className="admin-badge admin-badge--success">{row.documentCount ?? 0}</span>
                     </td>
                     <td>{row.reservationCount || row.bookingIds?.length || 0}</td>
                     <td>{formatDate(row.updatedAt)}</td>

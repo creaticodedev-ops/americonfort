@@ -160,24 +160,49 @@ export const getBookingDocumentUrl = async (req, res) => {
   }
 };
 
-/** Lookup existing client document by phone / ID (walk-in form). */
+/** Lookup existing client document by multi-signal identity (walk-in form). */
 export const lookupClientDocument = async (req, res) => {
   try {
     const { findClientDocumentMatch } = await import('../services/clientDocumentService.js');
-    const { phone, identityDocumentNumber, passportNumber, clientDocumentId } = req.query;
-    const match = await findClientDocumentMatch({
+    const {
+      phone,
+      customerName,
+      name,
+      identityDocumentNumber,
+      passportNumber,
+      clientDocumentId,
+    } = req.query;
+    const result = await findClientDocumentMatch({
       ownerId: req.user._id,
       phone,
+      customerName: customerName || name,
       identityDocumentNumber,
       passportNumber,
       clientDocumentId,
     });
-    if (!match?.documentUrl) {
-      return res.json({ success: true, found: false, document: null });
+
+    // Ambiguous shared-phone hits: do not auto-reuse — staff must upload / pick explicitly
+    if (result.ambiguous || !result.document?.documentUrl) {
+      return res.json({
+        success: true,
+        found: false,
+        ambiguous: Boolean(result.ambiguous),
+        document: null,
+        candidates: (result.candidates || []).slice(0, 5).map((c) => ({
+          _id: c._id,
+          customerName: c.customerName,
+          customerPhone: c.customerPhone,
+          identityDocumentNumber: c.identityDocumentNumber,
+          passportNumber: c.passportNumber,
+        })),
+      });
     }
+
+    const match = result.document;
     res.json({
       success: true,
       found: true,
+      ambiguous: false,
       document: {
         _id: match._id,
         customerName: match.customerName,

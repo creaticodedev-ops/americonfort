@@ -254,10 +254,12 @@ const WalkInBooking = () => {
     try {
       const params = new URLSearchParams()
       if (form.phone) params.set('phone', form.phone)
+      if (form.customerName) params.set('customerName', form.customerName)
       if (form.identityDocumentNumber) params.set('identityDocumentNumber', form.identityDocumentNumber)
       if (form.passportNumber) params.set('passportNumber', form.passportNumber)
       const { data } = await axios.get(`/api/bookings/owner/client-documents/lookup?${params}`)
-      if (data.success && data.found) {
+      // Only auto-reuse on a confident single match (shared phones without ID/name proof are ignored)
+      if (data.success && data.found && !data.ambiguous) {
         setExistingClientDoc(data.document)
       } else {
         setExistingClientDoc(null)
@@ -269,7 +271,7 @@ const WalkInBooking = () => {
     } finally {
       setLookupBusy(false)
     }
-  }, [axios, form.phone, form.identityDocumentNumber, form.passportNumber])
+  }, [axios, form.phone, form.customerName, form.identityDocumentNumber, form.passportNumber])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

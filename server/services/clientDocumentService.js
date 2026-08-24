@@ -2,7 +2,12 @@ import mongoose from 'mongoose';
 import ClientDocument from '../models/ClientDocument.js';
 import Booking from '../models/Booking.js';
 import { escapeRegex } from '../utils/listQuery.js';
-import { backfillClientDocumentsForOwner, normalizeClientPhone, buildCustomerKey } from './clientDocumentBackfill.js';
+import {
+  backfillClientDocumentsForOwner,
+  buildCustomerKey,
+  resolveClientDocumentForIdentity,
+} from './clientDocumentBackfill.js';
+import { identityFromFields, identityFromBooking } from './customerIdentity.js';
 
 const asObjectId = (id) => {
   if (!id) return null;
@@ -46,27 +51,46 @@ export const ensureClientDocumentsSynced = async (ownerId) => {
   return backfillClientDocumentsForOwner(ownerId);
 };
 
-export const findClientDocumentMatch = async ({ ownerId, phone, identityDocumentNumber, passportNumber, clientDocumentId }) => {
+/**
+ * Resolve a ClientDocument for lookup / reuse.
+ * Uses multi-signal identity scoring — shared phones are not auto-merged
+ * when names or official IDs indicate different people.
+ *
+ * @returns {{ document: object|null, ambiguous: boolean, candidates: object[], score: number }}
+ */
+export const findClientDocumentMatch = async ({
+  ownerId,
+  phone,
+  customerName,
+  name,
+  identityDocumentNumber,
+  passportNumber,
+  clientDocumentId,
+}) => {
   await ensureClientDocumentsSynced(ownerId);
   const owner = asObjectId(ownerId);
-  if (!owner) return null;
-
-  if (clientDocumentId && mongoose.isValidObjectId(clientDocumentId)) {
-    const byId = await ClientDocument.findOne({ _id: clientDocumentId, owner }).lean();
-    if (byId) return byId;
+  if (!owner) {
+    return { document: null, ambiguous: false, candidates: [], score: 0 };
   }
 
-  const phoneNorm = normalizeClientPhone(phone);
-  const cin = String(identityDocumentNumber || '').trim();
-  const passport = String(passportNumber || '').trim();
+  const identity = identityFromFields({
+    clientDocumentId,
+    name: customerName || name,
+    phone,
+    identityDocumentNumber,
+    passportNumber,
+  });
 
-  const or = [];
-  if (phoneNorm) or.push({ customerPhone: phoneNorm });
-  if (cin) or.push({ identityDocumentNumber: cin });
-  if (passport) or.push({ passportNumber: passport });
-  if (!or.length) return null;
+  const resolved = await resolveClientDocumentForIdentity(owner, identity, {
+    preferredId: clientDocumentId,
+  });
 
-  return ClientDocument.findOne({ owner, $or: or }).sort({ updatedAt: -1 }).lean();
+  return {
+    document: resolved.match || null,
+    ambiguous: Boolean(resolved.ambiguous),
+    candidates: resolved.candidates || [],
+    score: resolved.score || 0,
+  };
 };
 
 export const upsertClientDocumentFromWalkIn = async ({
@@ -81,9 +105,10 @@ export const upsertClientDocumentFromWalkIn = async ({
   const bookingId = booking._id || booking.id;
   if (!owner || !documentUrl) return null;
 
-  const phone = normalizeClientPhone(booking.customerPhone);
-  const cin = String(booking.identityDocumentNumber || '').trim();
-  const passport = String(booking.passportNumber || '').trim();
+  const identity = identityFromBooking(booking);
+  const phone = identity.phone;
+  const cin = identity.cin;
+  const passport = identity.passport;
   const legacyKey = `booking:${bookingId}:combined`;
   const now = new Date();
 
@@ -92,23 +117,20 @@ export const upsertClientDocumentFromWalkIn = async ({
     doc = await ClientDocument.findOne({ _id: existingClientDocumentId, owner });
   }
   if (!doc) {
-    doc = await ClientDocument.findOne({
-      owner,
-      $or: [
-        ...(phone ? [{ customerPhone: phone }] : []),
-        ...(cin ? [{ identityDocumentNumber: cin }] : []),
-        ...(passport ? [{ passportNumber: passport }] : []),
-      ],
-    }).sort({ updatedAt: -1 });
+    const resolved = await resolveClientDocumentForIdentity(owner, identity);
+    // Ambiguous shared-phone matches → create a new profile (safer than wrong merge)
+    if (resolved.match && !resolved.ambiguous) {
+      doc = await ClientDocument.findById(resolved.match._id);
+    }
   }
 
   if (!doc) {
     doc = new ClientDocument({
       owner,
-      customerKey: buildCustomerKey(booking),
+      customerKey: buildCustomerKey(identity),
       customerName: booking.customerName || '',
       customerPhone: phone,
-      customerEmail: String(booking.customerEmail || '').trim().toLowerCase(),
+      customerEmail: identity.email,
       identityDocumentNumber: cin,
       passportNumber: passport,
       files: [],
@@ -122,6 +144,14 @@ export const upsertClientDocumentFromWalkIn = async ({
   if (phone) doc.customerPhone = phone;
   if (cin) doc.identityDocumentNumber = cin;
   if (passport) doc.passportNumber = passport;
+  doc.customerKey = buildCustomerKey({
+    ...identity,
+    name: doc.customerName || identity.name,
+    phone: doc.customerPhone || identity.phone,
+    cin: doc.identityDocumentNumber || identity.cin,
+    passport: doc.passportNumber || identity.passport,
+    email: doc.customerEmail || identity.email,
+  });
 
   doc.files = doc.files || [];
   doc.syncedLegacyKeys = doc.syncedLegacyKeys || [];

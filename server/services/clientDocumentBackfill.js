@@ -2,8 +2,16 @@ import mongoose from 'mongoose';
 import ClientDocument from '../models/ClientDocument.js';
 import Booking from '../models/Booking.js';
 import { getDocumentUrls } from './customerDocuments.js';
-import { normalizeToE164 } from '../utils/phoneValidation.js';
 import { isOnlineChannel } from '../utils/bookingChannel.js';
+import {
+  normalizeClientPhone,
+  normalizeOfficialId,
+  normalizeEmail,
+  identityFromBooking,
+  buildCustomerKey,
+  pickBestIdentityMatch,
+  scoreIdentityMatch,
+} from './customerIdentity.js';
 
 const asObjectId = (id) => {
   if (!id) return null;
@@ -15,22 +23,70 @@ const asObjectId = (id) => {
   }
 };
 
-export const normalizeClientPhone = (phone) => {
-  const check = normalizeToE164(phone);
-  return check.valid ? check.e164 : String(phone || '').trim();
+export { normalizeClientPhone, buildCustomerKey };
+
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Load ClientDocument candidates for scoring (phone / email / official IDs). */
+export const loadIdentityCandidates = async (ownerId, identity) => {
+  const owner = asObjectId(ownerId);
+  if (!owner) return [];
+
+  const id = identity.phone !== undefined ? identity : identityFromBooking(identity);
+  const queries = [];
+
+  if (id.phone) queries.push(ClientDocument.find({ owner, customerPhone: id.phone }).limit(25).lean());
+  if (id.email) queries.push(ClientDocument.find({ owner, customerEmail: id.email }).limit(10).lean());
+  if (id.cin) {
+    const pattern = escapeRegex(id.cin).split('').join('\\s*');
+    queries.push(
+      ClientDocument.find({
+        owner,
+        identityDocumentNumber: { $regex: new RegExp(`^${pattern}$`, 'i') },
+      })
+        .limit(10)
+        .lean(),
+    );
+  }
+  if (id.passport) {
+    const pattern = escapeRegex(id.passport).split('').join('\\s*');
+    queries.push(
+      ClientDocument.find({
+        owner,
+        passportNumber: { $regex: new RegExp(`^${pattern}$`, 'i') },
+      })
+        .limit(10)
+        .lean(),
+    );
+  }
+
+  if (!queries.length) return [];
+
+  const batches = await Promise.all(queries);
+  const byId = new Map();
+  for (const batch of batches) {
+    for (const doc of batch) byId.set(String(doc._id), doc);
+  }
+  return [...byId.values()];
 };
 
-/** Stable grouping key for one customer profile within an agency. */
-export const buildCustomerKey = (booking) => {
-  const phone = normalizeClientPhone(booking.customerPhone);
-  if (phone) return `phone:${phone}`;
-  const cin = String(booking.identityDocumentNumber || '').trim().toLowerCase();
-  if (cin) return `cin:${cin}`;
-  const passport = String(booking.passportNumber || '').trim().toLowerCase();
-  if (passport) return `passport:${passport}`;
-  const email = String(booking.customerEmail || '').trim().toLowerCase();
-  if (email) return `email:${email}`;
-  return `booking:${booking._id}`;
+export const resolveClientDocumentForIdentity = async (ownerId, identity, { preferredId = null } = {}) => {
+  const owner = asObjectId(ownerId);
+  if (!owner) return { match: null, ambiguous: false, candidates: [], score: 0 };
+
+  if (preferredId && mongoose.isValidObjectId(preferredId)) {
+    const linked = await ClientDocument.findOne({ _id: preferredId, owner }).lean();
+    if (linked) return { match: linked, ambiguous: false, candidates: [linked], score: 1000 };
+  }
+
+  const id = identity.phone !== undefined ? identity : identityFromBooking(identity);
+  if (id.clientDocumentId && mongoose.isValidObjectId(id.clientDocumentId)) {
+    const linked = await ClientDocument.findOne({ _id: id.clientDocumentId, owner }).lean();
+    if (linked) return { match: linked, ambiguous: false, candidates: [linked], score: 1000 };
+  }
+
+  const candidates = await loadIdentityCandidates(owner, id);
+  return pickBestIdentityMatch(id, candidates);
 };
 
 const parseUploadedAt = (booking) =>
@@ -96,29 +152,13 @@ const bookingHasDocumentsQuery = {
 };
 
 const findClientForBooking = async (owner, booking) => {
-  if (booking.clientDocument) {
-    const linked = await ClientDocument.findOne({ _id: booking.clientDocument, owner });
-    if (linked) return linked;
-  }
-
-  const phone = normalizeClientPhone(booking.customerPhone);
-  const cin = String(booking.identityDocumentNumber || '').trim();
-  const passport = String(booking.passportNumber || '').trim();
-  const email = String(booking.customerEmail || '').trim().toLowerCase();
-
-  const or = [];
-  if (phone) or.push({ customerPhone: phone });
-  if (cin) or.push({ identityDocumentNumber: cin });
-  if (passport) or.push({ passportNumber: passport });
-  if (email) or.push({ customerEmail: email });
-
-  if (or.length) {
-    const existing = await ClientDocument.findOne({ owner, $or: or }).sort({ updatedAt: -1 });
-    if (existing) return existing;
-  }
-
-  const customerKey = buildCustomerKey(booking);
-  return ClientDocument.findOne({ owner, customerKey });
+  const identity = identityFromBooking(booking);
+  const resolved = await resolveClientDocumentForIdentity(owner, identity, {
+    preferredId: booking.clientDocument,
+  });
+  if (!resolved.match) return null;
+  // Return mongoose document for mutation
+  return ClientDocument.findById(resolved.match._id);
 };
 
 const mergeFileIntoClient = (client, file) => {
@@ -146,19 +186,25 @@ const mergeFileIntoClient = (client, file) => {
 };
 
 const refreshClientDerivedFields = (client, booking) => {
+  const identity = identityFromBooking(booking);
+
   if (booking.customerName?.trim()) {
     client.customerName = booking.customerName.trim();
   }
-  const phone = normalizeClientPhone(booking.customerPhone);
-  if (phone) client.customerPhone = phone;
-  const cin = String(booking.identityDocumentNumber || '').trim();
-  if (cin) client.identityDocumentNumber = cin;
-  const passport = String(booking.passportNumber || '').trim();
-  if (passport) client.passportNumber = passport;
-  const email = String(booking.customerEmail || '').trim().toLowerCase();
-  if (email) client.customerEmail = email;
+  if (identity.phone) client.customerPhone = identity.phone;
+  if (identity.cin) client.identityDocumentNumber = identity.cin;
+  if (identity.passport) client.passportNumber = identity.passport;
+  if (identity.email) client.customerEmail = identity.email;
 
-  client.customerKey = client.customerKey || buildCustomerKey(booking);
+  // Prefer official-ID-based keys once available
+  client.customerKey = buildCustomerKey({
+    ...identity,
+    name: client.customerName || identity.name,
+    phone: client.customerPhone || identity.phone,
+    cin: client.identityDocumentNumber || identity.cin,
+    passport: client.passportNumber || identity.passport,
+    email: client.customerEmail || identity.email,
+  });
 
   const bookingId = booking._id;
   client.bookingIds = client.bookingIds || [];
@@ -206,14 +252,15 @@ export const backfillClientDocumentsForOwner = async (ownerId) => {
 
     let client = await findClientForBooking(owner, booking);
     if (!client) {
+      const identity = identityFromBooking(booking);
       client = new ClientDocument({
         owner,
-        customerKey: buildCustomerKey(booking),
+        customerKey: buildCustomerKey(identity),
         customerName: booking.customerName || '',
-        customerPhone: normalizeClientPhone(booking.customerPhone),
-        customerEmail: String(booking.customerEmail || '').trim().toLowerCase(),
-        identityDocumentNumber: String(booking.identityDocumentNumber || '').trim(),
-        passportNumber: String(booking.passportNumber || '').trim(),
+        customerPhone: identity.phone,
+        customerEmail: identity.email,
+        identityDocumentNumber: identity.cin,
+        passportNumber: identity.passport,
         files: [],
         syncedLegacyKeys: [],
         bookingIds: [],
@@ -231,7 +278,7 @@ export const backfillClientDocumentsForOwner = async (ownerId) => {
 
     refreshClientDerivedFields(client, booking);
 
-    if (added || !client.isNew) {
+    if (added || client.isNew || client.isModified()) {
       await client.save();
       if (!booking.clientDocument || String(booking.clientDocument) !== String(client._id)) {
         await Booking.updateOne({ _id: booking._id }, { $set: { clientDocument: client._id } });
@@ -266,4 +313,12 @@ export const backfillClientDocumentsForOwner = async (ownerId) => {
   return { processed: bookings.length, created, updated };
 };
 
-export default { backfillClientDocumentsForOwner, extractBookingDocumentFiles, buildCustomerKey };
+export default {
+  backfillClientDocumentsForOwner,
+  extractBookingDocumentFiles,
+  buildCustomerKey,
+  normalizeClientPhone,
+  resolveClientDocumentForIdentity,
+  loadIdentityCandidates,
+  scoreIdentityMatch,
+};
