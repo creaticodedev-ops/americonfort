@@ -1330,11 +1330,6 @@ body.nav-open {
 }
 
 .admin-ss__panel {
-  position: absolute;
-  z-index: 50;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  right: 0;
   overflow: hidden;
   border-radius: calc(var(--admin-radius) + 2px);
   border: 1px solid color-mix(in srgb, var(--admin-accent) 18%, var(--admin-border));
@@ -1342,6 +1337,23 @@ body.nav-open {
   box-shadow:
     0 12px 28px -12px color-mix(in srgb, var(--admin-fg) 28%, transparent),
     0 4px 10px -4px color-mix(in srgb, var(--admin-fg) 12%, transparent);
+}
+
+/* Portaled above cards/modals — escapes .admin-panel { overflow: hidden } */
+.admin-ss__panel--portal {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overscroll-behavior: contain;
+  isolation: isolate;
+}
+
+.admin-ss__panel--portal .admin-ss__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
 }
 
 .admin-ss__search {
@@ -1486,12 +1498,16 @@ body.nav-open {
 }
 
 @media (max-width: 639px) {
-  .admin-ss__panel {
-    max-width: 100%;
+  .admin-ss__panel--portal {
+    max-width: calc(100vw - 1rem);
   }
 
   .admin-ss__list {
     max-height: min(14rem, 45vh);
+  }
+
+  .admin-ss__panel--portal .admin-ss__list {
+    max-height: none;
   }
 }
 
