@@ -169,6 +169,10 @@ const CompleteBooking = () => {
               headers: { Accept: 'application/pdf' },
             })
             if (!cancelled && pdfRes.data instanceof Blob && pdfRes.data.size > 0) {
+              const type = String(pdfRes.data.type || pdfRes.headers?.['content-type'] || '')
+              if (type && !type.includes('pdf') && !type.includes('octet-stream')) {
+                throw new Error('Unexpected contract preview response')
+              }
               const objectUrl = URL.createObjectURL(pdfRes.data)
               setContractBlobUrl((prev) => {
                 if (prev) URL.revokeObjectURL(prev)
@@ -415,7 +419,7 @@ const CompleteBooking = () => {
     ? `${resolveApiBaseUrl()}/api/booking-completion/${token}/contract-preview?format=pdf`
     : ''
   const contractPreviewUrl = signatureOnly
-    ? (contractBlobUrl || streamedPreviewUrl || c?.contractPdfUrl || c?.contractPreviewUrl || '')
+    ? (contractBlobUrl || '')
     : (c?.contractPdfUrl || c?.contractPreviewUrl || '')
   const contractDownloadUrl = signatureOnly
     ? (streamedPreviewUrl || c?.contractPdfUrl || c?.contractPreviewUrl || '')
@@ -705,6 +709,21 @@ const CompleteBooking = () => {
                       src={contractPreviewUrl}
                       className="h-[min(55vh,520px)] w-full bg-sand"
                     />
+                  </div>
+                )}
+
+                {signatureOnly && !contractPreviewUrl && contractDownloadUrl && (
+                  <div className="mb-6 rounded-2xl border border-borderColor bg-white px-4 py-4">
+                    <p className="text-sm font-medium text-ink">{t('completion.contractPreview')}</p>
+                    <p className="mt-1 text-sm text-muted">{t('completion.walkInSignHint')}</p>
+                    <a
+                      href={contractDownloadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+                    >
+                      {t('completion.downloadContract')}
+                    </a>
                   </div>
                 )}
 
