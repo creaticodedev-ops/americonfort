@@ -12,11 +12,18 @@ loadExtendedLatinFonts()
 
 const CHUNK_RELOAD_KEY = 'americonfort:chunk-reload'
 
-const isChunkLoadError = (error) => {
+/** Detect Vite/React lazy-chunk failures after a deploy (404 hashed assets). */
+export const isChunkLoadError = (error) => {
   const msg = String(error?.message || error || '')
-  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed/i.test(
-    msg,
-  )
+  const stack = String(error?.stack || '')
+  if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed|Unable to preload CSS/i.test(msg)) {
+    return true
+  }
+  // React.lazy often surfaces a 404 chunk as: Cannot read properties of undefined (reading 'default')
+  if (/Cannot read propert(?:y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg)) {
+    return true
+  }
+  return false
 }
 
 const reloadOnceForStaleChunks = (reason) => {
@@ -35,7 +42,6 @@ const reloadOnceForStaleChunks = (reason) => {
   return true
 }
 
-// After a new deploy, cached HTML can reference deleted hashed chunks.
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault()
   reloadOnceForStaleChunks(event.payload || 'vite:preloadError')
@@ -55,7 +61,7 @@ window.setTimeout(() => {
   } catch {
     /* ignore */
   }
-}, 10_000)
+}, 15_000)
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter>

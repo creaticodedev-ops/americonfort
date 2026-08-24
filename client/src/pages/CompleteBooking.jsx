@@ -17,7 +17,7 @@ import {
   SectionCard,
   formInputOnLightClass,
 } from '../components/forms/PremiumFormUI'
-import { toDateInput } from '../utils/documentFormUtils'
+import { toDateInput } from '../utils/guestDateInput'
 
 const STEPS = ['documents', 'signature', 'done']
 

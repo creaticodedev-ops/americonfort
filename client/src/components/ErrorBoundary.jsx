@@ -3,9 +3,15 @@ import { Link } from 'react-router-dom';
 
 const isChunkLoadError = (error) => {
   const msg = String(error?.message || error || '');
-  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed/i.test(
-    msg,
-  );
+  const stack = String(error?.stack || '');
+  if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed|Unable to preload CSS/i.test(msg)) {
+    return true;
+  }
+  // React.lazy often wraps a missing chunk as undefined.default
+  if (/Cannot read propert(?:y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg)) {
+    return true;
+  }
+  return false;
 };
 
 class ErrorBoundary extends React.Component {
@@ -41,13 +47,20 @@ class ErrorBoundary extends React.Component {
           </h1>
           <p className="mt-2 text-gray-500 max-w-md">
             {this.state.chunkError
-              ? 'A new version was deployed. Please refresh to load the latest Admin modules.'
+              ? 'A new version was deployed. Please refresh to load the latest page.'
               : 'An unexpected error occurred. Please refresh the page or return home.'}
           </p>
           <div className="mt-6 flex gap-3">
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem('americonfort:chunk-reload');
+                } catch {
+                  /* ignore */
+                }
+                window.location.reload();
+              }}
               className="px-5 py-2 rounded-lg bg-primary text-white hover:bg-primary-dull"
             >
               Refresh
