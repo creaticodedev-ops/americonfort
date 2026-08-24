@@ -3,7 +3,13 @@ import ChannelBadge from '../ChannelBadge'
 import StatusBadge from '../StatusBadge'
 import BookingActionsMenu from './BookingActionsMenu'
 import BookingAttentionIndicators from './BookingAttentionIndicators'
-import { formatDateShort, resId } from './bookingUtils'
+import {
+  formatDateTimeCompact,
+  getBookingAttention,
+  locationShort,
+  resId,
+  vehicleTitle,
+} from './bookingUtils'
 
 const BookingOperationsTable = ({
   bookings,
@@ -23,53 +29,104 @@ const BookingOperationsTable = ({
           <th>{t('admin.bookings.reservation')}</th>
           <th>{t('admin.bookings.customer')}</th>
           <th>{t('admin.bookings.vehicle')}</th>
-          <th>{t('admin.bookings.dates')}</th>
+          <th>{t('admin.bookings.schedule')}</th>
           <th>{t('admin.bookings.status')}</th>
-          <th>{t('admin.bookings.paymentStatus')}</th>
-          <th>{t('admin.bookings.sign')}</th>
-          <th>{t('admin.bookings.total')}</th>
-          <th className="text-right">{t('admin.bookings.actions')}</th>
+          <th className="text-end">{t('admin.bookings.total')}</th>
+          <th className="text-end">{t('admin.bookings.actions')}</th>
         </tr>
       </thead>
       <tbody>
         {loading ? (
-          <tr><td colSpan={9} className="!p-4">{skeleton}</td></tr>
+          <tr>
+            <td colSpan={7} className="!p-4">
+              {skeleton}
+            </td>
+          </tr>
         ) : bookings.length === 0 ? (
-          <tr><td colSpan={9} className="!p-0">{emptyState}</td></tr>
+          <tr>
+            <td colSpan={7} className="!p-0">
+              {emptyState}
+            </td>
+          </tr>
         ) : (
           bookings.map((booking) => {
-            const sig = booking.completion?.signatureRequestStatus || (booking.completion?.signatureComplete ? 'signed' : 'none')
+            const { sigStatus, paymentOutstanding, signatureNeedsAttention } = getBookingAttention(booking)
+            const needsEye = paymentOutstanding || signatureNeedsAttention || booking.status === 'pending'
             return (
               <tr
                 key={booking._id}
-                className={selectedId === booking._id ? 'is-selected' : ''}
+                className={`${selectedId === booking._id ? 'is-selected' : ''}${needsEye ? ' is-attention' : ''}`}
                 onClick={() => onSelect(booking)}
               >
                 <td>
-                  <p className="font-medium text-[var(--admin-accent)]">{resId(booking)}</p>
-                  <ChannelBadge channel={booking.channel || 'online'} className="mt-0.5" />
-                  <BookingAttentionIndicators booking={booking} compact />
+                  <div className="admin-booking-cell-ref">
+                    <span className="admin-booking-cell-ref__id">{resId(booking)}</span>
+                    <div className="admin-booking-cell-ref__meta">
+                      <ChannelBadge channel={booking.channel || 'online'} />
+                      <BookingAttentionIndicators booking={booking} compact />
+                    </div>
+                  </div>
                 </td>
                 <td>
-                  <p className="font-medium truncate max-w-[9rem]">{booking.customerName || t('admin.common.guest')}</p>
-                  <p className="text-[11px] text-[var(--admin-fg-muted)] truncate max-w-[9rem]">{booking.customerPhone || '—'}</p>
+                  <div className="admin-booking-cell-person">
+                    <span className="admin-booking-cell-person__name">
+                      {booking.customerName || t('admin.common.guest')}
+                    </span>
+                    <span className="admin-booking-cell-person__sub">
+                      {booking.customerPhone || '—'}
+                    </span>
+                  </div>
                 </td>
                 <td>
-                  <p className="text-sm truncate max-w-[8rem]">{booking.car?.brand} {booking.car?.model}</p>
-                  {booking.car?.licensePlate && (
-                    <p className="text-[10px] text-[var(--admin-fg-muted)]">{booking.car.licensePlate}</p>
-                  )}
+                  <div className="admin-booking-cell-vehicle">
+                    <span className="admin-booking-cell-vehicle__title">{vehicleTitle(booking.car)}</span>
+                    {booking.car?.licensePlate ? (
+                      <span className="admin-booking-plate">{booking.car.licensePlate}</span>
+                    ) : null}
+                  </div>
                 </td>
-                <td className="text-[11px] text-[var(--admin-fg-secondary)] whitespace-nowrap">
-                  {formatDateShort(booking.pickupDate)}
-                  <br />
-                  <span className="text-[var(--admin-fg-muted)]">→ {formatDateShort(booking.returnDate)}</span>
+                <td>
+                  <div className="admin-booking-cell-schedule">
+                    <div className="admin-booking-cell-schedule__row">
+                      <span className="admin-booking-cell-schedule__tag is-out">
+                        {t('admin.bookings.outShort')}
+                      </span>
+                      <span className="admin-booking-cell-schedule__when">
+                        {formatDateTimeCompact(booking.pickupDate)}
+                      </span>
+                      <span className="admin-booking-cell-schedule__loc">
+                        {locationShort(booking.pickupLocation)}
+                      </span>
+                    </div>
+                    <div className="admin-booking-cell-schedule__row">
+                      <span className="admin-booking-cell-schedule__tag is-in">
+                        {t('admin.bookings.inShort')}
+                      </span>
+                      <span className="admin-booking-cell-schedule__when">
+                        {formatDateTimeCompact(booking.returnDate)}
+                      </span>
+                      <span className="admin-booking-cell-schedule__loc">
+                        {locationShort(booking.returnLocation)}
+                      </span>
+                    </div>
+                  </div>
                 </td>
-                <td><StatusBadge status={booking.status} /></td>
-                <td><StatusBadge status={booking.paymentStatus} /></td>
-                <td><StatusBadge status={sig} /></td>
-                <td className="tabular-nums font-medium whitespace-nowrap">{currency}{booking.price}</td>
-                <td className="align-middle" onClick={(e) => e.stopPropagation()}>
+                <td>
+                  <div className="admin-booking-cell-status">
+                    <StatusBadge status={booking.status} />
+                    <div className="admin-booking-cell-status__row">
+                      <StatusBadge status={booking.paymentStatus} />
+                      <StatusBadge status={sigStatus} />
+                    </div>
+                  </div>
+                </td>
+                <td className="text-end">
+                  <span className="admin-booking-cell-total tabular-nums">
+                    {currency}
+                    {Number(booking.price || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+                </td>
+                <td className="align-middle text-end" onClick={(e) => e.stopPropagation()}>
                   <BookingActionsMenu
                     t={t}
                     onView={() => onSelect(booking)}

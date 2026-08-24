@@ -1,4 +1,4 @@
-export { resId, formatDateTime, formatDateShort, formatDateRange, getBookingAttention } from './bookingUtils'
+export { resId, formatDateTime, formatDateShort, formatDateRange, getBookingAttention, applyOpsScope, resolveOpsScope } from './bookingUtils'
 export { default as BookingAttentionIndicators } from './BookingAttentionIndicators'
 export { default as BookingActionsMenu } from './BookingActionsMenu'
 export { default as BookingSignaturePanel } from './BookingSignaturePanel'

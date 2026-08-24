@@ -6,6 +6,7 @@ import {
   BookingOperationsTable,
   BookingCardList,
   formatDateTime,
+  applyOpsScope,
 } from '../../components/owner/booking'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
@@ -35,6 +36,7 @@ import {
 } from '../../components/owner/ui'
 
 const emptyFilters = {
+  search: '',
   customerName: '',
   phone: '',
   email: '',
@@ -47,6 +49,8 @@ const emptyFilters = {
   pickupLocation: '',
   pickupDateFrom: '',
   pickupDateTo: '',
+  returnDateFrom: '',
+  returnDateTo: '',
 }
 
 const emptyEdit = {
@@ -181,6 +185,13 @@ const ManageBookings = () => {
   const clearFilters = () => {
     setFilters(emptyFilters)
     setAppliedFilters(emptyFilters)
+    setPagination((prev) => ({ ...prev, page: 1 }))
+  }
+
+  const applyScope = (scopeId) => {
+    const next = applyOpsScope(filters, scopeId)
+    setFilters(next)
+    setAppliedFilters(next)
     setPagination((prev) => ({ ...prev, page: 1 }))
   }
 
@@ -642,7 +653,7 @@ const ManageBookings = () => {
     <AdminPage>
       <PageHeader
         title={t('admin.bookings.title')}
-        description={t('admin.bookings.subtitle')}
+        description={t('admin.bookings.subtitleOps')}
         actions={
           <>
             <Link to="/owner/walk-in" className="admin-btn admin-btn--secondary">
@@ -660,6 +671,7 @@ const ManageBookings = () => {
         onChange={setFilters}
         onApply={applyFilters}
         onClear={clearFilters}
+        onApplyScope={applyScope}
         showAdvanced={showFilters}
         onToggleAdvanced={() => setShowFilters((v) => !v)}
         total={pagination.total}
@@ -670,9 +682,11 @@ const ManageBookings = () => {
       <div className="admin-booking-workspace">
         <div className="admin-booking-list-panel">
           {loading && bookings.length === 0 ? (
-            <div className="p-4"><SkeletonRows rows={6} /></div>
+            <div className="admin-booking-list-loading">
+              <SkeletonRows rows={7} />
+            </div>
           ) : bookings.length === 0 ? (
-            <div className="p-4">{listEmpty}</div>
+            <div className="admin-booking-list-empty">{listEmpty}</div>
           ) : (
             <>
               <BookingCardList
@@ -698,7 +712,7 @@ const ManageBookings = () => {
               </div>
             </>
           )}
-          <div className="border-t border-[var(--admin-border)] px-3 py-2">
+          <div className="admin-booking-pagination">
             <Pagination
               page={pagination.page}
               totalPages={pagination.totalPages}
@@ -713,8 +727,12 @@ const ManageBookings = () => {
           {inspectorProps ? (
             <BookingInspector {...inspectorProps} variant="desktop" />
           ) : (
-            <div className="admin-panel m-0 border-0 rounded-none h-full min-h-[16rem]">
-              <EmptyState icon="inbox" title={t('admin.bookings.selectHint')} />
+            <div className="admin-booking-inspector-empty">
+              <EmptyState
+                icon="inbox"
+                title={t('admin.bookings.selectHint')}
+                description={t('admin.bookings.selectHintDesc')}
+              />
             </div>
           )}
         </div>
