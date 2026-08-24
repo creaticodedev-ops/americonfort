@@ -20,6 +20,7 @@ import { upsertContractFromBooking } from "../controllers/contractController.js"
 import { nextContractNumber } from "./contractNumberService.js";
 import { isWalkInChannel } from "../utils/bookingChannel.js";
 import { generateContractPdf } from "./templatePdfExport.js";
+import { resolveLocalUploadPath } from "../utils/uploadPaths.js";
 
 const formatDt = (v) => {
   if (!v) return "—";
@@ -237,17 +238,21 @@ export const refreshCompletionFlags = (booking) => {
 };
 
 /** Generate (or reuse) unsigned contract PDF for walk-in signature review. */
-export const ensureWalkInContractPreview = async (booking) => {
+export const ensureWalkInContractPreview = async (booking, { force = false } = {}) => {
   if (!isWalkInChannel(booking.channel)) return null;
 
   booking.completion = booking.completion || {};
   const c = booking.completion;
 
   if (c.signatureComplete && c.contractPdfUrl) {
-    return c.contractPdfUrl;
+    const existingSigned = resolveLocalUploadPath(c.contractPdfUrl);
+    if (existingSigned && !force) return c.contractPdfUrl;
   }
-  if (c.contractPreviewUrl && !c.signatureUrl) {
-    return c.contractPreviewUrl;
+  if (c.contractPreviewUrl && !c.signatureUrl && !force) {
+    const existingPreview = resolveLocalUploadPath(c.contractPreviewUrl);
+    if (existingPreview) return c.contractPreviewUrl;
+    // Stale URL (ephemeral disk / new instance) — regenerate.
+    c.contractPreviewUrl = '';
   }
 
   await ensureDefaultTemplates(booking.owner);
@@ -281,6 +286,8 @@ export const ensureWalkInContractPreview = async (booking) => {
   populated.completion = c;
   populated.markModified('completion');
   await populated.save();
+  // Keep caller's booking object in sync when it's a different mongoose doc.
+  booking.completion = c;
   return c.contractPreviewUrl;
 };
 

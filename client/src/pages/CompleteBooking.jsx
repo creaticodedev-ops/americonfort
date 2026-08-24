@@ -404,7 +404,13 @@ const CompleteBooking = () => {
   const showSecondDriverSign = signatureOnly
     ? Boolean(booking?.secondDriver?.enabled)
     : details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
-  const contractPreviewUrl = c?.contractPdfUrl || c?.contractPreviewUrl || ''
+  // Prefer token-gated stream endpoint (regenerates PDF if ephemeral disk lost the file).
+  const streamedPreviewUrl = token
+    ? `${resolveApiBaseUrl()}/api/booking-completion/${token}/contract-preview.pdf`
+    : ''
+  const contractPreviewUrl = signatureOnly
+    ? (streamedPreviewUrl || c?.contractPdfUrl || c?.contractPreviewUrl || '')
+    : (c?.contractPdfUrl || c?.contractPreviewUrl || '')
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#f5efe8_0%,_#faf8f5_45%,_#f0ebe4_100%)] pb-20">
@@ -764,12 +770,12 @@ const CompleteBooking = () => {
                 <p><span className="font-medium text-ink">{t('confirmation.total')}:</span> {currency}{booking.price}</p>
               </div>
 
-              {c?.contractPdfUrl ? (
+              {c?.contractPdfUrl || streamedPreviewUrl ? (
                 <div className="mt-8 overflow-hidden rounded-2xl border border-borderColor bg-white text-left">
                   <div className="flex items-center justify-between gap-3 border-b border-borderColor px-4 py-3">
                     <p className="text-sm font-medium text-ink">{t('completion.contractPreview')}</p>
                     <a
-                      href={c.contractPdfUrl}
+                      href={streamedPreviewUrl || c.contractPdfUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="text-xs font-medium text-primary hover:underline"
@@ -779,15 +785,15 @@ const CompleteBooking = () => {
                   </div>
                   <iframe
                     title={t('completion.contractPreview')}
-                    src={c.contractPdfUrl}
+                    src={streamedPreviewUrl || c.contractPdfUrl}
                     className="h-[min(70vh,640px)] w-full bg-sand"
                   />
                 </div>
               ) : null}
 
               <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                {c?.contractPdfUrl && (
-                  <a href={c.contractPdfUrl} target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm">
+                {(c?.contractPdfUrl || streamedPreviewUrl) && (
+                  <a href={streamedPreviewUrl || c.contractPdfUrl} target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm">
                     {t('completion.downloadContract')}
                   </a>
                 )}

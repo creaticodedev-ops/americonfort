@@ -135,9 +135,18 @@ app.use(
   express.static(path.join(__dirname, "uploads"), {
     // Missing files should 404 cleanly — fallthrough:false throws and becomes "Internal server error"
     fallthrough: true,
-    setHeaders: (res) => {
+    setHeaders: (res, filePath) => {
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
+      // Contract PDFs are embedded in the www SPA iframe on the signature page.
+      if (String(filePath || "").toLowerCase().endsWith(".pdf")) {
+        const origins = (process.env.CLIENT_URL || "https://www.americonfort.com,https://americonfort.com,http://localhost:5173")
+          .split(",")
+          .map((o) => o.trim().replace(/\/$/, ""))
+          .filter(Boolean);
+        res.removeHeader("X-Frame-Options");
+        res.setHeader("Content-Security-Policy", `frame-ancestors ${[...new Set(origins)].join(" ")}`);
+      }
     },
   }),
   (_req, res) => res.status(404).json({ success: false, message: "File not found" })

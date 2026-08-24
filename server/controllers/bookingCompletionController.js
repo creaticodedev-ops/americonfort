@@ -27,10 +27,30 @@ import User from "../models/User.js";
 import { resolveDepositPercent, resolveBookingSettings, validateSecondDriverAgainstRules } from "../services/bookingRules.js";
 import { isWalkInChannel } from "../utils/bookingChannel.js";
 import { resolveClientBaseUrl } from "../services/completionToken.js";
+import { resolveLocalUploadPath } from "../utils/uploadPaths.js";
+import { streamPdfFile } from "../utils/streamPdfFile.js";
 
 const signIfLocalUpload = (url) => {
   if (!url || typeof url !== "string") return url || "";
   return signDocumentAccessUrl(url);
+};
+
+/** Allow www SPA to embed contract PDFs in an iframe. */
+const allowPdfFraming = (res) => {
+  const origins = [
+    resolveClientBaseUrl(),
+    ...(process.env.CLIENT_URL || "")
+      .split(",")
+      .map((o) => o.trim().replace(/\/$/, ""))
+      .filter(Boolean),
+    "https://www.americonfort.com",
+    "https://americonfort.com",
+    "http://localhost:5173",
+  ];
+  const unique = [...new Set(origins.filter(Boolean))];
+  res.removeHeader("X-Frame-Options");
+  res.setHeader("Content-Security-Policy", `frame-ancestors ${unique.join(" ")}`);
+  res.setHeader("Cache-Control", "private, no-store");
 };
 
 /** Prefer snapshot at booking time; else live owner settings; else env default. */
@@ -45,7 +65,7 @@ const depositPercentForBooking = async (booking) => {
   }
 };
 
-const publicBookingView = (booking, depositPercent) => {
+const publicBookingView = (booking, depositPercent, { token } = {}) => {
   const pct = depositPercent != null ? depositPercent : getDepositPercent(booking?.policySnapshot?.depositPercent);
   const c = booking.completion || {};
   const flags = {
@@ -53,11 +73,19 @@ const publicBookingView = (booking, depositPercent) => {
     paymentComplete: Boolean(c.paymentComplete),
     signatureComplete: Boolean(c.signatureComplete),
   };
+  const walkIn = isWalkInChannel(booking.channel);
+  const apiBase = (process.env.API_PUBLIC_URL || "").replace(/\/$/, "");
+  // Token-gated stream URL — survives ephemeral /uploads disks and is iframe-safe.
+  const streamedContractUrl =
+    token && walkIn
+      ? `${apiBase || ""}/api/booking-completion/${token}/contract-preview.pdf`
+      : "";
+
   return {
     reservationId: booking.reservationId,
     status: booking.status,
-    channel: booking.channel || 'online',
-    signatureOnly: isWalkInChannel(booking.channel),
+    channel: booking.channel || "online",
+    signatureOnly: walkIn,
     customerName: booking.customerName,
     customerEmail: booking.customerEmail,
     customerPhone: booking.customerPhone,
@@ -106,7 +134,8 @@ const publicBookingView = (booking, depositPercent) => {
       paymentType: c.paymentType || "",
       amountPaid: c.amountPaid || 0,
       amountDue: c.amountDue || 0,
-      contractPdfUrl: signIfLocalUpload(c.contractPdfUrl || c.contractPreviewUrl || ""),
+      contractPdfUrl: streamedContractUrl || signIfLocalUpload(c.contractPdfUrl || c.contractPreviewUrl || ""),
+      contractPreviewUrl: streamedContractUrl || signIfLocalUpload(c.contractPreviewUrl || ""),
       invoicePdfUrl: signIfLocalUpload(c.invoicePdfUrl || ""),
       completedAt: c.completedAt || null,
       documentsComplete: flags.documentsComplete,
@@ -141,7 +170,10 @@ export const getCompletionBooking = async (req, res) => {
     }
     await booking.save();
     const depositPercent = await depositPercentForBooking(booking);
-    res.json({ success: true, booking: publicBookingView(booking, depositPercent) });
+    res.json({
+      success: true,
+      booking: publicBookingView(booking, depositPercent, { token: req.params.token }),
+    });
   } catch (error) {
     const status = error.code === "TOKEN_EXPIRED" ? 410 : 400;
     res.status(status).json({ success: false, message: error.message });
@@ -157,14 +189,48 @@ export const getCompletionContractPreview = async (req, res) => {
     if (!isWalkInChannel(booking.channel)) {
       return res.status(403).json({ success: false, message: "Contract preview is not available for this reservation type" });
     }
-    const url = await ensureWalkInContractPreview(booking);
+    await ensureWalkInContractPreview(booking);
+    const apiBase = (process.env.API_PUBLIC_URL || "").replace(/\/$/, "");
     res.json({
       success: true,
-      contractPdfUrl: signIfLocalUpload(url),
+      contractPdfUrl: `${apiBase}/api/booking-completion/${req.params.token}/contract-preview.pdf`,
     });
   } catch (error) {
     const status = error.code === "TOKEN_EXPIRED" ? 410 : 500;
     res.status(status).json({ success: false, message: error.message || "Failed to load contract preview" });
+  }
+};
+
+/** Stream walk-in contract PDF (regenerates when ephemeral disk lost the file). */
+export const streamCompletionContractPreview = async (req, res) => {
+  try {
+    const booking = await findBookingByCompletionToken(req.params.token);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Invalid or expired completion link" });
+    }
+    if (!isWalkInChannel(booking.channel)) {
+      return res.status(403).json({ success: false, message: "Contract preview is not available for this reservation type" });
+    }
+
+    let url = await ensureWalkInContractPreview(booking);
+    let filePath = resolveLocalUploadPath(url);
+    if (!filePath) {
+      url = await ensureWalkInContractPreview(booking, { force: true });
+      filePath = resolveLocalUploadPath(url);
+    }
+    if (!filePath) {
+      return res.status(404).json({ success: false, message: "Contract PDF could not be generated" });
+    }
+
+    allowPdfFraming(res);
+    const name = `${booking.reservationId || "contract"}-preview`;
+    return streamPdfFile(res, filePath, name, { inline: true });
+  } catch (error) {
+    console.error("[completion] stream contract preview:", error.message);
+    const status = error.code === "TOKEN_EXPIRED" ? 410 : 500;
+    if (!res.headersSent) {
+      res.status(status).json({ success: false, message: error.message || "Failed to stream contract preview" });
+    }
   }
 };
 
@@ -521,7 +587,7 @@ export const submitCompletionSignature = async (req, res) => {
       success: true,
       message,
       finalized: result.finalized,
-      booking: publicBookingView(result.booking),
+      booking: publicBookingView(result.booking, undefined, { token: req.params.token }),
     });
   } catch (error) {
     console.error(error.message);
@@ -630,6 +696,7 @@ export const adminInitiateCompletion = initiateBookingCompletion;
 export default {
   getCompletionBooking,
   getCompletionContractPreview,
+  streamCompletionContractPreview,
   uploadCompletionDocument,
   createCompletionPayment,
   confirmDemoPayment,
