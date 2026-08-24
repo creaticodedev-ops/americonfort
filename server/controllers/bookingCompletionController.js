@@ -78,7 +78,7 @@ const publicBookingView = (booking, depositPercent, { token } = {}) => {
   // Token-gated stream URL — survives ephemeral /uploads disks and is iframe-safe.
   const streamedContractUrl =
     token && walkIn
-      ? `${apiBase || ""}/api/booking-completion/${token}/contract-preview.pdf`
+      ? `${apiBase || ""}/api/booking-completion/${token}/contract-pdf`
       : "";
 
   return {
@@ -193,7 +193,7 @@ export const getCompletionContractPreview = async (req, res) => {
     const apiBase = (process.env.API_PUBLIC_URL || "").replace(/\/$/, "");
     res.json({
       success: true,
-      contractPdfUrl: `${apiBase}/api/booking-completion/${req.params.token}/contract-preview.pdf`,
+      contractPdfUrl: `${apiBase}/api/booking-completion/${req.params.token}/contract-pdf`,
     });
   } catch (error) {
     const status = error.code === "TOKEN_EXPIRED" ? 410 : 500;

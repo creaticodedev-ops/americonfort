@@ -35,7 +35,7 @@ completionRouter.post("/owner/test-email", ...ownerGate, sendTestEmail);
 
 completionRouter.get("/:token", tokenLimit, getCompletionBooking);
 completionRouter.get("/:token/contract-preview", tokenLimit, getCompletionContractPreview);
-completionRouter.get("/:token/contract-preview.pdf", tokenLimit, streamCompletionContractPreview);
+completionRouter.get("/:token/contract-pdf", tokenLimit, streamCompletionContractPreview);
 completionRouter.post(
   "/:token/documents",
   documentUploadLimit,

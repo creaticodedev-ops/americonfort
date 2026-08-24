@@ -406,7 +406,7 @@ const CompleteBooking = () => {
     : details.secondDriverEnabled || Boolean(booking?.secondDriver?.enabled)
   // Prefer token-gated stream endpoint (regenerates PDF if ephemeral disk lost the file).
   const streamedPreviewUrl = token
-    ? `${resolveApiBaseUrl()}/api/booking-completion/${token}/contract-preview.pdf`
+    ? `${resolveApiBaseUrl()}/api/booking-completion/${token}/contract-pdf`
     : ''
   const contractPreviewUrl = signatureOnly
     ? (streamedPreviewUrl || c?.contractPdfUrl || c?.contractPreviewUrl || '')
