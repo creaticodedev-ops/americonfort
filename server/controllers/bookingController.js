@@ -22,7 +22,12 @@ import {
   formatLocationLabel,
   getLocationDeliveryFee,
 } from "../services/pricingEngine.js";
-import { initiateBookingCompletion, generateCompletionLink } from "../services/bookingCompletionService.js";
+import {
+  initiateBookingCompletion,
+  generateCompletionLink,
+  ensureWalkInContractPreview,
+} from "../services/bookingCompletionService.js";
+import { isSyntheticWalkInEmail } from "../utils/contractFields.js";
 import {
   carServesCity,
   locationAvailabilityFilter,
@@ -852,13 +857,41 @@ export const createWalkInBooking = async (req, res) => {
       }
     }
 
+    // Always mint a secure signature link + unsigned contract preview so the desk
+    // can share immediately. Customer opens signature-only CompleteBooking (no form).
     let completionMeta = null;
-    if (sendCompletionLink && normalizedEmail) {
+    try {
+      const linkResult = await generateCompletionLink(booking._id, { resend: false });
+      let contractReady = false;
       try {
-        completionMeta = await initiateBookingCompletion(booking);
-      } catch (err) {
-        console.error('Walk-in completion link failed:', err.message);
+        await ensureWalkInContractPreview(linkResult.booking);
+        contractReady = true;
+      } catch (previewErr) {
+        console.error('Walk-in contract preview failed:', previewErr.message);
       }
+
+      let emailSent = false;
+      const canEmail =
+        Boolean(sendCompletionLink)
+        && Boolean(normalizedEmail)
+        && !isSyntheticWalkInEmail(normalizedEmail);
+      if (canEmail) {
+        try {
+          const emailed = await initiateBookingCompletion(booking._id, { resend: false });
+          emailSent = Boolean(emailed?.emailResult?.success);
+        } catch (emailErr) {
+          console.error('Walk-in signature email failed:', emailErr.message);
+        }
+      }
+
+      completionMeta = {
+        completionUrl: linkResult.completionUrl,
+        signatureStatus: 'pending',
+        contractReady,
+        emailSent,
+      };
+    } catch (err) {
+      console.error('Walk-in signature link failed:', err.message);
     }
 
     try {

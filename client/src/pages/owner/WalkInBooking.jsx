@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { AdminPage, PageHeader, DirectorySearchSelect, AdminSearchSelect } from '../../components/owner/ui'
 import ChannelBadge from '../../components/owner/ChannelBadge'
+import WalkInShareContract from '../../components/owner/WalkInShareContract'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -54,6 +55,26 @@ const emptyForm = {
   secondDriver: { ...emptySecondDriver },
 }
 
+const findCasablancaLocationId = (locations = []) => {
+  const hit = locations.find((l) => {
+    const city = String(l.city || '').toLowerCase()
+    const name = String(l.name || '').toLowerCase()
+    return city.includes('casablanca') || name.includes('casablanca')
+  })
+  return hit?._id ? String(hit._id) : ''
+}
+
+const withDefaultLocations = (base, locations) => {
+  const id = findCasablancaLocationId(locations)
+  if (!id) return { ...base, secondDriver: { ...(base.secondDriver || emptySecondDriver) } }
+  return {
+    ...base,
+    secondDriver: { ...(base.secondDriver || emptySecondDriver) },
+    pickupLocationId: base.pickupLocationId || id,
+    returnLocationId: base.returnLocationId || id,
+  }
+}
+
 const Field = ({ label, required, hint, children, className = '' }) => (
   <div className={className}>
     <label className="mb-1.5 block text-[11px] font-medium text-[var(--admin-fg-muted)]">
@@ -77,9 +98,8 @@ const Section = ({ title, subtitle, children }) => (
 const WalkInBooking = () => {
   const { axios, currency, pickupLocations } = useAppContext()
   const { t } = useI18n()
-  const navigate = useNavigate()
   const [cars, setCars] = useState([])
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState(() => ({ ...emptyForm, secondDriver: { ...emptySecondDriver } }))
   const [quote, setQuote] = useState(null)
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState(null)
@@ -95,6 +115,12 @@ const WalkInBooking = () => {
 
   const input =
     'w-full rounded-xl border border-borderColor bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/10'
+
+  // Default pickup + return to Casablanca when locations are available.
+  useEffect(() => {
+    if (!pickupLocations?.length) return
+    setForm((f) => withDefaultLocations(f, pickupLocations))
+  }, [pickupLocations])
 
   useEffect(() => {
     ;(async () => {
@@ -418,9 +444,34 @@ const WalkInBooking = () => {
         if (data.booking?._id) {
           await uploadPendingDocuments(data.booking._id)
         }
-        setCreated(data)
-        setForm({ ...emptyForm, secondDriver: { ...emptySecondDriver } })
+        // Prefer server-minted signature link; fall back to ensure if missing.
+        let createdPayload = data
+        if (!data.completion?.completionUrl && data.booking?._id) {
+          try {
+            const sig = await axios.post('/api/owner/signature-requests/generate', {
+              bookingId: data.booking._id,
+            })
+            if (sig.data?.success && sig.data.completionUrl) {
+              createdPayload = {
+                ...data,
+                completion: {
+                  completionUrl: sig.data.completionUrl,
+                  signatureStatus: sig.data.status || 'pending',
+                  contractReady: true,
+                  emailSent: Boolean(data.completion?.emailSent),
+                },
+              }
+            }
+          } catch {
+            /* share screen still shows reservation details */
+          }
+        }
+        setCreated(createdPayload)
+        setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
         setQuote(null)
+        setExistingClientDoc(null)
+        setUseExistingDoc(false)
+        setDocFiles({ combined: null })
       } else toast.error(data.message)
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -444,39 +495,15 @@ const WalkInBooking = () => {
         }
       />
 
-      {created && (
-        <div className="mb-4 rounded-[var(--admin-radius-lg)] border border-[color-mix(in_srgb,var(--admin-success)_30%,var(--admin-border))] bg-[var(--admin-success-soft)] p-4 text-sm text-[var(--admin-success)]">
-          <p className="font-semibold">{t('admin.walkIn.created', { id: created.reservationId })}</p>
-          <p className="mt-1 text-xs opacity-80">{t('admin.walkIn.createdContractHint')}</p>
-          {created.completion?.completionUrl && (
-            <p className="mt-2 break-all text-xs">Completion link: {created.completion.completionUrl}</p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/owner/contracts')}
-              className="admin-btn admin-btn--primary"
-            >
-              {t('admin.walkIn.openContracts')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/owner/manage-bookings')}
-              className="admin-btn admin-btn--secondary"
-            >
-              {t('admin.walkIn.openBookings')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setCreated(null)}
-              className="admin-btn admin-btn--ghost"
-            >
-              {t('admin.walkIn.createAnother')}
-            </button>
-          </div>
-        </div>
-      )}
-
+      {created ? (
+        <WalkInShareContract
+          created={created}
+          onCreateAnother={() => {
+            setCreated(null)
+            setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
+          }}
+        />
+      ) : (
       <form onSubmit={onSubmit} className="mt-6 grid gap-6 lg:grid-cols-12">
         <div className="lg:col-span-8 space-y-5">
           <Section title={t('admin.walkIn.customer')} subtitle={t('admin.walkIn.customerHint')}>
@@ -750,6 +777,9 @@ const WalkInBooking = () => {
                 <span className="mt-0.5 block text-xs text-muted">{t('admin.walkIn.sendLinkHint')}</span>
               </span>
             </label>
+            <p className="text-[11px] text-[var(--admin-fg-muted)] leading-relaxed">
+              {t('admin.walkIn.autoShareHint')}
+            </p>
           </Section>
 
           <div className="rounded-2xl border border-borderColor bg-gradient-to-b from-white to-sand/30 p-4 sm:p-5">
@@ -796,6 +826,7 @@ const WalkInBooking = () => {
           </div>
         </aside>
       </form>
+      )}
     </AdminPage>
   )
 }
