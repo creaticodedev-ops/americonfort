@@ -910,66 +910,8 @@ export const globalSearch = async (req, res) => {
   }
 };
 
-/** Reports export summary CSV */
+/** Reports export — professional XLSX (legacy CSV upgraded). */
 export const exportReport = async (req, res) => {
-  try {
-    const ownerId = req.user._id;
-    const type = req.query.type || 'revenue';
-    const bookings = await Booking.find({ owner: ownerId }).populate('car').sort({ createdAt: -1 }).lean();
-    const customers = await GuestCustomer.find({ owner: ownerId }).lean();
-    const cars = await Car.find({ owner: ownerId }).lean();
-
-    let headers = [];
-    let rows = [];
-
-    if (type === 'customers') {
-      headers = ['Name', 'Email', 'Phone', 'City', 'Status', 'Rating', 'Reservations', 'Cancellations', 'Total Spent', 'Last Booking'];
-      rows = customers.map((c) => [
-        c.name, c.email, c.phone, c.city, c.status, c.rating?.toFixed?.(1) || 0,
-        c.totalReservations, c.cancelledReservations, c.totalSpent,
-        c.lastBookingAt ? new Date(c.lastBookingAt).toISOString().split('T')[0] : '',
-      ]);
-    } else if (type === 'fleet') {
-      headers = ['Brand', 'Model', 'Plate', 'Mileage', 'Next Service', 'Insurance Expiry', 'Registration Expiry', 'Status', 'Available'];
-      rows = cars.map((c) => [
-        c.brand, c.model, c.licensePlate, c.mileage,
-        c.nextServiceDate ? new Date(c.nextServiceDate).toISOString().split('T')[0] : '',
-        c.insuranceExpiry ? new Date(c.insuranceExpiry).toISOString().split('T')[0] : '',
-        c.registrationExpiry ? new Date(c.registrationExpiry).toISOString().split('T')[0] : '',
-        c.status, c.isAvaliable,
-      ]);
-    } else {
-      headers = ['Reservation ID', 'Customer', 'Email', 'Vehicle', 'Pickup', 'Return', 'Amount', 'Status', 'Payment', 'Created'];
-      rows = bookings.map((b) => [
-        b.reservationId || '',
-        b.customerName || '',
-        b.customerEmail || '',
-        b.car ? `${b.car.brand} ${b.car.model}` : '',
-        b.pickupDate ? new Date(b.pickupDate).toLocaleString() : '',
-        b.returnDate ? new Date(b.returnDate).toLocaleString() : '',
-        b.price || 0,
-        b.status,
-        b.paymentStatus,
-        b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : '',
-      ]);
-    }
-
-    const escapeCsv = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
-    const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n');
-
-    await logAudit({
-      owner: ownerId,
-      actor: ownerId,
-      action: 'report.export',
-      entityType: 'Report',
-      details: `Exported ${type} report (${rows.length} rows)`,
-    });
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=${type}-report-${Date.now()}.csv`);
-    res.send(csv);
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ success: false, message: 'Export failed' });
-  }
+  const { exportHubReportXlsx } = await import('./xlsxExportController.js');
+  return exportHubReportXlsx(req, res);
 };

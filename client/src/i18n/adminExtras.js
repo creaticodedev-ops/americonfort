@@ -238,6 +238,12 @@ export const extrasEn = {
     fleetTitle: 'Fleet & compliance',
     fleetDesc: 'Mileage, service, insurance, registration',
   },
+  exportUi: {
+    excel: 'Export Excel',
+    exporting: 'Exporting…',
+    success: 'Excel report downloaded',
+    failed: 'Export failed',
+  },
   walkUi: {
     fuelFull: 'Full',
     activeOut: 'Active (out)',
@@ -707,6 +713,12 @@ export const extrasFr = {
     customersDesc: 'Profils CRM, notes, VIP/liste noire, dépenses',
     fleetTitle: 'Flotte et conformité',
     fleetDesc: 'Kilométrage, entretien, assurance, carte grise',
+  },
+  exportUi: {
+    excel: 'Exporter Excel',
+    exporting: 'Export…',
+    success: 'Rapport Excel téléchargé',
+    failed: 'Échec de l’export',
   },
   walkUi: {
     fuelFull: 'Plein',
@@ -1183,6 +1195,12 @@ export const extrasEs = {
     fleetTitle: 'Flota y cumplimiento',
     fleetDesc: 'Kilometraje, mantenimiento, seguro, matrícula',
   },
+  exportUi: {
+    excel: 'Exportar Excel',
+    exporting: 'Exportando…',
+    success: 'Informe Excel descargado',
+    failed: 'Error al exportar',
+  },
   walkUi: {
     fuelFull: 'Lleno',
     activeOut: 'Activa (en curso)',
@@ -1658,6 +1676,12 @@ export const extrasAr = {
     customersDesc: 'ملفات العملاء، التقييمات، كبار العملاء/القائمة السوداء، الإنفاق',
     fleetTitle: 'الأسطول والامتثال',
     fleetDesc: 'الكيلومترات، الصيانة، التأمين، البطاقة الرمادية',
+  },
+  exportUi: {
+    excel: 'تصدير Excel',
+    exporting: 'جاري التصدير…',
+    success: 'تم تنزيل تقرير Excel',
+    failed: 'فشل التصدير',
   },
   walkUi: {
     fuelFull: 'ممتلئ',

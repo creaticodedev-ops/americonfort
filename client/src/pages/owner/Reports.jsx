@@ -9,6 +9,7 @@ import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../../utils/apiError';
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx';
 
 const Reports = () => {
   const { axios, currency } = useAppContext();
@@ -25,24 +26,13 @@ const Reports = () => {
   const download = async (type) => {
     setExporting(type);
     try {
-      const response = await axios.get(`/api/owner/reports/export?type=${type}`, { responseType: 'blob' });
-      const contentType = response.headers['content-type'] || '';
-      if (contentType.includes('application/json')) {
-        const text = await response.data.text();
-        const json = JSON.parse(text);
-        toast.error(json.message || t('admin.reportsUi.exportFailed'));
-        return;
-      }
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${type}-report-${Date.now()}.csv`;
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success(t('admin.reportsUi.downloaded'));
+      await downloadXlsxFromApi(axios, '/api/owner/reports/export', {
+        params: { type },
+        fallbackName: `${type}-report.xlsx`,
+      });
+      toast.success(t('admin.exportUi.success'));
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'));
     } finally {
       setExporting('');
     }
@@ -108,7 +98,7 @@ const Reports = () => {
               onClick={() => download(card.type)}
               className="admin-btn admin-btn--primary mt-4"
             >
-              {exporting === card.type ? t('admin.reports.exporting') : t('admin.reports.exportCsv')}
+              {exporting === card.type ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
             </button>
           </div>
         ))}

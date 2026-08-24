@@ -16,6 +16,7 @@ import { isPhoneValid } from '../../utils/phoneValidation'
 import { Link } from 'react-router-dom'
 import { buildCustomerConfirmationWaUrl, buildWaMeUrl, getAgencyWhatsAppDial } from '../../utils/whatsapp'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import ContractExtensionModal from '../../components/owner/ContractExtensionModal'
 import {
   AdminPage,
@@ -94,6 +95,7 @@ const ManageBookings = () => {
   const [identityType, setIdentityType] = useState('national_id')
   const [completionLinkCache, setCompletionLinkCache] = useState({})
   const [openingWhatsApp, setOpeningWhatsApp] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [extendBooking, setExtendBooking] = useState(null)
   const closeExtend = useCallback(() => setExtendBooking(null), [])
   const [confirmAction, setConfirmAction] = useState(null)
@@ -488,33 +490,22 @@ const ManageBookings = () => {
     )
   }
 
-  const exportCsv = async () => {
+  const exportExcel = async () => {
+    setExporting(true)
     try {
-      const params = new URLSearchParams()
+      const params = {}
       Object.entries(appliedFilters).forEach(([key, value]) => {
-        if (value) params.set(key, value)
+        if (value) params[key] = value
       })
-      const response = await axios.get(`/api/bookings/owner/export?${params.toString()}`, {
-        responseType: 'blob',
+      await downloadXlsxFromApi(axios, '/api/bookings/owner/export', {
+        params,
+        fallbackName: 'reservations.xlsx',
       })
-      const contentType = response.headers['content-type'] || ''
-      if (contentType.includes('application/json')) {
-        const text = await response.data.text()
-        const json = JSON.parse(text)
-        toast.error(json.message || 'Export failed')
-        return
-      }
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `reservations-${Date.now()}.csv`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
-      toast.success(t('admin.leftover.exportDownloaded'))
+      toast.success(t('admin.exportUi.success'))
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'))
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -657,8 +648,8 @@ const ManageBookings = () => {
             <Link to="/owner/walk-in" className="admin-btn admin-btn--secondary">
               {t('admin.walkIn.menu')}
             </Link>
-            <button type="button" onClick={exportCsv} className="admin-btn admin-btn--primary">
-              {t('admin.bookings.exportCsv')}
+            <button type="button" disabled={exporting} onClick={exportExcel} className="admin-btn admin-btn--primary">
+              {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
             </button>
           </>
         }

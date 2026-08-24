@@ -12,6 +12,7 @@ import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../../utils/apiError';
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx';
 
 const Analytics = () => {
   const { axios, currency } = useAppContext();
@@ -19,6 +20,7 @@ const Analytics = () => {
   const [analytics, setAnalytics] = useState(null);
   const [tab, setTab] = useState('monthly');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -47,9 +49,31 @@ const Analytics = () => {
     return !translated || translated === key ? String(id || '').replace(/_/g, ' ') : translated;
   };
 
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      await downloadXlsxFromApi(axios, '/api/owner/analytics/export', {
+        fallbackName: 'analytics.xlsx',
+      });
+      toast.success(t('admin.exportUi.success'));
+    } catch (error) {
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AdminPage>
-      <PageHeader title={t('admin.analytics.title')} description={t('admin.analytics.subtitle')} />
+      <PageHeader
+        title={t('admin.analytics.title')}
+        description={t('admin.analytics.subtitle')}
+        actions={
+          <button type="button" disabled={exporting || loading} onClick={exportExcel} className="admin-btn admin-btn--secondary">
+            {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+          </button>
+        }
+      />
 
       {loading ? (
         <p className="text-sm text-[var(--admin-fg-muted)]">{t('admin.analytics.loading')}</p>

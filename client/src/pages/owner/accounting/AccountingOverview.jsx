@@ -11,6 +11,7 @@ import {
 import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
+import { downloadXlsxFromApi } from '../../../utils/downloadXlsx'
 
 const AccountingOverview = () => {
   const { axios, currency } = useAppContext()
@@ -21,6 +22,7 @@ const AccountingOverview = () => {
   const [to, setTo] = useState('')
   const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   const periods = useMemo(
     () => [
@@ -63,6 +65,26 @@ const AccountingOverview = () => {
       ? `${new Date(overview.from).toLocaleDateString()} – ${new Date(overview.to).toLocaleDateString()}`
       : ''
 
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      const params = { kind: 'overview', period }
+      if (period === 'custom') {
+        if (from) params.from = from
+        if (to) params.to = to
+      }
+      await downloadXlsxFromApi(axios, '/api/owner/accounting/export', {
+        params,
+        fallbackName: 'accounting-overview.xlsx',
+      })
+      toast.success(t('admin.exportUi.success'))
+    } catch (e) {
+      toast.error(getErrorMessage(e) || t('admin.exportUi.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <AdminPage>
       <PageHeader
@@ -72,7 +94,14 @@ const AccountingOverview = () => {
           { label: t('admin.accounting.finance'), to: '/owner/accounting' },
           { label: t('admin.accounting.overview') },
         ]}
-        actions={<SegmentedControl options={periods} value={period} onChange={setPeriod} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={exporting || loading} onClick={exportExcel} className="admin-btn admin-btn--secondary">
+              {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+            </button>
+            <SegmentedControl options={periods} value={period} onChange={setPeriod} />
+          </div>
+        }
       />
 
       {period === 'custom' && (

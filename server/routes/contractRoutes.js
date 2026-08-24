@@ -15,6 +15,7 @@ import {
   downloadContractPdf,
   listBookingsForContracts,
 } from '../controllers/contractController.js';
+import { exportContractsXlsx } from '../controllers/xlsxExportController.js';
 
 const router = express.Router();
 const gate = (perm, feature) => [
@@ -25,6 +26,7 @@ const gate = (perm, feature) => [
 ];
 
 router.get('/', ...gate('contracts', 'contracts'), listContracts);
+router.get('/export', ...gate('contracts', 'contracts'), exportContractsXlsx);
 router.get('/bookings', ...gate('contracts', 'contracts'), listBookingsForContracts);
 router.post('/generate', ...gate('contracts', 'contracts'), generateContract);
 router.post('/preview', ...gate('contracts', 'contracts'), previewContractFromBooking);

@@ -34,6 +34,14 @@ import {
   updateCustomerStatus,
 } from "../controllers/adminOpsController.js";
 import {
+  exportCustomersXlsx,
+  exportFleetXlsx,
+  exportVehicleStatsXlsx,
+  exportMaintenanceXlsx,
+  exportClientDocumentsXlsx,
+  exportAnalyticsXlsx,
+} from "../controllers/xlsxExportController.js";
+import {
   getFleetMaintenance,
   updateCarMaintenance,
   listMaintenanceRecords,
@@ -68,7 +76,9 @@ const gate = (perm, feature) => [
 ];
 
 ownerRouter.post("/add-car", ...gate('fleet', 'fleet'), upload.single("image"), handleMulterError, addCar);
+ownerRouter.get("/cars/export", ...gate('fleet', 'fleet'), exportFleetXlsx);
 ownerRouter.get("/cars", ...gate('fleet', 'fleet'), getOwnerCars);
+ownerRouter.get("/vehicle-stats/export", ...gate('fleet', 'fleet'), exportVehicleStatsXlsx);
 ownerRouter.get("/vehicle-stats", ...gate('fleet', 'fleet'), getFleetVehicleStats);
 ownerRouter.get("/cars/:id", ...gate('fleet', 'fleet'), getOwnerCarById);
 ownerRouter.get("/cars/:id/stats", ...gate('fleet', 'fleet'), getVehicleStats);
@@ -84,9 +94,11 @@ ownerRouter.get('/ops-dashboard', ...gate('dashboard'), getOpsDashboard);
 ownerRouter.get('/analytics', ...gate('analytics', 'analytics'), getRevenueAnalytics);
 ownerRouter.get('/overview', ...gate('dashboard'), getAdminOverview);
 ownerRouter.get('/customers', ...gate('customers', 'customers'), getCustomers);
+ownerRouter.get('/crm/customers/export', ...gate('customers', 'customers'), exportCustomersXlsx);
 ownerRouter.get('/crm/customers', ...gate('customers', 'customers'), getCrmCustomers);
 ownerRouter.get('/crm/customers/:email', ...gate('customers', 'customers'), getCrmCustomerDetail);
 ownerRouter.get('/client-documents/stats', ...gate('customers', 'customers'), getOwnerClientDocumentStats);
+ownerRouter.get('/client-documents/export', ...gate('customers', 'customers'), exportClientDocumentsXlsx);
 ownerRouter.get('/client-documents', ...gate('customers', 'customers'), listOwnerClientDocuments);
 ownerRouter.get('/client-documents/:id', ...gate('customers', 'customers'), getOwnerClientDocument);
 ownerRouter.post(
@@ -107,11 +119,13 @@ ownerRouter.patch('/maintenance/records', ...gate('maintenance'), updateMaintena
 ownerRouter.post('/maintenance/records/delete', ...gate('maintenance'), deleteMaintenanceRecord);
 ownerRouter.get('/maintenance/calendar', ...gate('maintenance'), getMaintenanceCalendar);
 ownerRouter.get('/maintenance/report', ...gate('maintenance'), getMaintenanceReport);
+ownerRouter.get('/maintenance/export', ...gate('maintenance'), exportMaintenanceXlsx);
 ownerRouter.get('/notifications', protect, requireOwner, getNotifications);
 ownerRouter.post('/notifications/read', protect, requireOwner, markNotificationRead);
 ownerRouter.get('/audit-logs', ...gate('audit'), getAuditLogs);
 ownerRouter.get('/search', protect, requireOwner, globalSearch);
 ownerRouter.get('/reports/export', ...gate('reports'), exportReport);
+ownerRouter.get('/analytics/export', ...gate('analytics', 'analytics'), exportAnalyticsXlsx);
 ownerRouter.get('/settings/whatsapp', protect, requireOwner, requireFeature('whatsapp'), getWhatsAppSettings);
 ownerRouter.put('/settings/whatsapp', protect, requireOwner, requireFeature('whatsapp'), updateWhatsAppSettings);
 ownerRouter.get('/settings/booking', protect, requireOwner, getBookingSettings);

@@ -5,6 +5,7 @@ import { AdminPage, PageHeader, FilterBar, SearchInput, AdminModal } from '../..
 import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import { getErrorMessage } from '../../utils/apiError';
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx';
 import Loader from '../../components/Loader';
 
 const formatDate = (value) => {
@@ -45,6 +46,7 @@ const ClientDocuments = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -144,6 +146,33 @@ const ClientDocuments = () => {
       <PageHeader
         title={t('admin.clientDocuments.title')}
         description={t('admin.clientDocuments.subtitle')}
+        actions={
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={async () => {
+              setExporting(true);
+              try {
+                const params = {};
+                Object.entries(applied).forEach(([k, v]) => {
+                  if (v && v !== 'all') params[k] = v;
+                });
+                await downloadXlsxFromApi(axios, '/api/owner/client-documents/export', {
+                  params,
+                  fallbackName: 'client-documents.xlsx',
+                });
+                toast.success(t('admin.exportUi.success'));
+              } catch (err) {
+                toast.error(getErrorMessage(err) || t('admin.exportUi.failed'));
+              } finally {
+                setExporting(false);
+              }
+            }}
+            className="admin-btn admin-btn--secondary"
+          >
+            {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+          </button>
+        }
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-4">

@@ -19,6 +19,7 @@ import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { VEHICLE_CATEGORIES } from '../../utils/vehicleCategories'
 import { formatLocationsDisplay } from '../../utils/carLocations'
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 
 const emptyFilters = {
   search: '',
@@ -117,6 +118,7 @@ const ManageCars = () => {
   const [filters, setFilters] = useState(emptyFilters)
   const [applied, setApplied] = useState(emptyFilters)
   const [showMoreFilters, setShowMoreFilters] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const query = useMemo(() => {
     const params = new URLSearchParams()
@@ -226,6 +228,23 @@ const ManageCars = () => {
     setShowMoreFilters(false)
   }
 
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      const params = {}
+      Object.entries(applied).forEach(([k, v]) => { if (v) params[k] = v })
+      await downloadXlsxFromApi(axios, '/api/owner/cars/export', {
+        params,
+        fallbackName: 'fleet.xlsx',
+      })
+      toast.success(t('admin.exportUi.success'))
+    } catch (error) {
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const rowActions = (car) => (
     <FleetRowActions
       t={t}
@@ -247,9 +266,14 @@ const ManageCars = () => {
         title={t('admin.fleet.title')}
         description={t('admin.fleet.subtitle')}
         actions={
-          <Link to="/owner/add-car" className="admin-btn admin-btn--primary">
-            {t('admin.menu.addCar')}
-          </Link>
+          <>
+            <button type="button" disabled={exporting} onClick={exportExcel} className="admin-btn admin-btn--secondary">
+              {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+            </button>
+            <Link to="/owner/add-car" className="admin-btn admin-btn--primary">
+              {t('admin.menu.addCar')}
+            </Link>
+          </>
         }
       />
 

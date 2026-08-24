@@ -1594,55 +1594,8 @@ export const deleteBooking = async (req, res) => {
 };
 
 export const exportOwnerBookings = async (req, res) => {
-  try {
-    const filters = parseFilters(req.query);
-    const query = buildBookingQuery(req.user._id, filters);
-    await applyVehicleFiltersToQuery(req.user._id, query, filters);
-
-    const bookings = await Booking.find(query)
-      .populate('car', OWNER_BOOKING_CAR_FIELDS)
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const formatDate = (date) => (date ? new Date(date).toISOString().split('T')[0] : '');
-    const formatDateTime = (date) => (date ? new Date(date).toLocaleString() : '');
-
-    const headers = [
-      'Reservation ID', 'Channel', 'Customer Name', 'Phone', 'Email', 'Vehicle', 'License Plate', 'Category',
-      'Pickup Location', 'Drop-off Location', 'Pickup Date', 'Return Date',
-      'Total Amount', 'Payment Status', 'Reservation Status', 'Created At', 'Notes',
-    ];
-
-    const rows = bookings.map((b) => [
-      b.reservationId || `RES-${b._id.toString().slice(-8).toUpperCase()}`,
-      b.channel === 'walk_in' ? 'Walk-in' : 'Online',
-      b.customerName || '',
-      b.customerPhone || '',
-      b.customerEmail || '',
-      b.car ? `${b.car.brand} ${b.car.model}` : '',
-      b.car?.licensePlate || '',
-      b.car?.category || '',
-      b.pickupLocation || '',
-      b.returnLocation || '',
-      formatDateTime(b.pickupDate),
-      formatDateTime(b.returnDate),
-      b.price || 0,
-      b.paymentStatus || '',
-      b.status || '',
-      formatDate(b.createdAt),
-      b.notes || '',
-    ]);
-
-    const escapeCsv = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
-    const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n');
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=reservations.csv');
-    res.send(csv);
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ success: false, message: 'Failed to export reservations' });
-  }
+  const { exportReservationsXlsx } = await import('./xlsxExportController.js');
+  return exportReservationsXlsx(req, res);
 };
 
 export const getCalendarBookings = async (req, res) => {

@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 
 const toInputDate = (v) => {
   if (!v) return ''
@@ -76,6 +77,7 @@ const Maintenance = () => {
   const patchRecordForm = (patch) => setRecordForm((prev) => ({ ...prev, ...patch }))
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth() + 1)
   const [calYear, setCalYear] = useState(() => new Date().getFullYear())
+  const [exporting, setExporting] = useState(false)
   const [filters, setFilters] = useState({
     search: '',
     fleetId: '',
@@ -256,19 +258,43 @@ const Maintenance = () => {
     { id: 'reports', label: t('admin.maintenance.tabReports') },
   ]
 
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      const params = {}
+      if (filters.status) params.status = filters.status
+      if (filters.type) params.type = filters.type
+      if (filters.carId) params.carId = filters.carId
+      await downloadXlsxFromApi(axios, '/api/owner/maintenance/export', {
+        params,
+        fallbackName: 'maintenance.xlsx',
+      })
+      toast.success(t('admin.exportUi.success'))
+    } catch (error) {
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <AdminPage>
       <PageHeader
         title={t('admin.maintenance.title')}
         description={t('admin.maintenance.subtitle')}
         actions={
-          <button
-            type="button"
-            onClick={() => { setRecordForm(emptyRecord); setShowRecord(true) }}
-            className="admin-btn admin-btn--primary"
-          >
-            {t('admin.maintenance.scheduleWork')}
-          </button>
+          <>
+            <button type="button" disabled={exporting} onClick={exportExcel} className="admin-btn admin-btn--secondary">
+              {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setRecordForm(emptyRecord); setShowRecord(true) }}
+              className="admin-btn admin-btn--primary"
+            >
+              {t('admin.maintenance.scheduleWork')}
+            </button>
+          </>
         }
       />
 

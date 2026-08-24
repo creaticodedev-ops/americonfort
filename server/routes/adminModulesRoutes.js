@@ -17,6 +17,7 @@ import {
   createVehicleExpense,
   updateVehicleExpense,
 } from '../controllers/accountingController.js';
+import { exportAccountingXlsx } from '../controllers/xlsxExportController.js';
 import {
   listSignatures,
   generateSignature,
@@ -81,6 +82,7 @@ router.post('/booking-extensions/confirm', ...gate('contract_extensions', 'contr
 
 /* Accounting */
 router.get('/accounting/overview', ...gate('accounting', 'accounting'), accountingOverview);
+router.get('/accounting/export', ...gate('accounting', 'accounting'), exportAccountingXlsx);
 router.get('/accounting/revenues', ...gate('accounting', 'accounting'), listAccountingRevenues);
 router.get('/accounting/samsar-payments', ...gate('accounting', 'accounting'), listSamsarPayments);
 router.post('/accounting/samsar-payments', ...gate('accounting', 'accounting'), createSamsarPayment);

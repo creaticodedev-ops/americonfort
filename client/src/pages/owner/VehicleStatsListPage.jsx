@@ -17,6 +17,7 @@ import {
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 
 const money = (value, currency) =>
   `${currency}${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -53,6 +54,7 @@ const VehicleStatsListPage = ({ selectedVehicleId = '' }) => {
   const [sortBy, setSortBy] = useState('revenue')
   const [sortOrder, setSortOrder] = useState('desc')
   const [openId, setOpenId] = useState(selectedVehicleId || routeId || searchParams.get('vehicle') || '')
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (!isOwner || !from || !to) return undefined
@@ -122,6 +124,21 @@ const VehicleStatsListPage = ({ selectedVehicleId = '' }) => {
     return t('admin.vehicleStats.rankAverage')
   }
 
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      await downloadXlsxFromApi(axios, '/api/owner/vehicle-stats/export', {
+        params: { period, from, to },
+        fallbackName: 'vehicle-statistics.xlsx',
+      })
+      toast.success(t('admin.exportUi.success'))
+    } catch (error) {
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <AdminPage>
       <PageHeader
@@ -131,6 +148,11 @@ const VehicleStatsListPage = ({ selectedVehicleId = '' }) => {
           to,
           count: vehicles.length,
         })}
+        actions={
+          <button type="button" disabled={exporting || loading} onClick={exportExcel} className="admin-btn admin-btn--secondary">
+            {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+          </button>
+        }
       />
 
       <PeriodRangeFilter

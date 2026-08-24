@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../../utils/apiError';
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx';
 
 const statusStyles = {
   new: 'bg-blue-100 text-blue-700',
@@ -49,6 +50,7 @@ const Customers = () => {
   const [rating, setRating] = useState(5);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -66,6 +68,23 @@ const Customers = () => {
   };
 
   useEffect(() => { fetchCustomers(); }, [applied]);
+
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const params = {};
+      Object.entries(applied).forEach(([k, v]) => { if (v) params[k] = v; });
+      await downloadXlsxFromApi(axios, '/api/owner/crm/customers/export', {
+        params,
+        fallbackName: 'customers.xlsx',
+      });
+      toast.success(t('admin.exportUi.success'));
+    } catch (error) {
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openDetail = async (customer) => {
     setSelected(customer);
@@ -184,6 +203,9 @@ const Customers = () => {
         <div className="flex flex-col sm:flex-row gap-2 sm:col-span-2 lg:col-span-1">
           <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm cursor-pointer">{t('admin.customers.apply')}</button>
           <button type="button" onClick={() => { setFilters(emptyFilters); setApplied(emptyFilters); }} className="px-4 py-2 border rounded-lg text-sm cursor-pointer">{t('admin.customers.clear')}</button>
+          <button type="button" disabled={exporting} onClick={exportExcel} className="px-4 py-2 border rounded-lg text-sm cursor-pointer disabled:opacity-50">
+            {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+          </button>
         </div>
       </form>
 

@@ -14,6 +14,7 @@ import {
   previewInvoice,
   downloadInvoicePdf,
 } from '../controllers/invoiceController.js';
+import { exportInvoicesXlsx } from '../controllers/xlsxExportController.js';
 
 const router = express.Router();
 const gate = (perm, feature) => [
@@ -24,6 +25,7 @@ const gate = (perm, feature) => [
 ];
 
 router.get('/', ...gate('contracts', 'invoices'), listInvoices);
+router.get('/export', ...gate('contracts', 'invoices'), exportInvoicesXlsx);
 router.post('/generate', ...gate('contracts', 'invoices'), generateInvoice);
 router.post('/manual', ...gate('contracts', 'invoices'), createManualInvoice);
 router.get('/:id/versions', ...gate('contracts', 'invoices'), listInvoiceVersions);

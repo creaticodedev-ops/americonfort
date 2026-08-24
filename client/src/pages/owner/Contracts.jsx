@@ -9,6 +9,7 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildContractPatch, initContractForm, toDateInput } from '../../utils/documentFormUtils'
 
 const formatDateTime = (value) => {
@@ -57,6 +58,7 @@ const Contracts = () => {
   const [editingId, setEditingId] = useState(null)
   /** Owner Settings → Agency Stamp default; used when opening Generate */
   const [stampDefault, setStampDefault] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   const inputClass = 'h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-fg)] px-3 rounded-[var(--admin-radius)] w-full text-sm outline-none focus:shadow-[var(--admin-focus)]'
 
@@ -482,9 +484,37 @@ const Contracts = () => {
         title={t('admin.contracts.title')}
         description={t('admin.contracts.subtitle')}
         actions={
-          <button type="button" onClick={openGenerate} className="admin-btn admin-btn--primary">
-            {t('admin.contracts.generate')}
-          </button>
+          <>
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true)
+                try {
+                  await downloadXlsxFromApi(axios, '/api/contracts/export', {
+                    params: {
+                      search: search || undefined,
+                      customerName: customerName || undefined,
+                      phone: phone || undefined,
+                      cin: cin || undefined,
+                    },
+                    fallbackName: 'contracts.xlsx',
+                  })
+                  toast.success(t('admin.exportUi.success'))
+                } catch (error) {
+                  toast.error(getErrorMessage(error) || t('admin.exportUi.failed'))
+                } finally {
+                  setExporting(false)
+                }
+              }}
+              className="admin-btn admin-btn--secondary"
+            >
+              {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+            </button>
+            <button type="button" onClick={openGenerate} className="admin-btn admin-btn--primary">
+              {t('admin.contracts.generate')}
+            </button>
+          </>
         }
       />
 

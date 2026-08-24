@@ -6,6 +6,7 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
+import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildInvoicePatch, initInvoiceForm } from '../../utils/documentFormUtils'
 
 const formatDateTime = (value) => {
@@ -48,6 +49,7 @@ const Invoices = () => {
   const [filters, setFilters] = useState({ search: '', customerName: '', cin: '', phone: '' })
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [form, setForm] = useState(createEmptyForm())
   const [editingId, setEditingId] = useState(null)
 
@@ -358,6 +360,23 @@ const Invoices = () => {
     }
   }
 
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      const params = {}
+      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v })
+      await downloadXlsxFromApi(axios, '/api/invoices/export', {
+        params,
+        fallbackName: 'invoices.xlsx',
+      })
+      toast.success(t('admin.exportUi.success'))
+    } catch (error) {
+      toast.error(getErrorMessage(error) || t('admin.exportUi.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <AdminPage className="space-y-6">
       <PageHeader
@@ -369,6 +388,9 @@ const Invoices = () => {
               <div>{t('admin.invoices.totalCount', { count: totals.count })}</div>
               <div>{t('admin.invoices.totalAmount', { amount: `${currency}${totals.totalAmount.toFixed(2)}` })}</div>
             </div>
+            <button type="button" disabled={exporting} onClick={exportExcel} className="admin-btn admin-btn--secondary">
+              {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+            </button>
             <button type="button" onClick={() => setShowCreateModal(true)} className="admin-btn admin-btn--primary">
               {t('admin.invoices.create')}
             </button>

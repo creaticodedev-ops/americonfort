@@ -18,6 +18,7 @@ import {
 import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
+import { downloadXlsxFromApi } from '../../../utils/downloadXlsx'
 
 const field =
   'h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--admin-fg)]'
@@ -183,6 +184,7 @@ const AccountingListPage = ({
   buildCreateForm,
   formProps,
   initialForm,
+  exportKind,
 }) => {
   const { axios, currency } = useAppContext()
   const { t } = useI18n()
@@ -199,6 +201,7 @@ const AccountingListPage = ({
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const hasLoadedRef = useRef(false)
 
   const closeModal = useCallback(() => setModal(false), [])
@@ -268,6 +271,25 @@ const AccountingListPage = ({
     render: c.render ? (row) => c.render(row, cur) : undefined,
   }))
 
+  const exportExcel = async () => {
+    if (!exportKind) return
+    setExporting(true)
+    try {
+      const params = { kind: exportKind, period: 'custom' }
+      if (from) params.from = from
+      if (to) params.to = to
+      await downloadXlsxFromApi(axios, '/api/owner/accounting/export', {
+        params,
+        fallbackName: `${exportKind}.xlsx`,
+      })
+      toast.success(t('admin.exportUi.success'))
+    } catch (e) {
+      toast.error(getErrorMessage(e) || t('admin.exportUi.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <AdminPage>
       <PageHeader
@@ -278,11 +300,18 @@ const AccountingListPage = ({
           { label: title },
         ]}
         actions={
-          createUrl ? (
-            <button type="button" className="admin-btn admin-btn--primary" onClick={() => setModal(true)}>
-              {t('admin.lists.add')}
-            </button>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {exportKind ? (
+              <button type="button" disabled={exporting} onClick={exportExcel} className="admin-btn admin-btn--secondary">
+                {exporting ? t('admin.exportUi.exporting') : t('admin.exportUi.excel')}
+              </button>
+            ) : null}
+            {createUrl ? (
+              <button type="button" className="admin-btn admin-btn--primary" onClick={() => setModal(true)}>
+                {t('admin.lists.add')}
+              </button>
+            ) : null}
+          </div>
         }
       />
 
@@ -379,6 +408,7 @@ export const RevenuesPage = () => {
       subtitle={t('admin.lists.revenuesSubtitle')}
       listUrl="/api/owner/accounting/revenues"
       createUrl={null}
+      exportKind="revenues"
       initialForm={{}}
       columns={[
         { key: 'reservationId', label: t('admin.lists.reservation'), render: (i) => i.reservationId || '—' },
@@ -408,6 +438,7 @@ export const SamsarPaymentsPage = () => {
       subtitle={t('admin.lists.samsarSubtitle')}
       listUrl="/api/owner/accounting/samsar-payments"
       createUrl="/api/owner/accounting/samsar-payments"
+      exportKind="samsar-payments"
       FormComponent={SamsarPaymentForm}
       formProps={{ samsars }}
       initialForm={{ samsarId: '', amount: '', paymentDate: new Date().toISOString().slice(0, 10), paymentStatus: 'paid', paymentMethod: 'cash', notes: '', bookingId: '' }}
@@ -430,6 +461,7 @@ export const AgencyExpensesPage = () => {
       subtitle={t('admin.lists.agencySubtitle')}
       listUrl="/api/owner/accounting/agency-expenses"
       createUrl="/api/owner/accounting/agency-expenses"
+      exportKind="agency-expenses"
       FormComponent={AgencyExpenseForm}
       initialForm={{ category: 'other', amount: '', expenseDate: new Date().toISOString().slice(0, 10), description: '', paymentStatus: 'paid', paymentMethod: 'cash', notes: '' }}
       columns={[
@@ -460,6 +492,7 @@ export const VehicleExpensesPage = () => {
       subtitle={t('admin.lists.vehicleSubtitle')}
       listUrl="/api/owner/accounting/vehicle-expenses"
       createUrl="/api/owner/accounting/vehicle-expenses"
+      exportKind="vehicle-expenses"
       FormComponent={VehicleExpenseForm}
       formProps={{ cars }}
       initialForm={{ carId: '', category: 'fuel', amount: '', expenseDate: new Date().toISOString().slice(0, 10), description: '', paymentStatus: 'paid', paymentMethod: 'cash', odometer: '', notes: '' }}
