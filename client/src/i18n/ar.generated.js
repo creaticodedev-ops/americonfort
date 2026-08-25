@@ -39,7 +39,9 @@ export const ar = {
     "noCities": "No cities found",
     "localEyebrow": "Casablanca · Mohammed V",
     "localLead": "Arriving by air? Learn about",
-    "localLink": "car rental at Casablanca Airport"
+    "localLink": "car rental at Casablanca Airport",
+    "live": "مباشر",
+    "metaTag": "الاستوديو"
   },
   "featured": {
     "eyebrow": "الأسطول",

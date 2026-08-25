@@ -10,14 +10,17 @@ import { AIRPORT_LANDING_PATH } from '../constants/site'
 import toast from 'react-hot-toast'
 
 /**
- * Flagship homepage hero — cinematic automotive showroom.
- * Booking logic unchanged; parallax via CSS vars + rAF (no per-frame React state).
+ * Flagship hero — living automotive studio.
+ * Signature: the Aperture (elliptical showroom light ring + kinetic bead).
+ * Booking logic unchanged. Motion via CSS vars + rAF.
  */
 const Hero = () => {
   const [pickupLocation, setPickupLocation] = useState('')
   const [hudTime, setHudTime] = useState('')
   const [ready, setReady] = useState(false)
+  const [carHot, setCarHot] = useState(false)
   const stageRef = useRef(null)
+  const cursorRef = useRef(null)
   const { t, language } = useI18n()
   const { pickupDate, setPickupDate, returnDate, setReturnDate, navigate, pickupLocations } =
     useAppContext()
@@ -52,18 +55,17 @@ const Hero = () => {
     )
   }
 
-  /* Entrance gate — lets atmosphere paint first, then unlocks vehicle choreography */
+  /* Choreography gate — atmosphere first, then the reveal sequence */
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduce) {
       setReady(true)
       return undefined
     }
-    const id = window.setTimeout(() => setReady(true), 90)
+    const id = window.setTimeout(() => setReady(true), 120)
     return () => window.clearTimeout(id)
   }, [])
 
-  /* Casablanca instrument clock */
   useEffect(() => {
     const fmt = () => {
       try {
@@ -84,9 +86,10 @@ const Hero = () => {
     return () => window.clearInterval(id)
   }, [language])
 
-  /* Mouse + scroll parallax via CSS variables (GPU transforms only) */
+  /* Parallax + custom cursor — DOM writes only, no React re-renders */
   useEffect(() => {
     const el = stageRef.current
+    const cursor = cursorRef.current
     if (!el) return undefined
 
     const reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -97,18 +100,50 @@ const Hero = () => {
     let my = 0
     let tx = 0
     let ty = 0
+    let cx = 0
+    let cy = 0
+    let tcx = 0
+    let tcy = 0
     let scroll = 0
     let raf = 0
     let active = true
+    let cursorOn = false
 
     const canParallax = () => !reduceMq.matches && fineMq.matches && !narrowMq.matches
+    const canCursor = () => fineMq.matches && !narrowMq.matches && !reduceMq.matches
 
     const onPointer = (e) => {
-      if (!canParallax()) return
       const r = el.getBoundingClientRect()
       if (!r.width || !r.height) return
-      mx = ((e.clientX - r.left) / r.width - 0.5) * 2
-      my = ((e.clientY - r.top) / r.height - 0.5) * 2
+      const inside =
+        e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+
+      if (canParallax() && inside) {
+        mx = ((e.clientX - r.left) / r.width - 0.5) * 2
+        my = ((e.clientY - r.top) / r.height - 0.5) * 2
+      } else if (!inside) {
+        mx = 0
+        my = 0
+      }
+
+      if (canCursor()) {
+        cursorOn = inside
+        cx = e.clientX
+        cy = e.clientY
+        if (cursor) {
+          cursor.dataset.on = inside ? '1' : '0'
+          const target = e.target
+          const mode =
+            target?.closest?.('.hero-stage__submit')
+              ? 'cta'
+              : target?.closest?.('.hero-stage__console')
+                ? 'field'
+                : target?.closest?.('.hero-stage__car')
+                  ? 'car'
+                  : 'default'
+          cursor.dataset.mode = mode
+        }
+      }
     }
 
     const onScroll = () => {
@@ -120,8 +155,8 @@ const Hero = () => {
     const tick = () => {
       if (!active) return
       if (canParallax()) {
-        tx += (mx - tx) * 0.055
-        ty += (my - ty) * 0.055
+        tx += (mx - tx) * 0.05
+        ty += (my - ty) * 0.05
       } else {
         tx += (0 - tx) * 0.08
         ty += (0 - ty) * 0.08
@@ -129,6 +164,14 @@ const Hero = () => {
       el.style.setProperty('--px', tx.toFixed(4))
       el.style.setProperty('--py', ty.toFixed(4))
       el.style.setProperty('--scroll', scroll.toFixed(4))
+
+      if (cursor && canCursor()) {
+        tcx += (cx - tcx) * 0.22
+        tcy += (cy - tcy) * 0.22
+        cursor.style.transform = `translate3d(${tcx}px, ${tcy}px, 0)`
+        cursor.style.opacity = cursorOn ? '1' : '0'
+      }
+
       raf = requestAnimationFrame(tick)
     }
 
@@ -150,22 +193,74 @@ const Hero = () => {
   return (
     <section
       ref={stageRef}
-      className={`hero-stage${ready ? ' is-ready' : ''}`}
+      className={`hero-stage${ready ? ' is-ready' : ''}${carHot ? ' is-car-hot' : ''}`}
       aria-label={BRAND_NAME}
       style={{ '--px': 0, '--py': 0, '--scroll': 0 }}
     >
+      <div className="hero-stage__cursor" ref={cursorRef} aria-hidden="true" data-on="0" data-mode="default">
+        <span className="hero-stage__cursor-dot" />
+        <span className="hero-stage__cursor-ring" />
+      </div>
+
       <div className="hero-stage__camera">
-        {/* L1–L3 atmosphere */}
         <div className="hero-stage__atmosphere" aria-hidden="true">
+          <div className="hero-stage__void" />
+          <div className="hero-stage__vol" />
+          <div className="hero-stage__leak" />
           <div className="hero-stage__glow hero-stage__glow--primary" />
           <div className="hero-stage__glow hero-stage__glow--warm" />
-          <div className="hero-stage__glow hero-stage__glow--rim" />
           <div className="hero-stage__horizon" />
           <div className="hero-stage__grain" />
         </div>
 
+        {/* Signature: Studio Aperture */}
+        <div className="hero-stage__aperture" aria-hidden="true">
+          <div className="hero-stage__aperture-bloom" />
+          <svg className="hero-stage__aperture-ring" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="heroApertureStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgba(143,31,31,0)" />
+                <stop offset="35%" stopColor="rgba(143,31,31,0.35)" />
+                <stop offset="55%" stopColor="rgba(255,255,255,0.55)" />
+                <stop offset="75%" stopColor="rgba(143,31,31,0.28)" />
+                <stop offset="100%" stopColor="rgba(143,31,31,0)" />
+              </linearGradient>
+            </defs>
+            <ellipse
+              className="hero-stage__aperture-path"
+              cx="500"
+              cy="300"
+              rx="390"
+              ry="168"
+              fill="none"
+              stroke="url(#heroApertureStroke)"
+              strokeWidth="1.1"
+            />
+            <ellipse
+              className="hero-stage__aperture-path hero-stage__aperture-path--soft"
+              cx="500"
+              cy="300"
+              rx="420"
+              ry="188"
+              fill="none"
+              stroke="rgba(143,31,31,0.08)"
+              strokeWidth="18"
+            />
+          </svg>
+          <div className="hero-stage__aperture-orbit">
+            <div className="hero-stage__aperture-bead" />
+          </div>
+          <div className="hero-stage__arch hero-stage__arch--a" />
+          <div className="hero-stage__arch hero-stage__arch--b" />
+        </div>
+
         <div className="hero-stage__inner page-pad page-shell">
-          {/* L9 typography */}
+          <div className="hero-stage__meta" aria-hidden="true">
+            <span className="hero-stage__meta-idx">01</span>
+            <span className="hero-stage__meta-line" />
+            <span className="hero-stage__meta-tag">{t('hero.metaTag')}</span>
+          </div>
+
           <header className="hero-stage__intro">
             <p className="hero-stage__brand">
               <span className="hero-stage__reveal">{BRAND_NAME}</span>
@@ -178,7 +273,6 @@ const Hero = () => {
             </p>
           </header>
 
-          {/* L10 booking — stable after entrance */}
           <form onSubmit={handleSearch} className="hero-stage__booking">
             <p className="hero-stage__booking-label">
               <span className="hero-stage__reveal hero-stage__reveal--d3">{t('hero.bookingLabel')}</span>
@@ -231,7 +325,6 @@ const Hero = () => {
             </p>
           </form>
 
-          {/* L4–L7 vehicle showroom */}
           <div className="hero-stage__vehicle">
             <div className="hero-stage__floor" aria-hidden="true" />
             <div className="hero-stage__spill" aria-hidden="true" />
@@ -239,7 +332,11 @@ const Hero = () => {
 
             <div className="hero-stage__rig">
               <div className="hero-stage__float">
-                <div className="hero-stage__car">
+                <div
+                  className="hero-stage__car"
+                  onPointerEnter={() => setCarHot(true)}
+                  onPointerLeave={() => setCarHot(false)}
+                >
                   <picture>
                     <source
                       type="image/avif"
@@ -263,6 +360,7 @@ const Hero = () => {
                   </picture>
 
                   <span className="hero-stage__sheen" aria-hidden="true" />
+                  <span className="hero-stage__glass" aria-hidden="true" />
                   <span className="hero-stage__lamp hero-stage__lamp--a" aria-hidden="true" />
                   <span className="hero-stage__lamp hero-stage__lamp--b" aria-hidden="true" />
                 </div>
@@ -282,16 +380,14 @@ const Hero = () => {
             </div>
           </div>
 
-          {/* L8 instrument HUD */}
           <div className="hero-stage__hud">
             <div className="hero-stage__hud-row">
-              <span className="hero-stage__hud-dot" aria-hidden="true" />
+              <span className="hero-stage__hud-live">
+                <span className="hero-stage__hud-dot" aria-hidden="true" />
+                {t('hero.live')}
+              </span>
               <span className="hero-stage__hud-label">{t('hero.localEyebrow')}</span>
-              {hudTime ? (
-                <span className="hero-stage__hud-time" aria-hidden="true">
-                  {hudTime}
-                </span>
-              ) : null}
+              {hudTime ? <span className="hero-stage__hud-time">{hudTime}</span> : null}
             </div>
             <p className="hero-stage__local-copy">
               {t('hero.localLead')}{' '}
@@ -301,6 +397,12 @@ const Hero = () => {
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="hero-stage__scroll" aria-hidden="true">
+        <span className="hero-stage__scroll-track">
+          <span className="hero-stage__scroll-thumb" />
+        </span>
       </div>
 
       <div className="hero-stage__bridge" aria-hidden="true" />

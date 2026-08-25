@@ -39,6 +39,8 @@ export const en = {
     localEyebrow: 'Casablanca · Mohammed V',
     localLead: 'Arriving by air? Learn about',
     localLink: 'car rental at Casablanca Airport',
+    live: 'Live',
+    metaTag: 'Studio',
   },
   featured: {
     eyebrow: 'The fleet',
@@ -352,6 +354,8 @@ export const fr = {
     localEyebrow: 'Casablanca · Mohammed V',
     localLead: 'Vous arrivez par avion ? Découvrez la',
     localLink: 'location de voiture à l’aéroport de Casablanca',
+    live: 'Live',
+    metaTag: 'Studio',
   },
   featured: {
     eyebrow: 'La flotte',
@@ -664,6 +668,8 @@ export const es = {
     localEyebrow: 'Casablanca · Mohammed V',
     localLead: '¿Llega en avión? Consulte el',
     localLink: 'alquiler de coche en el aeropuerto de Casablanca',
+    live: 'En vivo',
+    metaTag: 'Studio',
   },
   featured: {
     eyebrow: 'La flota',
