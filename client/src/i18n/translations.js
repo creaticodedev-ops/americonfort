@@ -16,7 +16,7 @@ export const en = {
   },
   hero: {
     title: 'Drive with distinction',
-    subtitle: 'Curated premium vehicles, transparent pricing, and effortless booking across Morocco.',
+    subtitle: 'Premium vehicles, clear rates, and effortless booking across Morocco.',
     bookingLabel: 'Plan your journey',
     pickupLocation: 'City',
     selectLocation: 'Select a city',
@@ -329,7 +329,7 @@ export const fr = {
   },
   hero: {
     title: 'Roulez avec distinction',
-    subtitle: 'Véhicules premium sélectionnés, tarifs transparents et réservation fluide partout au Maroc.',
+    subtitle: 'Véhicules premium, tarifs clairs et réservation fluide partout au Maroc.',
     bookingLabel: 'Planifiez votre trajet',
     pickupLocation: 'Ville',
     selectLocation: 'Choisir une ville',
@@ -641,7 +641,7 @@ export const es = {
   },
   hero: {
     title: 'Conduce con distinción',
-    subtitle: 'Vehículos premium seleccionados, precios transparentes y reservas sencillas en todo Marruecos.',
+    subtitle: 'Vehículos premium, precios claros y reservas sencillas en todo Marruecos.',
     bookingLabel: 'Planifica tu viaje',
     pickupLocation: 'Ciudad',
     selectLocation: 'Selecciona una ciudad',

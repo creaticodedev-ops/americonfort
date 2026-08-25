@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { motion as Motion, useReducedMotion } from 'motion/react'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
 import { useI18n } from '../i18n/I18nContext'
@@ -9,10 +10,16 @@ import { BRAND_NAME } from '../constants/brand'
 import { AIRPORT_LANDING_PATH } from '../constants/site'
 import toast from 'react-hot-toast'
 
+/**
+ * Homepage hero — cinematic automotive showroom.
+ * Booking search logic unchanged; presentation only.
+ */
 const Hero = () => {
   const [pickupLocation, setPickupLocation] = useState('')
   const { t } = useI18n()
-  const { pickupDate, setPickupDate, returnDate, setReturnDate, navigate, pickupLocations } = useAppContext()
+  const reduceMotion = useReducedMotion()
+  const { pickupDate, setPickupDate, returnDate, setReturnDate, navigate, pickupLocations } =
+    useAppContext()
 
   const cities = useMemo(() => {
     return [...new Set(pickupLocations.map((location) => location.city))].sort()
@@ -35,121 +42,150 @@ const Hero = () => {
       toast.error(t('hero.invalidRange'))
       return
     }
-    navigate(`/cars?${new URLSearchParams({
-      pickupLocation,
-      pickupDate: startISO,
-      returnDate: endISO,
-    }).toString()}`)
+    navigate(
+      `/cars?${new URLSearchParams({
+        pickupLocation,
+        pickupDate: startISO,
+        returnDate: endISO,
+      }).toString()}`,
+    )
   }
 
+  const fade = (delay = 0) =>
+    reduceMotion
+      ? { initial: false, animate: { opacity: 1, y: 0 } }
+      : {
+          initial: { opacity: 0, y: 22 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] },
+        }
+
   return (
-    <section className="relative min-h-[100svh] bg-light overflow-x-clip">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(143,31,31,0.12),transparent_55%)]" />
-        <div className="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-sand/80 to-transparent" />
+    <section className="hero-stage" aria-label={BRAND_NAME}>
+      <div className="hero-stage__atmosphere" aria-hidden="true">
+        <div className="hero-stage__glow hero-stage__glow--primary" />
+        <div className="hero-stage__glow hero-stage__glow--warm" />
+        <div className="hero-stage__horizon" />
+        <div className="hero-stage__grain" />
       </div>
 
-      <div className="relative z-10 page-pad page-shell flex flex-col items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 md:pb-20">
-        <div className="text-center w-full max-w-3xl motion-safe:animate-fade-up">
-          <p className="font-display text-primary text-5xl sm:text-6xl md:text-7xl font-medium leading-none tracking-tight">
-            {BRAND_NAME}
-          </p>
-          <h1 className="font-display text-ink text-3xl sm:text-4xl md:text-5xl font-medium mt-3 sm:mt-4 leading-tight">
-            {t('hero.title')}
-          </h1>
-          <p className="mt-3 sm:mt-4 text-muted text-sm sm:text-base md:text-lg font-light leading-relaxed max-w-xl mx-auto">
-            {t('hero.subtitle')}
-          </p>
-        </div>
+      <div className="hero-stage__inner page-pad page-shell">
+        <Motion.header className="hero-stage__intro" {...fade(0.02)}>
+          <p className="hero-stage__brand">{BRAND_NAME}</p>
+          <h1 className="hero-stage__title">{t('hero.title')}</h1>
+          <p className="hero-stage__lead">{t('hero.subtitle')}</p>
+        </Motion.header>
 
-        <form
+        <Motion.form
           onSubmit={handleSearch}
-          className="mt-8 sm:mt-10 md:mt-12 w-full max-w-4xl motion-safe:animate-fade-up-delay"
+          className="hero-stage__booking"
+          {...fade(0.12)}
         >
-          <div className="rounded-2xl md:rounded-[1.75rem] bg-white border border-borderColor shadow-[0_18px_50px_-28px_rgba(22,18,16,0.35)] overflow-visible">
-            <div className="flex flex-col md:flex-row md:items-stretch">
-              <div className="md:flex-[1.05] min-w-0 border-b md:border-b-0 md:border-r border-borderColor">
-                <CitySelect
-                  value={pickupLocation}
-                  onChange={setPickupLocation}
-                  options={cities}
-                  label={t('hero.pickupLocation')}
-                  placeholder={t('hero.selectLocation')}
-                />
-              </div>
+          <p className="hero-stage__booking-label">{t('hero.bookingLabel')}</p>
 
-              <div className="md:flex-[1.55] min-w-0 border-b md:border-b-0 md:border-r border-borderColor">
-                <DateRangePicker
-                  startDate={startISO}
-                  endDate={endISO}
-                  onChange={({ startDate, endDate }) => {
-                    setPickupDate(startDate)
-                    setReturnDate(endDate)
-                  }}
-                />
-              </div>
+          <div className="hero-stage__console">
+            <div className="hero-stage__field hero-stage__field--city">
+              <CitySelect
+                value={pickupLocation}
+                onChange={setPickupLocation}
+                options={cities}
+                label={t('hero.pickupLocation')}
+                placeholder={t('hero.selectLocation')}
+              />
+            </div>
 
-              <div className="p-3 md:p-2.5 md:pl-2 flex items-stretch">
-                <button
-                  type="submit"
-                  className="w-full md:w-[9.5rem] min-h-[3.25rem] rounded-xl bg-primary hover:bg-primary-dull text-white text-sm font-medium tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-2 active:scale-[0.985]"
+            <div className="hero-stage__field hero-stage__field--dates">
+              <DateRangePicker
+                startDate={startISO}
+                endDate={endISO}
+                onChange={({ startDate, endDate }) => {
+                  setPickupDate(startDate)
+                  setReturnDate(endDate)
+                }}
+              />
+            </div>
+
+            <div className="hero-stage__field hero-stage__field--submit">
+              <button type="submit" className="hero-stage__submit">
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  aria-hidden="true"
                 >
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M20 20l-3.5-3.5" />
-                  </svg>
-                  {t('hero.search')}
-                </button>
-              </div>
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+                <span>{t('hero.search')}</span>
+              </button>
             </div>
           </div>
 
-          <p className="mt-3.5 text-center text-xs sm:text-sm text-muted tracking-wide px-2 leading-relaxed">
-            {t('hero.trustLine')}
-          </p>
-        </form>
+          <p className="hero-stage__trust">{t('hero.trustLine')}</p>
+        </Motion.form>
 
-        {/* LCP image: responsive AVIF/WebP, no opacity animation */}
-        <div className="mt-8 sm:mt-10 md:mt-14 w-full max-w-3xl flex justify-center px-2">
-          <picture>
-            <source
-              type="image/avif"
-              srcSet={`${assets.main_car_avif_640} 640w, ${assets.main_car_avif_960} 960w, ${assets.main_car_avif_1280} 1280w`}
-              sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 768px"
-            />
-            <source
-              type="image/webp"
-              srcSet={`${assets.main_car_640} 640w, ${assets.main_car} 960w, ${assets.main_car_1280} 1280w`}
-              sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 768px"
-            />
+        <Motion.div
+          className="hero-stage__vehicle"
+          initial={reduceMotion ? false : { opacity: 1, y: 36 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 1.05, delay: 0.2, ease: [0.22, 1, 0.36, 1] }
+          }
+        >
+          <div className="hero-stage__floor" aria-hidden="true" />
+          <div className="hero-stage__spotlight" aria-hidden="true" />
+
+          <div className="hero-stage__car">
+            <picture>
+              <source
+                type="image/avif"
+                srcSet={`${assets.main_car_avif_640} 640w, ${assets.main_car_avif_960} 960w, ${assets.main_car_avif_1280} 1280w`}
+                sizes="(max-width: 640px) 96vw, (max-width: 1024px) 90vw, 1100px"
+              />
+              <source
+                type="image/webp"
+                srcSet={`${assets.main_car_640} 640w, ${assets.main_car} 960w, ${assets.main_car_1280} 1280w`}
+                sizes="(max-width: 640px) 96vw, (max-width: 1024px) 90vw, 1100px"
+              />
+              <img
+                src={assets.main_car}
+                alt={`${BRAND_NAME} premium rental`}
+                width={1280}
+                height={511}
+                fetchPriority="high"
+                decoding="async"
+                className="hero-stage__img"
+              />
+            </picture>
+          </div>
+
+          <div className="hero-stage__reflection" aria-hidden="true">
             <img
               src={assets.main_car}
-              alt={`${BRAND_NAME} premium rental`}
-              width={960}
-              height={383}
-              fetchPriority="high"
+              alt=""
+              width={1280}
+              height={511}
+              loading="lazy"
               decoding="async"
-              className="w-full max-h-[200px] sm:max-h-[280px] md:max-h-[340px] h-auto object-contain select-none drop-shadow-[0_30px_60px_rgba(22,18,16,0.18)]"
+              className="hero-stage__img hero-stage__img--mirror"
             />
-          </picture>
-        </div>
+          </div>
+        </Motion.div>
 
-        {/* Local SEO cue — closes the hero composition; not a separate page band */}
-        <div className="mt-8 sm:mt-10 md:mt-12 w-full max-w-lg mx-auto px-2 text-center">
-          <div className="h-px w-10 mx-auto bg-borderColor mb-5 sm:mb-6" aria-hidden="true" />
-          <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.18em] text-primary/75 font-medium">
-            {t('hero.localEyebrow')}
-          </p>
-          <p className="mt-2 text-sm sm:text-[15px] text-muted font-light leading-relaxed">
+        <Motion.div className="hero-stage__local" {...fade(0.28)}>
+          <p className="hero-stage__local-eyebrow">{t('hero.localEyebrow')}</p>
+          <p className="hero-stage__local-copy">
             {t('hero.localLead')}{' '}
-            <Link
-              to={AIRPORT_LANDING_PATH}
-              className="text-ink font-medium underline-offset-[3px] decoration-primary/30 hover:text-primary hover:decoration-primary transition"
-            >
+            <Link to={AIRPORT_LANDING_PATH} className="hero-stage__local-link">
               {t('hero.localLink')}
             </Link>
           </p>
-        </div>
+        </Motion.div>
       </div>
     </section>
   )
