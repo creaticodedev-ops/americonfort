@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { assets } from '../assets/assets'
 import ResponsiveImage from '../components/ResponsiveImage'
@@ -24,8 +24,9 @@ import {
   buildOrganization,
   buildVehicleProductOffer,
 } from '../seo/structuredData'
+import { lazyWithRetry } from '../utils/lazyWithRetry'
 
-const ReservationPanel = lazy(() => import('../components/reservation/ReservationPanel'))
+const ReservationPanel = lazyWithRetry(() => import('../components/reservation/ReservationPanel'))
 
 const toDateTimeLocal = (value) => {
   if (!value) return ''

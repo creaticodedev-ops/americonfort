@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo } from 'react'
+import React, { Suspense, useMemo } from 'react'
 import Hero from '../components/Hero'
 import Seo from '../components/Seo'
 import {
@@ -6,30 +6,7 @@ import {
   buildOrganization,
   buildBreadcrumbList,
 } from '../seo/structuredData'
-
-const LAZY_RETRY_KEY = 'americonfort:lazy-retry'
-
-/** Retry once on stale hashed chunks after a deploy. */
-const lazyWithRetry = (importer) =>
-  lazy(async () => {
-    try {
-      return await importer()
-    } catch (err) {
-      try {
-        if (!sessionStorage.getItem(LAZY_RETRY_KEY)) {
-          sessionStorage.setItem(LAZY_RETRY_KEY, '1')
-          const next = new URL(window.location.href)
-          next.searchParams.set('_', String(Date.now()))
-          window.location.replace(next.toString())
-          return new Promise(() => {})
-        }
-        sessionStorage.removeItem(LAZY_RETRY_KEY)
-      } catch {
-        /* private mode */
-      }
-      throw err
-    }
-  })
+import { lazyWithRetry } from '../utils/lazyWithRetry'
 
 const FeaturedSection = lazyWithRetry(() => import('../components/FeaturedSection'))
 const Banner = lazyWithRetry(() => import('../components/Banner'))

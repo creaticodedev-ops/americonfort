@@ -7,25 +7,12 @@ import { BrowserRouter } from 'react-router-dom'
 import { AppProvider } from './context/AppContext.jsx'
 import { SuperAdminProvider } from './context/SuperAdminContext.jsx'
 import { I18nProvider } from './i18n/I18nContext.jsx'
+import { isChunkLoadError } from './utils/lazyWithRetry'
 
 preloadCriticalFonts()
 loadExtendedLatinFonts()
 
 const CHUNK_RELOAD_KEY = 'americonfort:chunk-reload'
-
-/** Detect Vite/React lazy-chunk failures after a deploy (404 hashed assets). */
-export const isChunkLoadError = (error) => {
-  const msg = String(error?.message || error || '')
-  const stack = String(error?.stack || '')
-  if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed|Unable to preload CSS/i.test(msg)) {
-    return true
-  }
-  // React.lazy often surfaces a 404 chunk as: Cannot read properties of undefined (reading 'default')
-  if (/Cannot read propert(?:y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg)) {
-    return true
-  }
-  return false
-}
 
 const reloadOnceForStaleChunks = (reason) => {
   try {

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react'
+import React, { Suspense } from 'react'
 import Navbar from './components/Navbar'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
@@ -9,77 +9,78 @@ import SiteAnalytics from './components/Analytics'
 import RequirePermission from './components/owner/RequirePermission'
 import { Toaster } from 'react-hot-toast'
 import { useAppContext } from './context/AppContext'
+import { lazyWithRetry } from './utils/lazyWithRetry'
 
-const CarDetails = lazy(() => import('./pages/CarDetails'))
-const Cars = lazy(() => import('./pages/Cars'))
-const BookingConfirmation = lazy(() => import('./pages/BookingConfirmation'))
-const CompleteBooking = lazy(() => import('./pages/CompleteBooking'))
-const NotFound = lazy(() => import('./pages/NotFound'))
-const Login = lazy(() => import('./components/Login'))
-const AirportLanding = lazy(() => import('./pages/AirportLanding'))
-const About = lazy(() => import('./pages/About'))
-const Contact = lazy(() => import('./pages/Contact'))
-const Faq = lazy(() => import('./pages/Faq'))
-const Terms = lazy(() => import('./pages/Terms'))
-const Privacy = lazy(() => import('./pages/Privacy'))
-const Insurance = lazy(() => import('./pages/Insurance'))
-const Cookies = lazy(() => import('./pages/Cookies'))
+const CarDetails = lazyWithRetry(() => import('./pages/CarDetails'))
+const Cars = lazyWithRetry(() => import('./pages/Cars'))
+const BookingConfirmation = lazyWithRetry(() => import('./pages/BookingConfirmation'))
+const CompleteBooking = lazyWithRetry(() => import('./pages/CompleteBooking'))
+const NotFound = lazyWithRetry(() => import('./pages/NotFound'))
+const Login = lazyWithRetry(() => import('./components/Login'))
+const AirportLanding = lazyWithRetry(() => import('./pages/AirportLanding'))
+const About = lazyWithRetry(() => import('./pages/About'))
+const Contact = lazyWithRetry(() => import('./pages/Contact'))
+const Faq = lazyWithRetry(() => import('./pages/Faq'))
+const Terms = lazyWithRetry(() => import('./pages/Terms'))
+const Privacy = lazyWithRetry(() => import('./pages/Privacy'))
+const Insurance = lazyWithRetry(() => import('./pages/Insurance'))
+const Cookies = lazyWithRetry(() => import('./pages/Cookies'))
 
-const Layout = lazy(() => import('./pages/owner/Layout'))
-const Dashboard = lazy(() => import('./pages/owner/Dashboard'))
-const Analytics = lazy(() => import('./pages/owner/Analytics'))
-const AddCar = lazy(() => import('./pages/owner/AddCar'))
-const EditCar = lazy(() => import('./pages/owner/EditCar'))
-const ManageCars = lazy(() => import('./pages/owner/ManageCars'))
-const VehicleStatsPage = lazy(() => import('./pages/owner/VehicleStatsPage'))
-const VehicleStatsListPage = lazy(() => import('./pages/owner/VehicleStatsListPage'))
-const ManageBookings = lazy(() => import('./pages/owner/ManageBookings'))
-const WalkInBooking = lazy(() => import('./pages/owner/WalkInBooking'))
-const Customers = lazy(() => import('./pages/owner/Customers'))
-const ClientDocuments = lazy(() => import('./pages/owner/ClientDocuments'))
-const BookingCalendar = lazy(() => import('./pages/owner/BookingCalendar'))
-const ManageLocations = lazy(() => import('./pages/owner/ManageLocations'))
-const Maintenance = lazy(() => import('./pages/owner/Maintenance'))
-const Reports = lazy(() => import('./pages/owner/Reports'))
-const AuditLogs = lazy(() => import('./pages/owner/AuditLogs'))
-const Contracts = lazy(() => import('./pages/owner/Contracts'))
-const Invoices = lazy(() => import('./pages/owner/Invoices'))
-const ExportTemplates = lazy(() => import('./pages/owner/ExportTemplates'))
-const Settings = lazy(() => import('./pages/owner/Settings'))
-const Samsars = lazy(() => import('./pages/owner/Samsars'))
-const PartnerCompanies = lazy(() => import('./pages/owner/PartnerCompanies'))
-const Chauffeurs = lazy(() => import('./pages/owner/Chauffeurs'))
-const SignatureRequests = lazy(() => import('./pages/owner/SignatureRequests'))
-const Employees = lazy(() => import('./pages/owner/Employees'))
-const Staff = lazy(() => import('./pages/owner/Staff'))
-const AccountingOverview = lazy(() => import('./pages/owner/accounting/AccountingOverview'))
-const RevenuesPage = lazy(async () => {
+const Layout = lazyWithRetry(() => import('./pages/owner/Layout'))
+const Dashboard = lazyWithRetry(() => import('./pages/owner/Dashboard'))
+const Analytics = lazyWithRetry(() => import('./pages/owner/Analytics'))
+const AddCar = lazyWithRetry(() => import('./pages/owner/AddCar'))
+const EditCar = lazyWithRetry(() => import('./pages/owner/EditCar'))
+const ManageCars = lazyWithRetry(() => import('./pages/owner/ManageCars'))
+const VehicleStatsPage = lazyWithRetry(() => import('./pages/owner/VehicleStatsPage'))
+const VehicleStatsListPage = lazyWithRetry(() => import('./pages/owner/VehicleStatsListPage'))
+const ManageBookings = lazyWithRetry(() => import('./pages/owner/ManageBookings'))
+const WalkInBooking = lazyWithRetry(() => import('./pages/owner/WalkInBooking'))
+const Customers = lazyWithRetry(() => import('./pages/owner/Customers'))
+const ClientDocuments = lazyWithRetry(() => import('./pages/owner/ClientDocuments'))
+const BookingCalendar = lazyWithRetry(() => import('./pages/owner/BookingCalendar'))
+const ManageLocations = lazyWithRetry(() => import('./pages/owner/ManageLocations'))
+const Maintenance = lazyWithRetry(() => import('./pages/owner/Maintenance'))
+const Reports = lazyWithRetry(() => import('./pages/owner/Reports'))
+const AuditLogs = lazyWithRetry(() => import('./pages/owner/AuditLogs'))
+const Contracts = lazyWithRetry(() => import('./pages/owner/Contracts'))
+const Invoices = lazyWithRetry(() => import('./pages/owner/Invoices'))
+const ExportTemplates = lazyWithRetry(() => import('./pages/owner/ExportTemplates'))
+const Settings = lazyWithRetry(() => import('./pages/owner/Settings'))
+const Samsars = lazyWithRetry(() => import('./pages/owner/Samsars'))
+const PartnerCompanies = lazyWithRetry(() => import('./pages/owner/PartnerCompanies'))
+const Chauffeurs = lazyWithRetry(() => import('./pages/owner/Chauffeurs'))
+const SignatureRequests = lazyWithRetry(() => import('./pages/owner/SignatureRequests'))
+const Employees = lazyWithRetry(() => import('./pages/owner/Employees'))
+const Staff = lazyWithRetry(() => import('./pages/owner/Staff'))
+const AccountingOverview = lazyWithRetry(() => import('./pages/owner/accounting/AccountingOverview'))
+const RevenuesPage = lazyWithRetry(async () => {
   const m = await import('./pages/owner/accounting/AccountingLists')
   return { default: m.RevenuesPage }
 })
-const SamsarPaymentsPage = lazy(async () => {
+const SamsarPaymentsPage = lazyWithRetry(async () => {
   const m = await import('./pages/owner/accounting/AccountingLists')
   return { default: m.SamsarPaymentsPage }
 })
-const AgencyExpensesPage = lazy(async () => {
+const AgencyExpensesPage = lazyWithRetry(async () => {
   const m = await import('./pages/owner/accounting/AccountingLists')
   return { default: m.AgencyExpensesPage }
 })
-const VehicleExpensesPage = lazy(async () => {
+const VehicleExpensesPage = lazyWithRetry(async () => {
   const m = await import('./pages/owner/accounting/AccountingLists')
   return { default: m.VehicleExpensesPage }
 })
 
-const SuperAdminLogin = lazy(() => import('./pages/superadmin/Login'))
-const SuperAdminLayout = lazy(() => import('./pages/superadmin/Layout'))
-const SuperAdminDashboard = lazy(() => import('./pages/superadmin/Dashboard'))
-const SuperAdminAgencies = lazy(() => import('./pages/superadmin/Agencies'))
-const SuperAdminAgencyDetail = lazy(() => import('./pages/superadmin/AgencyDetail'))
-const SuperAdminPlans = lazy(() => import('./pages/superadmin/Plans'))
-const SuperAdminAdmins = lazy(() => import('./pages/superadmin/Admins'))
-const SuperAdminAdminDetail = lazy(() => import('./pages/superadmin/AdminDetail'))
-const SuperAdminActivity = lazy(() => import('./pages/superadmin/Activity'))
-const SuperAdminAudit = lazy(() => import('./pages/superadmin/AuditLogs'))
+const SuperAdminLogin = lazyWithRetry(() => import('./pages/superadmin/Login'))
+const SuperAdminLayout = lazyWithRetry(() => import('./pages/superadmin/Layout'))
+const SuperAdminDashboard = lazyWithRetry(() => import('./pages/superadmin/Dashboard'))
+const SuperAdminAgencies = lazyWithRetry(() => import('./pages/superadmin/Agencies'))
+const SuperAdminAgencyDetail = lazyWithRetry(() => import('./pages/superadmin/AgencyDetail'))
+const SuperAdminPlans = lazyWithRetry(() => import('./pages/superadmin/Plans'))
+const SuperAdminAdmins = lazyWithRetry(() => import('./pages/superadmin/Admins'))
+const SuperAdminAdminDetail = lazyWithRetry(() => import('./pages/superadmin/AdminDetail'))
+const SuperAdminActivity = lazyWithRetry(() => import('./pages/superadmin/Activity'))
+const SuperAdminAudit = lazyWithRetry(() => import('./pages/superadmin/AuditLogs'))
 
 const withPerm = (permission, Component) => (
   <RequirePermission permission={permission}>{React.createElement(Component)}</RequirePermission>

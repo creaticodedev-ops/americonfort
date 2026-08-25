@@ -1,46 +1,11 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import {
+  hardRecoverFromStaleChunks,
+  isChunkLoadError,
+} from '../utils/lazyWithRetry'
 
 const CHUNK_RELOAD_KEY = 'americonfort:chunk-reload'
 const CHUNK_RELOAD_COUNT_KEY = 'americonfort:chunk-reload-count'
-const LAZY_RETRY_KEY = 'americonfort:lazy-retry'
-
-const isChunkLoadError = (error) => {
-  const msg = String(error?.message || error || '')
-  const stack = String(error?.stack || '')
-  if (
-    /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed|Unable to preload CSS/i.test(
-      msg,
-    )
-  ) {
-    return true
-  }
-  // React.lazy often wraps a missing chunk as undefined.default
-  if (/Cannot read propert(?:y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg)) {
-    return true
-  }
-  return false
-}
-
-const hardRecover = (path = '/') => {
-  try {
-    sessionStorage.removeItem(CHUNK_RELOAD_KEY)
-    sessionStorage.removeItem(CHUNK_RELOAD_COUNT_KEY)
-    sessionStorage.removeItem(LAZY_RETRY_KEY)
-  } catch {
-    /* private mode */
-  }
-  try {
-    if (window.caches) {
-      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))
-    }
-  } catch {
-    /* ignore */
-  }
-  const next = new URL(path, window.location.origin)
-  next.searchParams.set('_', String(Date.now()))
-  window.location.replace(next.toString())
-}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -55,15 +20,23 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, info) {
     console.error('Application error:', error, info)
     if (!isChunkLoadError(error)) return
+
+    let count = 0
     try {
-      if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
-        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
-        const next = new URL(window.location.href)
-        next.searchParams.set('_', String(Date.now()))
-        window.location.replace(next.toString())
-      }
+      count = parseInt(sessionStorage.getItem(CHUNK_RELOAD_COUNT_KEY) || '0', 10) || 0
     } catch {
-      window.location.reload()
+      /* private mode */
+    }
+
+    // Auto-recover up to 2 times with a full cache-bust navigation.
+    if (count < 2) {
+      try {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+        sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, String(count + 1))
+      } catch {
+        /* private mode */
+      }
+      hardRecoverFromStaleChunks(window.location.pathname || '/')
     }
   }
 
@@ -82,14 +55,14 @@ class ErrorBoundary extends React.Component {
           <div className="mt-6 flex gap-3">
             <button
               type="button"
-              onClick={() => hardRecover(window.location.pathname || '/')}
+              onClick={() => hardRecoverFromStaleChunks('/')}
               className="px-5 py-2 rounded-lg bg-primary text-white hover:bg-primary-dull"
             >
               Refresh
             </button>
             <button
               type="button"
-              onClick={() => hardRecover('/')}
+              onClick={() => hardRecoverFromStaleChunks('/')}
               className="px-5 py-2 rounded-lg border border-borderColor text-gray-700 hover:bg-gray-50"
             >
               Go Home
