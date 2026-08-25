@@ -150,10 +150,13 @@ export const en = {
     priceHint: 'Select dates and locations to see your full price breakdown.',
   },
   carCard: {
-    available: 'Available Now',
+    available: 'Available',
     unavailable: 'Unavailable',
-    perDay: '/ day',
+    perDay: 'per day',
     viewDetails: 'View details',
+    specSeats: 'Seats',
+    specFuel: 'Fuel',
+    specGear: 'Gear',
   },
   confirmation: {
     title: 'Reservation Confirmed',
@@ -461,8 +464,11 @@ export const fr = {
   carCard: {
     available: 'Disponible',
     unavailable: 'Indisponible',
-    perDay: '/ jour',
+    perDay: 'par jour',
     viewDetails: 'Voir les détails',
+    specSeats: 'Places',
+    specFuel: 'Carburant',
+    specGear: 'Boîte',
   },
   confirmation: {
     title: 'Réservation enregistrée',
@@ -770,8 +776,11 @@ export const es = {
   carCard: {
     available: 'Disponible',
     unavailable: 'No disponible',
-    perDay: '/ día',
+    perDay: 'por día',
     viewDetails: 'Ver detalles',
+    specSeats: 'Asientos',
+    specFuel: 'Combustible',
+    specGear: 'Cambio',
   },
   confirmation: {
     title: 'Reserva registrada',

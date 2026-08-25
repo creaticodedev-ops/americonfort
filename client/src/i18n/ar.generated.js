@@ -163,8 +163,11 @@ export const ar = {
   "carCard": {
     "available": "متاحة",
     "unavailable": "غير متاحة",
-    "perDay": "/ اليوم",
-    "viewDetails": "عرض التفاصيل"
+    "perDay": "لليوم",
+    "viewDetails": "عرض التفاصيل",
+    "specSeats": "مقاعد",
+    "specFuel": "وقود",
+    "specGear": "ناقل"
   },
   "confirmation": {
     "title": "Reservation Confirmed",
