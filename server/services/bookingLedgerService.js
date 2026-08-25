@@ -15,6 +15,7 @@ import BookingLedgerEntry, {
 import { logAudit } from '../utils/adminOps.js';
 
 const toMoney = (n) => Math.round((Number(n) || 0) * 100) / 100;
+export { toMoney };
 
 const CHARGE_KINDS = new Set(['charge']);
 const PAYMENT_KINDS = new Set(['payment']);

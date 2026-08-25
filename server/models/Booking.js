@@ -67,6 +67,8 @@ const bookingSchema = new mongoose.Schema({
   deliveredBy: { type: String, default: "" },
   receivedBy: { type: String, default: "" },
   fuelLevelStart: { type: String, default: "" },
+  /** Mirrored from return inspection (contracts / ops); optional */
+  fuelLevelEnd: { type: String, default: "" },
   kmDepart: { type: String, default: "" },
   kmRetour: { type: String, default: "" },
   franchiseAmount: { type: Number, default: null },

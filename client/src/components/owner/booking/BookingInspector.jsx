@@ -9,6 +9,7 @@ import { useAppContext } from '../../../context/AppContext'
 import BookingSignaturePanel from './BookingSignaturePanel'
 import BookingActionsMenu from './BookingActionsMenu'
 import BookingMoneySummary from './BookingMoneySummary'
+import BookingDeskOps from './BookingDeskOps'
 import { formatDateTime, getBookingAttention, resId } from './bookingUtils'
 
 const inputClass =
@@ -201,6 +202,7 @@ const BookingInspector = ({
 
       <div className="admin-booking-inspector-body">
         <BookingMoneySummary bookingId={booking._id} currency={currency} />
+        <BookingDeskOps bookingId={booking._id} currency={currency} />
 
         <DetailSection title={t('admin.details.period')} collapsible defaultOpen>
           <DetailRow label={t('admin.details.pickup')}>{formatDateTime(booking.pickupDate)}</DetailRow>

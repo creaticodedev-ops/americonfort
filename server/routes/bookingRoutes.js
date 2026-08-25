@@ -15,6 +15,16 @@ import {
   updateBooking
 } from "../controllers/bookingController.js";
 import { getBookingFinancial, createLedgerPayment, createLedgerCharge, createLedgerRefund } from "../controllers/bookingLedgerController.js";
+import {
+  postDepositHold,
+  postDepositRelease,
+  postDepositClaim,
+  getBookingInspections,
+  createBookingInspection,
+  patchInspection,
+  uploadInspectionPhoto,
+  completeBookingInspection,
+} from "../controllers/deskOpsController.js";
 import { ensureCompletionLink } from "../controllers/bookingCompletionController.js";
 import { protect } from "../middleware/auth.js";
 import { requireOwner } from "../middleware/ownerAuth.js";
@@ -55,6 +65,21 @@ bookingRouter.get('/owner/:bookingId/financial', ...bookingsGate, getBookingFina
 bookingRouter.post('/owner/:bookingId/ledger/payments', ...bookingsGate, ledgerWriteLimit, createLedgerPayment);
 bookingRouter.post('/owner/:bookingId/ledger/charges', ...bookingsGate, ledgerWriteLimit, createLedgerCharge);
 bookingRouter.post('/owner/:bookingId/ledger/refunds', ...refundsGate, ledgerWriteLimit, createLedgerRefund);
+bookingRouter.post('/owner/:bookingId/deposit/hold', ...bookingsGate, ledgerWriteLimit, postDepositHold);
+bookingRouter.post('/owner/:bookingId/deposit/release', ...bookingsGate, ledgerWriteLimit, postDepositRelease);
+bookingRouter.post('/owner/:bookingId/deposit/claim', ...bookingsGate, ledgerWriteLimit, postDepositClaim);
+bookingRouter.get('/owner/:bookingId/inspections', ...bookingsGate, getBookingInspections);
+bookingRouter.post('/owner/:bookingId/inspections', ...bookingsGate, createBookingInspection);
+bookingRouter.patch('/owner/inspections/:inspectionId', ...bookingsGate, patchInspection);
+bookingRouter.post(
+  '/owner/inspections/:inspectionId/photos',
+  ...bookingsGate,
+  rateLimit({ windowMs: 60_000, max: 30, message: 'Too many photo uploads' }),
+  upload.single('file'),
+  handleMulterError,
+  uploadInspectionPhoto,
+);
+bookingRouter.post('/owner/inspections/:inspectionId/complete', ...bookingsGate, completeBookingInspection);
 bookingRouter.post(
   '/owner/:bookingId/documents',
   ...bookingsGate,

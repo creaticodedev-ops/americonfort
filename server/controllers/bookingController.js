@@ -1058,8 +1058,44 @@ export const changeBookingStatus = async (req, res) => {
       }
     }
 
+    // Desk gates: start rental / complete rental (Phase 3)
+    let cancelCarSync = false;
+    if (status === 'active' && booking.status !== 'active') {
+      const { assertCanStartRental, syncCarStatusForBookingStatus } = await import('../services/deskWorkflowService.js');
+      const gate = await assertCanStartRental(booking, _id, { force: allowForce });
+      if (!gate.ok) {
+        return res.status(400).json({
+          success: false,
+          message: gate.message,
+          code: gate.code,
+          blockers: gate.blockers,
+          financial: gate.financial,
+        });
+      }
+      booking.status = status;
+      await booking.save();
+      await syncCarStatusForBookingStatus(booking, status, _id);
+    } else if (status === 'completed' && booking.status !== 'completed') {
+      const { assertCanCompleteRental, syncCarStatusForBookingStatus } = await import('../services/deskWorkflowService.js');
+      const gate = await assertCanCompleteRental(booking, _id, { force: allowForce });
+      if (!gate.ok) {
+        return res.status(400).json({
+          success: false,
+          message: gate.message,
+          code: gate.code,
+          blockers: gate.blockers,
+          financial: gate.financial,
+        });
+      }
+      booking.status = status;
+      await booking.save();
+      await syncCarStatusForBookingStatus(booking, status, _id);
+    } else if (status === 'cancelled' && booking.status !== 'cancelled') {
+      cancelCarSync = true;
+    }
+
     let cancellationInfo = null;
-    if (status === 'cancelled' && booking.status !== 'cancelled') {
+    if (status === 'cancelled' && booking.status !== 'cancelled' && cancelCarSync) {
       const bookingSettings = await loadOwnerBookingSettings(booking.owner);
       cancellationInfo = evaluateCancellation({ settings: bookingSettings, booking });
       booking.cancellationMeta = {
@@ -1075,8 +1111,15 @@ export const changeBookingStatus = async (req, res) => {
       }
     }
 
-    booking.status = status;
-    await booking.save();
+    if (booking.status !== status) {
+      booking.status = status;
+      await booking.save();
+    }
+
+    if (cancelCarSync) {
+      const { syncCarStatusForBookingStatus } = await import('../services/deskWorkflowService.js');
+      await syncCarStatusForBookingStatus(booking, 'cancelled', _id);
+    }
 
     let completionMeta = null;
     if (status === 'confirmed') {
