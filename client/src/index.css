@@ -812,8 +812,11 @@ body.nav-open {
   }
 }
 
-/* ——— Homepage hero: cinematic showroom stage ——— */
+/* ——— Homepage hero: cinematic automotive showroom ——— */
 .hero-stage {
+  --px: 0;
+  --py: 0;
+  --scroll: 0;
   position: relative;
   isolation: isolate;
   min-height: 100svh;
@@ -822,7 +825,26 @@ body.nav-open {
   overflow: clip;
   background:
     radial-gradient(120% 70% at 50% -8%, color-mix(in srgb, var(--color-primary) 11%, transparent), transparent 58%),
-    linear-gradient(180deg, #faf8f6 0%, var(--color-light) 42%, #ebe4de 100%);
+    linear-gradient(180deg, #faf8f6 0%, var(--color-light) 38%, #ebe4de 100%);
+}
+
+.hero-stage__camera {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transform-origin: 50% 42%;
+  will-change: transform;
+}
+
+.hero-stage.is-ready .hero-stage__camera {
+  animation: heroCamSettle 2.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes heroCamSettle {
+  0% { transform: scale(1.035); }
+  58% { transform: scale(0.992); }
+  100% { transform: scale(1); }
 }
 
 .hero-stage__atmosphere {
@@ -830,6 +852,8 @@ body.nav-open {
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  transform: translate3d(calc(var(--px) * 2px), calc(var(--py) * 1.5px + var(--scroll) * 18px), 0);
+  will-change: transform;
 }
 
 .hero-stage__glow {
@@ -843,9 +867,10 @@ body.nav-open {
   height: min(42vw, 26rem);
   top: -8%;
   left: 50%;
-  transform: translateX(-50%);
+  translate: -50% 0;
   background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 70%);
   opacity: 0.85;
+  transform: translate3d(calc(var(--px) * -3px), calc(var(--py) * -2px), 0);
 }
 
 .hero-stage__glow--warm {
@@ -853,8 +878,18 @@ body.nav-open {
   height: 40%;
   bottom: 8%;
   left: 50%;
-  transform: translateX(-50%);
+  translate: -50% 0;
   background: radial-gradient(ellipse at center, rgba(255, 248, 240, 0.75), transparent 68%);
+}
+
+.hero-stage__glow--rim {
+  width: min(50vw, 28rem);
+  height: min(28vw, 16rem);
+  top: 28%;
+  right: 8%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.45), transparent 70%);
+  opacity: 0.55;
+  transform: translate3d(calc(var(--px) * 5px), calc(var(--py) * 3px), 0);
 }
 
 .hero-stage__horizon {
@@ -862,16 +897,18 @@ body.nav-open {
   left: -10%;
   right: -10%;
   bottom: 0;
-  height: 42%;
+  height: 44%;
   background:
     linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-sand) 55%, transparent) 38%, #e4dbd3 100%);
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  transform: translate3d(calc(var(--px) * 3px), calc(var(--py) * 2px + var(--scroll) * 28px), 0);
+  will-change: transform;
 }
 
 .hero-stage__grain {
   position: absolute;
   inset: 0;
-  opacity: 0.035;
+  opacity: 0.032;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 180px 180px;
   mix-blend-mode: multiply;
@@ -886,13 +923,17 @@ body.nav-open {
   flex-direction: column;
   align-items: center;
   padding-top: clamp(5.5rem, 12vw, 7.5rem);
-  padding-bottom: clamp(1.75rem, 4vw, 3rem);
+  padding-bottom: clamp(1.5rem, 3.5vw, 2.75rem);
+  transform: translate3d(0, calc(var(--scroll) * -12px), 0);
 }
 
 .hero-stage__intro {
   text-align: center;
   width: 100%;
   max-width: 44rem;
+  opacity: calc(1 - var(--scroll) * 0.85);
+  transform: translate3d(0, calc(var(--scroll) * -28px), 0);
+  will-change: transform, opacity;
 }
 
 .hero-stage__brand {
@@ -924,11 +965,52 @@ body.nav-open {
   color: var(--color-muted);
 }
 
-/* Booking console — interaction surface, not a decorative card cluster */
+/* Editorial text reveal */
+.hero-stage__reveal {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(8px);
+  transform: translate3d(0, 18px, 0);
+}
+
+.hero-stage.is-ready .hero-stage__reveal {
+  animation: heroReveal 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.hero-stage.is-ready .hero-stage__reveal--d1 { animation-delay: 0.1s; }
+.hero-stage.is-ready .hero-stage__reveal--d2 { animation-delay: 0.2s; }
+.hero-stage.is-ready .hero-stage__reveal--d3 { animation-delay: 0.32s; }
+.hero-stage.is-ready .hero-stage__reveal--d4 { animation-delay: 0.48s; }
+
+@keyframes heroReveal {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Booking console */
 .hero-stage__booking {
   width: 100%;
   max-width: 52rem;
-  margin-top: clamp(1.5rem, 3.5vw, 2.35rem);
+  margin-top: clamp(1.35rem, 3.2vw, 2.2rem);
+  opacity: 0;
+  filter: blur(6px);
+  transform: translate3d(0, 20px, 0);
+  z-index: 5;
+}
+
+.hero-stage.is-ready .hero-stage__booking {
+  animation: heroBookingIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.28s forwards;
+}
+
+@keyframes heroBookingIn {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .hero-stage__booking-label {
@@ -945,14 +1027,18 @@ body.nav-open {
   display: flex;
   flex-direction: column;
   border-radius: 1.35rem;
-  background: color-mix(in srgb, #ffffff 88%, transparent);
+  background: color-mix(in srgb, #ffffff 90%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-borderColor) 80%, transparent);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.85) inset,
     0 24px 56px -32px rgba(22, 18, 16, 0.42);
   backdrop-filter: blur(16px);
   overflow: visible;
-  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+  transition:
+    border-color 0.35s ease,
+    box-shadow 0.35s ease,
+    transform 0.45s ease;
+  transform: translate3d(0, calc(var(--scroll) * -8px), 0) scale(calc(1 - var(--scroll) * 0.015));
 }
 
 .hero-stage__console:focus-within {
@@ -967,10 +1053,7 @@ body.nav-open {
   min-width: 0;
 }
 
-.hero-stage__field--city {
-  border-bottom: 1px solid var(--color-borderColor);
-}
-
+.hero-stage__field--city,
 .hero-stage__field--dates {
   border-bottom: 1px solid var(--color-borderColor);
 }
@@ -980,6 +1063,8 @@ body.nav-open {
 }
 
 .hero-stage__submit {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1003,15 +1088,36 @@ body.nav-open {
     gap 0.25s ease;
 }
 
+.hero-stage__submit-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.22) 48%,
+    transparent 62%
+  );
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
 .hero-stage__submit:hover {
   background: var(--color-primary-dull);
   gap: 0.65rem;
   box-shadow: 0 18px 32px -14px color-mix(in srgb, var(--color-primary) 95%, transparent);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
+}
+
+.hero-stage__submit:hover .hero-stage__submit-shine {
+  animation: heroBtnShine 0.85s ease forwards;
 }
 
 .hero-stage__submit:active {
   transform: translateY(0) scale(0.985);
+}
+
+@keyframes heroBtnShine {
+  to { transform: translateX(120%); }
 }
 
 .hero-stage__trust {
@@ -1023,42 +1129,124 @@ body.nav-open {
   line-height: 1.45;
 }
 
-/* Vehicle showroom plane — dominant visual */
+/* Vehicle showroom */
 .hero-stage__vehicle {
   position: relative;
   width: 100%;
-  max-width: 68rem;
-  margin-top: clamp(1.25rem, 3vw, 2rem);
+  max-width: 70rem;
+  margin-top: clamp(0.85rem, 2.4vw, 1.6rem);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  min-height: clamp(11rem, 32vw, 22rem);
+  min-height: clamp(12rem, 34vw, 24rem);
+  transform: translate3d(
+    calc(var(--px) * 5px),
+    calc(var(--py) * 3px + var(--scroll) * 36px),
+    0
+  ) scale(calc(1 + var(--scroll) * 0.04));
+  will-change: transform;
 }
 
 .hero-stage__floor {
   position: absolute;
-  left: 8%;
-  right: 8%;
-  bottom: 12%;
-  height: 28%;
+  left: 6%;
+  right: 6%;
+  bottom: 10%;
+  height: 32%;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(22, 18, 16, 0.18), transparent 70%);
-  filter: blur(6px);
+  background:
+    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.5), transparent 62%),
+    radial-gradient(ellipse at center, rgba(22, 18, 16, 0.1), transparent 72%);
   z-index: 0;
   pointer-events: none;
+  transform: translate3d(calc(var(--px) * 3px), calc(var(--py) * 2px), 0);
+  opacity: 0;
 }
 
-.hero-stage__spotlight {
+.hero-stage.is-ready .hero-stage__floor {
+  animation: heroFloorIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.55s forwards;
+}
+
+.hero-stage__spill {
   position: absolute;
-  left: 15%;
-  right: 15%;
-  bottom: 18%;
-  height: 55%;
+  left: 18%;
+  right: 18%;
+  bottom: 16%;
+  height: 22%;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.55), transparent 68%);
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 70%);
+  filter: blur(8px);
   z-index: 0;
   pointer-events: none;
+  opacity: 0;
+}
+
+.hero-stage.is-ready .hero-stage__spill {
+  animation: heroFloorIn 1.3s ease 0.7s forwards;
+}
+
+.hero-stage__shadow {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 11%;
+  height: 16%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(22, 18, 16, 0.22), transparent 68%);
+  filter: blur(4px);
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(calc(var(--px) * 2px), 0, 0) scaleX(0.92);
+}
+
+.hero-stage.is-ready .hero-stage__shadow {
+  animation: heroFloorIn 1.1s ease 0.65s forwards;
+}
+
+@keyframes heroFloorIn {
+  to { opacity: 1; }
+}
+
+.hero-stage__rig {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  filter: blur(14px);
+  transform: translate3d(0, 22px, 0) scale(0.94);
+}
+
+.hero-stage.is-ready .hero-stage__rig {
+  animation: heroCarEnter 1.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s forwards;
+}
+
+.hero-stage__float {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero-stage.is-ready .hero-stage__float {
+  animation: heroCarFloat 7.5s ease-in-out 1.85s infinite;
+}
+
+@keyframes heroCarEnter {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes heroCarFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -2px, 0) scale(1.006); }
 }
 
 .hero-stage__car {
@@ -1067,73 +1255,184 @@ body.nav-open {
   width: 100%;
   display: flex;
   justify-content: center;
-  padding-inline: 0.25rem;
+  padding-inline: 0.15rem;
 }
 
 .hero-stage__img {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1120px;
   height: auto;
-  max-height: clamp(11.5rem, 34vw, 26rem);
+  max-height: clamp(12rem, 36vw, 27rem);
   object-fit: contain;
   object-position: center bottom;
   user-select: none;
-  filter: drop-shadow(0 28px 40px rgba(22, 18, 16, 0.22));
-  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), filter 0.8s ease;
+  filter: drop-shadow(0 28px 40px rgba(22, 18, 16, 0.2));
 }
 
-.hero-stage__vehicle:hover .hero-stage__img:not(.hero-stage__img--mirror) {
-  transform: translateY(-6px) scale(1.015);
-  filter: drop-shadow(0 36px 48px rgba(22, 18, 16, 0.28));
+.hero-stage__sheen {
+  position: absolute;
+  inset: 8% 4% 18%;
+  border-radius: 40%;
+  background: linear-gradient(
+    105deg,
+    transparent 34%,
+    rgba(255, 255, 255, 0.08) 46%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.08) 54%,
+    transparent 66%
+  );
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-30%);
+}
+
+.hero-stage.is-ready .hero-stage__sheen {
+  animation:
+    heroSheenIn 1.2s ease 0.9s forwards,
+    heroSheenSweep 8.5s ease-in-out 2.2s infinite;
+}
+
+@keyframes heroSheenIn {
+  to { opacity: 1; }
+}
+
+@keyframes heroSheenSweep {
+  0%, 100% { transform: translateX(-28%); }
+  50% { transform: translateX(28%); }
+}
+
+.hero-stage__lamp {
+  position: absolute;
+  width: 4.5%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 236, 210, 0.7), rgba(255, 200, 120, 0.15) 45%, transparent 70%);
+  filter: blur(1.5px);
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+.hero-stage__lamp--a {
+  top: 46%;
+  right: 11.5%;
+}
+
+.hero-stage__lamp--b {
+  top: 49%;
+  right: 14.2%;
+  width: 3.2%;
+  opacity: 0;
+}
+
+.hero-stage.is-ready .hero-stage__lamp--a,
+.hero-stage.is-ready .hero-stage__lamp--b {
+  animation: heroLamp 4.8s ease-in-out 1.4s infinite;
+}
+
+.hero-stage.is-ready .hero-stage__lamp--b {
+  animation-delay: 1.65s;
+}
+
+@keyframes heroLamp {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
 }
 
 .hero-stage__reflection {
   position: relative;
   z-index: 1;
   width: 88%;
-  max-width: 960px;
-  margin-top: -0.35rem;
-  height: clamp(2.5rem, 7vw, 4.5rem);
+  max-width: 980px;
+  margin-top: -0.4rem;
+  height: clamp(2.75rem, 7.5vw, 4.75rem);
   overflow: hidden;
   pointer-events: none;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 85%);
-  opacity: 0.35;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.38), transparent 88%);
+  opacity: 0;
+  transform: translate3d(calc(var(--px) * 2px), calc(var(--scroll) * 6px), 0);
+}
+
+.hero-stage.is-ready .hero-stage__reflection {
+  animation: heroFloorIn 1.4s ease 0.85s forwards;
 }
 
 .hero-stage__img--mirror {
   transform: scaleY(-1) translateY(-58%);
-  max-height: clamp(11.5rem, 34vw, 26rem);
-  filter: blur(0.4px) saturate(0.85);
-  opacity: 0.55;
+  max-height: clamp(12rem, 36vw, 27rem);
+  filter: blur(0.5px) saturate(0.8);
+  opacity: 0.5;
 }
 
-.hero-stage__local {
-  margin-top: clamp(1.25rem, 3vw, 2rem);
+/* Instrument HUD */
+.hero-stage__hud {
+  margin-top: clamp(1rem, 2.5vw, 1.75rem);
   text-align: center;
-  max-width: 26rem;
+  max-width: 28rem;
   padding-inline: 0.5rem;
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
 }
 
-.hero-stage__local::before {
+.hero-stage.is-ready .hero-stage__hud {
+  animation: heroReveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.7s forwards;
+}
+
+.hero-stage__hud::before {
   content: '';
   display: block;
   width: 2.5rem;
   height: 1px;
-  margin: 0 auto 1rem;
+  margin: 0 auto 0.95rem;
   background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
 }
 
-.hero-stage__local-eyebrow {
-  margin: 0;
+.hero-stage__hud-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-borderColor) 80%, transparent);
+  background: color-mix(in srgb, #ffffff 70%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.hero-stage__hud-dot {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: #2f7d52;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #2f7d52 18%, transparent);
+  animation: heroHudPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes heroHudPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(0.92); }
+}
+
+.hero-stage__hud-label {
   font-size: 0.625rem;
   font-weight: 650;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--color-primary) 78%, var(--color-muted));
 }
 
+.hero-stage__hud-time {
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  padding-inline-start: 0.35rem;
+  border-inline-start: 1px solid var(--color-borderColor);
+}
+
 .hero-stage__local-copy {
-  margin: 0.45rem 0 0;
+  margin: 0.55rem 0 0;
   font-size: 0.875rem;
   font-weight: 300;
   line-height: 1.5;
@@ -1152,6 +1451,17 @@ body.nav-open {
 .hero-stage__local-link:hover {
   color: var(--color-primary);
   text-decoration-color: var(--color-primary);
+}
+
+.hero-stage__bridge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4.5rem;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--color-light) 88%, #ebe4de));
+  z-index: 2;
 }
 
 @media (min-width: 768px) {
@@ -1186,27 +1496,106 @@ body.nav-open {
   }
 }
 
-@media (max-width: 639px) {
-  .hero-stage__reflection {
-    display: none;
+/* Mobile: vehicle-first composition, lighter motion */
+@media (max-width: 767px) {
+  .hero-stage__inner {
+    padding-top: 5.25rem;
+  }
+
+  .hero-stage__intro {
+    order: 1;
   }
 
   .hero-stage__vehicle {
-    min-height: 10.5rem;
+    order: 2;
+    margin-top: 0.85rem;
+    min-height: 11rem;
+    transform: none;
+  }
+
+  .hero-stage__booking {
+    order: 3;
+    margin-top: 1.1rem;
+  }
+
+  .hero-stage__hud {
+    order: 4;
+  }
+
+  .hero-stage__reflection,
+  .hero-stage__sheen,
+  .hero-stage__lamp,
+  .hero-stage__glow--rim {
+    display: none;
+  }
+
+  .hero-stage.is-ready .hero-stage__rig {
+    animation: heroCarEnter 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
+  }
+
+  .hero-stage.is-ready .hero-stage__float {
+    animation: none;
+  }
+
+  .hero-stage__brand {
+    font-size: clamp(2.6rem, 12vw, 3.4rem);
+  }
+
+  .hero-stage__img {
+    max-height: 11.5rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-stage__img,
-  .hero-stage__submit {
-    transition: none;
+  .hero-stage__camera,
+  .hero-stage__atmosphere,
+  .hero-stage__horizon,
+  .hero-stage__inner,
+  .hero-stage__intro,
+  .hero-stage__vehicle,
+  .hero-stage__console {
+    transform: none !important;
+    will-change: auto;
   }
 
-  .hero-stage__vehicle:hover .hero-stage__img:not(.hero-stage__img--mirror) {
+  .hero-stage.is-ready .hero-stage__camera,
+  .hero-stage.is-ready .hero-stage__reveal,
+  .hero-stage.is-ready .hero-stage__booking,
+  .hero-stage.is-ready .hero-stage__rig,
+  .hero-stage.is-ready .hero-stage__float,
+  .hero-stage.is-ready .hero-stage__sheen,
+  .hero-stage.is-ready .hero-stage__lamp--a,
+  .hero-stage.is-ready .hero-stage__lamp--b,
+  .hero-stage.is-ready .hero-stage__hud,
+  .hero-stage__hud-dot,
+  .hero-stage__submit:hover .hero-stage__submit-shine {
+    animation: none !important;
+  }
+
+  .hero-stage__reveal,
+  .hero-stage__booking,
+  .hero-stage__rig,
+  .hero-stage__floor,
+  .hero-stage__spill,
+  .hero-stage__shadow,
+  .hero-stage__reflection,
+  .hero-stage__hud,
+  .hero-stage__sheen {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+
+  .hero-stage__submit {
+    transition: background 0.2s ease;
+  }
+
+  .hero-stage__submit:hover {
     transform: none;
   }
 }
 
+/* Lightweight CSS replacements for critical-path Hero/Navbar motion */
 /* Lightweight CSS replacements for critical-path Hero/Navbar motion */
 @keyframes fadeUp {
   from {
