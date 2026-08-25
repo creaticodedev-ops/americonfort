@@ -35,11 +35,14 @@ const reloadOnceForStaleChunks = (reason) => {
     if (window.location.search.includes('chunk_reload=1')) return false
     const url = new URL(window.location.href)
     url.searchParams.set('chunk_reload', '1')
+    url.searchParams.set('_', String(Date.now()))
     window.location.replace(url.toString())
     return true
   }
   console.warn('[boot] Reloading once after stale/missing JS chunk:', reason)
-  window.location.reload()
+  const next = new URL(window.location.href)
+  next.searchParams.set('_', String(Date.now()))
+  window.location.replace(next.toString())
   return true
 }
 
@@ -60,6 +63,7 @@ window.setTimeout(() => {
   try {
     sessionStorage.removeItem(CHUNK_RELOAD_KEY)
     sessionStorage.removeItem('americonfort:chunk-reload-count')
+    sessionStorage.removeItem('americonfort:lazy-retry')
   } catch {
     /* ignore */
   }

@@ -7,10 +7,34 @@ import {
   buildBreadcrumbList,
 } from '../seo/structuredData'
 
-const FeaturedSection = lazy(() => import('../components/FeaturedSection'))
-const Banner = lazy(() => import('../components/Banner'))
-const Testimonial = lazy(() => import('../components/Testimonial'))
-const WhatsAppHelp = lazy(() => import('../components/WhatsAppHelp'))
+const LAZY_RETRY_KEY = 'americonfort:lazy-retry'
+
+/** Retry once on stale hashed chunks after a deploy. */
+const lazyWithRetry = (importer) =>
+  lazy(async () => {
+    try {
+      return await importer()
+    } catch (err) {
+      try {
+        if (!sessionStorage.getItem(LAZY_RETRY_KEY)) {
+          sessionStorage.setItem(LAZY_RETRY_KEY, '1')
+          const next = new URL(window.location.href)
+          next.searchParams.set('_', String(Date.now()))
+          window.location.replace(next.toString())
+          return new Promise(() => {})
+        }
+        sessionStorage.removeItem(LAZY_RETRY_KEY)
+      } catch {
+        /* private mode */
+      }
+      throw err
+    }
+  })
+
+const FeaturedSection = lazyWithRetry(() => import('../components/FeaturedSection'))
+const Banner = lazyWithRetry(() => import('../components/Banner'))
+const Testimonial = lazyWithRetry(() => import('../components/Testimonial'))
+const WhatsAppHelp = lazyWithRetry(() => import('../components/WhatsAppHelp'))
 
 const BelowFoldFallback = () => (
   <div className="min-h-[12rem]" aria-hidden="true" />

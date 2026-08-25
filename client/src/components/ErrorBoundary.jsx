@@ -1,40 +1,69 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from 'react'
+import { Link } from 'react-router-dom'
+
+const CHUNK_RELOAD_KEY = 'americonfort:chunk-reload'
+const CHUNK_RELOAD_COUNT_KEY = 'americonfort:chunk-reload-count'
+const LAZY_RETRY_KEY = 'americonfort:lazy-retry'
 
 const isChunkLoadError = (error) => {
-  const msg = String(error?.message || error || '');
-  const stack = String(error?.stack || '');
-  if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed|Unable to preload CSS/i.test(msg)) {
-    return true;
+  const msg = String(error?.message || error || '')
+  const stack = String(error?.stack || '')
+  if (
+    /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed|Unable to preload CSS/i.test(
+      msg,
+    )
+  ) {
+    return true
   }
   // React.lazy often wraps a missing chunk as undefined.default
   if (/Cannot read propert(?:y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg)) {
-    return true;
+    return true
   }
-  return false;
-};
+  return false
+}
+
+const hardRecover = (path = '/') => {
+  try {
+    sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+    sessionStorage.removeItem(CHUNK_RELOAD_COUNT_KEY)
+    sessionStorage.removeItem(LAZY_RETRY_KEY)
+  } catch {
+    /* private mode */
+  }
+  try {
+    if (window.caches) {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))
+    }
+  } catch {
+    /* ignore */
+  }
+  const next = new URL(path, window.location.origin)
+  next.searchParams.set('_', String(Date.now()))
+  window.location.replace(next.toString())
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
-    super(props);
-    this.state = { hasError: false, chunkError: false };
+    super(props)
+    this.state = { hasError: false, chunkError: false }
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, chunkError: isChunkLoadError(error) };
+    return { hasError: true, chunkError: isChunkLoadError(error) }
   }
 
   componentDidCatch(error, info) {
-    console.error('Application error:', error, info);
-    if (isChunkLoadError(error)) {
-      try {
-        if (!sessionStorage.getItem('americonfort:chunk-reload')) {
-          sessionStorage.setItem('americonfort:chunk-reload', '1');
-          window.location.reload();
-        }
-      } catch {
-        window.location.reload();
+    console.error('Application error:', error, info)
+    if (!isChunkLoadError(error)) return
+    try {
+      if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+        const next = new URL(window.location.href)
+        next.searchParams.set('_', String(Date.now()))
+        window.location.replace(next.toString())
       }
+    } catch {
+      window.location.reload()
     }
   }
 
@@ -53,28 +82,25 @@ class ErrorBoundary extends React.Component {
           <div className="mt-6 flex gap-3">
             <button
               type="button"
-              onClick={() => {
-                try {
-                  sessionStorage.removeItem('americonfort:chunk-reload');
-                } catch {
-                  /* ignore */
-                }
-                window.location.reload();
-              }}
+              onClick={() => hardRecover(window.location.pathname || '/')}
               className="px-5 py-2 rounded-lg bg-primary text-white hover:bg-primary-dull"
             >
               Refresh
             </button>
-            <Link to="/" className="px-5 py-2 rounded-lg border border-borderColor text-gray-700 hover:bg-gray-50">
+            <button
+              type="button"
+              onClick={() => hardRecover('/')}
+              className="px-5 py-2 rounded-lg border border-borderColor text-gray-700 hover:bg-gray-50"
+            >
               Go Home
-            </Link>
+            </button>
           </div>
         </div>
-      );
+      )
     }
 
-    return this.props.children;
+    return this.props.children
   }
 }
 
-export default ErrorBoundary;
+export default ErrorBoundary
