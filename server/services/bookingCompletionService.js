@@ -50,7 +50,39 @@ export const generateCompletionLink = async (bookingId, { resend = false } = {})
     };
   }
 
-  if (urlStale && existingUrl) {
+  // Origin/host drift only (apex → www, etc.): keep the same raw token so already-sent
+  // customer links keep working. We only store the hash, so extract the token from the URL.
+  if (!resend && existingUrl && tokenStillValid && urlStale) {
+    try {
+      const stored = new URL(existingUrl);
+      const pathToken = decodeURIComponent(
+        stored.pathname.split('/complete-booking/')[1] || '',
+      ).split(/[/?#]/)[0].trim();
+      if (pathToken.length >= 20 && hashToken(pathToken) === booking.completion.tokenHash) {
+        const completionUrl = buildCompletionUrl(pathToken);
+        booking.completion.shareableCompletionUrl = completionUrl;
+        await booking.save();
+        console.warn(
+          '[completion] Rewrote shareable link origin without rotating token',
+          { reservationId: booking.reservationId, from: existingUrl, to: completionUrl },
+        );
+        return {
+          booking,
+          completionUrl,
+          reused: true,
+        };
+      }
+    } catch {
+      /* fall through to rotate */
+    }
+    console.warn(
+      '[completion] Regenerating shareable link; stored URL origin does not match',
+      resolveClientBaseUrl(),
+      { reservationId: booking.reservationId, existingUrl },
+    );
+  }
+
+  if (urlStale && existingUrl && resend) {
     console.warn(
       '[completion] Regenerating shareable link; stored URL origin does not match',
       resolveClientBaseUrl(),
@@ -183,8 +215,9 @@ export const buildCompletionMessageBody = ({ booking, completionUrl, vehicle, pi
 ].join('\n');
 
 export const findBookingByCompletionToken = async (rawToken) => {
-  if (!rawToken || String(rawToken).length < 20) return null;
-  const tokenHash = hashToken(rawToken);
+  const token = String(rawToken || '').trim();
+  if (!token || token.length < 20) return null;
+  const tokenHash = hashToken(token);
   const booking = await Booking.findOne({ "completion.tokenHash": tokenHash }).populate("car");
   if (!booking) return null;
   if (isTokenExpired(booking.completion?.tokenExpiresAt)) {

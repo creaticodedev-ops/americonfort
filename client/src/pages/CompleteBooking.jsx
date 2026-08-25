@@ -57,7 +57,8 @@ const StepRail = ({ steps, current, labels, doneFlags }) => (
 )
 
 const CompleteBooking = () => {
-  const { token } = useParams()
+  const { token: rawToken } = useParams()
+  const token = String(rawToken || '').trim()
   const [searchParams] = useSearchParams()
   const { t } = useI18n()
   const { currency } = useAppContext()

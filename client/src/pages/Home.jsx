@@ -33,7 +33,7 @@ const lazyWithRetry = (importer) =>
 
 const FeaturedSection = lazyWithRetry(() => import('../components/FeaturedSection'))
 const Banner = lazyWithRetry(() => import('../components/Banner'))
-const Testimonial = lazyWithRetry(() => import('../components/GoogleReviews'))
+const Testimonial = lazyWithRetry(() => import('../components/ReviewsSection'))
 const WhatsAppHelp = lazyWithRetry(() => import('../components/WhatsAppHelp'))
 
 const BelowFoldFallback = () => (

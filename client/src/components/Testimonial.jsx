@@ -1,1 +1,1 @@
-export { default } from './GoogleReviews'
+export { default } from './ReviewsSection'

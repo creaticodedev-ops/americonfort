@@ -5561,6 +5561,17 @@ html[dir='ltr'] .admin-app {
   flex-shrink: 0;
 }
 
+.g-reviews-demo-badge {
+  margin: 0 0 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
 .g-reviews-score {
   display: flex;
   align-items: baseline;
@@ -5736,6 +5747,13 @@ html[dir='ltr'] .admin-app {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.g-reviews-location {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  letter-spacing: 0.02em;
 }
 
 .g-reviews-card-sub {

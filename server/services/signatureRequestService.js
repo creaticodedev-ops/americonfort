@@ -39,7 +39,8 @@ export const generateSignatureRequest = async ({ bookingId, ownerId, actorId, re
     throw err;
   }
 
-  const result = await generateCompletionLink(bookingId, { resend: true });
+  // Reuse a valid existing link on first generate; only rotate when resend=true.
+  const result = await generateCompletionLink(bookingId, { resend: Boolean(resend) });
   const b = result.booking;
   b.completion = b.completion || {};
   b.completion.signatureRequestStatus = 'pending';
