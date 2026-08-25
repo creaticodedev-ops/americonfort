@@ -59,6 +59,7 @@ window.addEventListener('unhandledrejection', (event) => {
 window.setTimeout(() => {
   try {
     sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+    sessionStorage.removeItem('americonfort:chunk-reload-count')
   } catch {
     /* ignore */
   }
