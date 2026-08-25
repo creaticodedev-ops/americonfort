@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
 import { useI18n } from '../i18n/I18nContext'
 import DateRangePicker from './DateRangePicker'
 import CitySelect from './CitySelect'
 import { BRAND_NAME } from '../constants/brand'
-import { AIRPORT_LANDING_PATH } from '../constants/site'
 import toast from 'react-hot-toast'
 
 /**
@@ -389,12 +387,6 @@ const Hero = () => {
               <span className="hero-stage__hud-label">{t('hero.localEyebrow')}</span>
               {hudTime ? <span className="hero-stage__hud-time">{hudTime}</span> : null}
             </div>
-            <p className="hero-stage__local-copy">
-              {t('hero.localLead')}{' '}
-              <Link to={AIRPORT_LANDING_PATH} className="hero-stage__local-link">
-                {t('hero.localLink')}
-              </Link>
-            </p>
           </div>
         </div>
       </div>
