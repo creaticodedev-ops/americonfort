@@ -33,7 +33,7 @@ const lazyWithRetry = (importer) =>
 
 const FeaturedSection = lazyWithRetry(() => import('../components/FeaturedSection'))
 const Banner = lazyWithRetry(() => import('../components/Banner'))
-const Testimonial = lazyWithRetry(() => import('../components/Testimonial'))
+const FleetShowcase = lazyWithRetry(() => import('../components/FleetShowcase'))
 const WhatsAppHelp = lazyWithRetry(() => import('../components/WhatsAppHelp'))
 
 const BelowFoldFallback = () => (
@@ -62,7 +62,7 @@ const Home = () => {
       <Suspense fallback={<BelowFoldFallback />}>
         <FeaturedSection />
         <Banner />
-        <Testimonial />
+        <FleetShowcase />
         <WhatsAppHelp />
       </Suspense>
     </>

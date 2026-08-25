@@ -81,6 +81,19 @@ export const ar = {
       }
     ]
   },
+  "showcase": {
+    "eyebrow": "صالة العرض",
+    "title": "تعرّف على الأسطول",
+    "subtitle": "نظرة سينمائية على مركبات يمكن حجزها اليوم — سيارات حقيقية وأسعار يومية واضحة.",
+    "aria": "عرض الأسطول",
+    "viewVehicle": "عرض المركبة",
+    "browseFleet": "تصفّح كل السيارات",
+    "prev": "المركبة السابقة",
+    "next": "المركبة التالية",
+    "specSeats": "مقاعد",
+    "specFuel": "وقود",
+    "specGear": "ناقل"
+  },
   "whatsappHelp": {
     "eyebrow": "Need help?",
     "title": "A question before you book?",
