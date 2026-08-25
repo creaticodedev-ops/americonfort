@@ -14,6 +14,8 @@ import {
   previewContractFromBooking,
   downloadContractPdf,
   listBookingsForContracts,
+  deleteContract,
+  deleteContractsBulk,
 } from '../controllers/contractController.js';
 import { exportContractsXlsx } from '../controllers/xlsxExportController.js';
 
@@ -30,6 +32,8 @@ router.get('/export', ...gate('contracts', 'contracts'), exportContractsXlsx);
 router.get('/bookings', ...gate('contracts', 'contracts'), listBookingsForContracts);
 router.post('/generate', ...gate('contracts', 'contracts'), generateContract);
 router.post('/preview', ...gate('contracts', 'contracts'), previewContractFromBooking);
+router.post('/delete', ...gate('contracts', 'contracts'), deleteContract);
+router.post('/delete-bulk', ...gate('contracts', 'contracts'), deleteContractsBulk);
 router.get('/:id/versions', ...gate('contracts', 'contracts'), listContractVersions);
 router.post('/:id/restore/:version', ...gate('contracts', 'contracts'), restoreContractVersion);
 router.get('/:id/preview', ...gate('contracts', 'contracts'), previewContract);

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AdminPage, PageHeader } from '../../components/owner/ui'
+import { AdminPage, PageHeader, ConfirmDialog } from '../../components/owner/ui'
+import BulkSelectionBar from '../../components/owner/BulkSelectionBar'
 import DocumentEditor from '../../components/owner/DocumentEditor'
 import DocumentPdfProgress, { buildPdfJobStages } from '../../components/DocumentPdfProgress'
 import { useDocumentPdfJob } from '../../hooks/useDocumentPdfJob'
@@ -59,8 +60,39 @@ const Contracts = () => {
   /** Owner Settings → Agency Stamp default; used when opening Generate */
   const [stampDefault, setStampDefault] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [confirmAction, setConfirmAction] = useState(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
 
   const inputClass = 'h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-fg)] px-3 rounded-[var(--admin-radius)] w-full text-sm outline-none focus:shadow-[var(--admin-focus)]'
+
+  const visibleIds = useMemo(() => contracts.map((c) => c._id), [contracts])
+  const selectedCount = selectedIds.size
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+  const someVisibleSelected =
+    visibleIds.some((id) => selectedIds.has(id)) && !allVisibleSelected
+
+  const toggleSelect = useCallback((contractId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(contractId)) next.delete(contractId)
+      else next.add(contractId)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAllVisible = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      const allSelected = visibleIds.length > 0 && visibleIds.every((id) => next.has(id))
+      if (allSelected) visibleIds.forEach((id) => next.delete(id))
+      else visibleIds.forEach((id) => next.add(id))
+      return next
+    })
+  }, [visibleIds])
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
 
   const renderContractFields = (form, setForm, fieldClass, labelClass) => {
     const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
@@ -252,6 +284,10 @@ const Contracts = () => {
   useEffect(() => {
     fetchContracts()
   }, [pagination.page, pagination.limit])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [pagination.page, pagination.limit, search, customerName, cin, phone])
 
   useEffect(() => {
     axios.get('/api/contracts/bookings')
@@ -478,6 +514,69 @@ const Contracts = () => {
     }
   }
 
+  const deleteContract = (contractId) => {
+    setConfirmAction({
+      type: 'delete',
+      contractId,
+      title: t('admin.contracts.deleteTitle'),
+      message: t('admin.contracts.deleteConfirm'),
+      confirmText: t('admin.contracts.delete'),
+      variant: 'danger',
+    })
+  }
+
+  const deleteSelectedContracts = () => {
+    if (selectedCount < 1) return
+    setConfirmAction({
+      type: 'bulk-delete',
+      contractIds: [...selectedIds],
+      title: t('admin.contracts.bulkDeleteTitle'),
+      message: t('admin.contracts.bulkDeleteConfirm', { count: selectedCount }),
+      confirmText: t('admin.contracts.deleteSelected', { count: selectedCount }),
+      variant: 'danger',
+    })
+  }
+
+  const runConfirmAction = async () => {
+    if (!confirmAction || confirmBusy) return
+    const { type, contractId, contractIds } = confirmAction
+    setConfirmBusy(true)
+    try {
+      if (type === 'delete') {
+        const { data } = await axios.post('/api/contracts/delete', { contractId })
+        if (data.success) {
+          toast.success(data.message)
+          if (editingId === contractId) setEditingId(null)
+          setSelectedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(contractId)
+            return next
+          })
+          setConfirmAction(null)
+          fetchContracts()
+        } else toast.error(data.message)
+      } else if (type === 'bulk-delete') {
+        const { data } = await axios.post('/api/contracts/delete-bulk', { contractIds })
+        if (data.success) {
+          toast.success(
+            data.message
+            || t('admin.contracts.bulkDeleteSuccess', { count: data.deletedCount || contractIds.length }),
+          )
+          if (editingId && contractIds.map(String).includes(String(editingId))) {
+            setEditingId(null)
+          }
+          clearSelection()
+          setConfirmAction(null)
+          fetchContracts()
+        } else toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setConfirmBusy(false)
+    }
+  }
+
   return (
     <AdminPage className="space-y-6">
       <PageHeader
@@ -565,6 +664,17 @@ const Contracts = () => {
           </button>
         </div>
       </form>
+
+      <BulkSelectionBar
+        count={selectedCount}
+        onClear={clearSelection}
+        onDelete={deleteSelectedContracts}
+        busy={confirmBusy}
+        ariaLabel={t('admin.contracts.bulkSelectionAria')}
+        selectedCountLabel={t('admin.contracts.selectedCount', { count: selectedCount })}
+        clearLabel={t('admin.contracts.clearSelection')}
+        deleteLabel={t('admin.contracts.deleteSelected', { count: selectedCount })}
+      />
 
       {showGenerate && (
         <div className="relative rounded-2xl border border-borderColor bg-white p-5 space-y-4">
@@ -755,9 +865,22 @@ const Contracts = () => {
           <p className="p-6 text-sm text-gray-500">{t('admin.contracts.none')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm admin-contracts-table">
               <thead className="bg-light text-left text-gray-600">
                 <tr>
+                  <th className="px-3 py-3 admin-booking-ops-table__check" scope="col">
+                    <label className="admin-booking-check">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = Boolean(someVisibleSelected && !allVisibleSelected)
+                        }}
+                        onChange={toggleSelectAllVisible}
+                        aria-label={t('admin.contracts.selectAllVisible')}
+                      />
+                    </label>
+                  </th>
                   <th className="px-4 py-3">{t('admin.contracts.number')}</th>
                   <th className="px-4 py-3">{t('admin.contracts.reservation')}</th>
                   <th className="px-4 py-3">{t('admin.contracts.customer')}</th>
@@ -776,8 +899,24 @@ const Contracts = () => {
                   const totalLabel = contract.totalAmount != null
                     ? `${currency}${Number(contract.totalAmount).toFixed(2)}`
                     : (booking.price != null ? `${currency}${booking.price}` : '—')
+                  const isChecked = selectedIds.has(contract._id)
                   return (
-                    <tr key={contract._id} className="border-t border-borderColor">
+                    <tr
+                      key={contract._id}
+                      className={`border-t border-borderColor${isChecked ? ' is-checked' : ''}`}
+                    >
+                      <td className="px-3 py-3 admin-booking-ops-table__check">
+                        <label className="admin-booking-check">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleSelect(contract._id)}
+                            aria-label={t('admin.contracts.selectContract', {
+                              id: contract.contractNumber || contract._id,
+                            })}
+                          />
+                        </label>
+                      </td>
                       <td className="px-4 py-3 font-medium">
                         {contract.contractNumber}
                         {contract.sourceLocked ? (
@@ -802,6 +941,13 @@ const Contracts = () => {
                           </button>
                           <button type="button" onClick={() => downloadPdf(contract)} className="text-gray-700 text-xs font-medium">
                             PDF
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteContract(contract._id)}
+                            className="text-red-700 text-xs font-medium"
+                          >
+                            {t('admin.contracts.delete')}
                           </button>
                         </div>
                       </td>
@@ -865,6 +1011,20 @@ const Contracts = () => {
           renderFields={renderContractFields}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmAction)}
+        title={confirmAction?.title}
+        message={confirmAction?.message}
+        confirmText={confirmAction?.confirmText || t('admin.commonUi.confirm')}
+        variant={confirmAction?.variant || 'danger'}
+        loading={confirmBusy}
+        onCancel={() => {
+          if (confirmBusy) return
+          setConfirmAction(null)
+        }}
+        onConfirm={runConfirmAction}
+      />
     </AdminPage>
   )
 }

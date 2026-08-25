@@ -4327,6 +4327,10 @@ html[dir='rtl'] .admin-detail-section-chevron.is-open,
   color: var(--admin-accent);
 }
 
+.admin-contracts-table tbody tr.is-checked {
+  background: color-mix(in srgb, var(--admin-accent) 6%, var(--admin-surface, #fff));
+}
+
 .admin-booking-ops-table-wrap {
   display: none;
   min-height: 0;

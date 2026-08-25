@@ -927,7 +927,19 @@ export const adminAr = {
     "secondDriverDob": "تاريخ ميلاد الشريك السائق الثاني",
     "secondDriverNationality": "جنسية السائق الثاني",
     "secondDriverPhone": "هاتف الشريك السائق الثاني",
-    "edit": "تعديل"
+    "edit": "تعديل",
+    "delete": "حذف",
+    "deleteTitle": "حذف العقد",
+    "deleteConfirm": "هل تريد حذف هذا العقد نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
+    "bulkDeleteTitle": "حذف العقود المحددة",
+    "bulkDeleteConfirm": "هل تريد حذف {{count}} عقد/عقود محددة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
+    "bulkDeleteSuccess": "تم حذف {{count}} عقد/عقود",
+    "deleteSelected": "حذف المحدد ({{count}})",
+    "selectedCount": "{{count}} محدد",
+    "clearSelection": "مسح التحديد",
+    "selectAllVisible": "تحديد كل العقود الظاهرة",
+    "selectContract": "تحديد العقد {{id}}",
+    "bulkSelectionAria": "إجراءات التحديد المتعدد"
   },
   "invoices": {
     "title": "الفواتير",

@@ -19,6 +19,7 @@ import { buildCustomerConfirmationWaUrl, buildWaMeUrl, getAgencyWhatsAppDial } f
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import ContractExtensionModal from '../../components/owner/ContractExtensionModal'
+import BulkSelectionBar from '../../components/owner/BulkSelectionBar'
 import {
   AdminPage,
   PageHeader,
@@ -749,24 +750,16 @@ const ManageBookings = () => {
       />
 
       {selectedCount > 0 && (
-        <div className="admin-booking-bulkbar" role="region" aria-label={t('admin.bookings.bulkSelectionAria')}>
-          <div className="admin-booking-bulkbar__info">
-            <span className="admin-booking-bulkbar__count">
-              {t('admin.bookings.selectedCount', { count: selectedCount })}
-            </span>
-            <button type="button" className="admin-booking-bulkbar__clear" onClick={clearSelection}>
-              {t('admin.bookings.clearSelection')}
-            </button>
-          </div>
-          <button
-            type="button"
-            className="admin-btn admin-btn--danger"
-            onClick={deleteSelectedBookings}
-            disabled={confirmBusy}
-          >
-            {t('admin.bookings.deleteSelected', { count: selectedCount })}
-          </button>
-        </div>
+        <BulkSelectionBar
+          count={selectedCount}
+          onClear={clearSelection}
+          onDelete={deleteSelectedBookings}
+          busy={confirmBusy}
+          ariaLabel={t('admin.bookings.bulkSelectionAria')}
+          selectedCountLabel={t('admin.bookings.selectedCount', { count: selectedCount })}
+          clearLabel={t('admin.bookings.clearSelection')}
+          deleteLabel={t('admin.bookings.deleteSelected', { count: selectedCount })}
+        />
       )}
 
       <div className="admin-booking-workspace">

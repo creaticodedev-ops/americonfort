@@ -645,6 +645,129 @@ export const listBookingsForContracts = async (req, res) => {
   }
 };
 
+const BULK_DELETE_MAX = 100;
+
+const tryRemoveLocalPdf = (contract) => {
+  const filePath = resolveExistingPdfPath(contract);
+  if (!filePath) return;
+  try {
+    fs.unlinkSync(filePath);
+  } catch {
+    /* ephemeral disk / already gone */
+  }
+};
+
+const clearBookingContractPdfRefs = async (contracts) => {
+  await Promise.all(
+    contracts.map(async (c) => {
+      if (!c.booking || !c.pdfUrl) return;
+      try {
+        await Booking.updateOne(
+          {
+            _id: c.booking,
+            owner: c.owner,
+            'completion.contractPdfUrl': c.pdfUrl,
+          },
+          { $unset: { 'completion.contractPdfUrl': 1 } },
+        );
+      } catch {
+        /* non-fatal */
+      }
+    }),
+  );
+};
+
+export const deleteContract = async (req, res) => {
+  try {
+    const { contractId } = req.body || {};
+    if (!mongoose.isValidObjectId(contractId)) {
+      return res.status(400).json({ success: false, message: 'Invalid contract ID' });
+    }
+
+    const contract = await Contract.findOne({
+      _id: contractId,
+      owner: req.user._id,
+    });
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+
+    await clearBookingContractPdfRefs([contract]);
+    tryRemoveLocalPdf(contract);
+    await Contract.deleteOne({ _id: contract._id, owner: req.user._id });
+
+    await logAudit({
+      owner: req.user._id,
+      actor: req.user._id,
+      action: 'contract.delete',
+      entityType: 'Contract',
+      entityId: contract._id,
+      details: `Contract ${contract.contractNumber} deleted`,
+    });
+
+    res.json({ success: true, message: 'Contract deleted' });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to delete contract' });
+  }
+};
+
+export const deleteContractsBulk = async (req, res) => {
+  try {
+    const rawIds = Array.isArray(req.body?.contractIds) ? req.body.contractIds : [];
+    const uniqueIds = [...new Set(rawIds.map((id) => String(id || '').trim()))].filter((id) =>
+      mongoose.isValidObjectId(id),
+    );
+
+    if (!uniqueIds.length) {
+      return res.status(400).json({ success: false, message: 'No contracts selected' });
+    }
+    if (uniqueIds.length > BULK_DELETE_MAX) {
+      return res.status(400).json({
+        success: false,
+        message: `Too many contracts selected (max ${BULK_DELETE_MAX})`,
+      });
+    }
+
+    const owned = await Contract.find({
+      _id: { $in: uniqueIds },
+      owner: req.user._id,
+    });
+
+    if (!owned.length) {
+      return res.status(404).json({ success: false, message: 'No matching contracts found' });
+    }
+
+    await clearBookingContractPdfRefs(owned);
+    owned.forEach(tryRemoveLocalPdf);
+
+    const ownedIds = owned.map((c) => c._id);
+    const result = await Contract.deleteMany({ _id: { $in: ownedIds }, owner: req.user._id });
+    const deletedCount = result.deletedCount || 0;
+
+    await logAudit({
+      owner: req.user._id,
+      actor: req.user._id,
+      action: 'contract.delete_bulk',
+      entityType: 'Contract',
+      entityId: ownedIds[0],
+      details: `Deleted ${deletedCount} contract(s)`,
+    });
+
+    res.json({
+      success: true,
+      deletedCount,
+      message:
+        deletedCount === 1
+          ? '1 contract deleted'
+          : `${deletedCount} contracts deleted`,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to delete contracts' });
+  }
+};
+
 export default {
   listContracts,
   getContract,
@@ -656,5 +779,7 @@ export default {
   previewContractFromBooking,
   downloadContractPdf,
   listBookingsForContracts,
+  deleteContract,
+  deleteContractsBulk,
   upsertContractFromBooking,
 };
