@@ -270,6 +270,27 @@ export const confirmBookingExtension = async ({
     contractVersion,
   });
 
+  try {
+    const { ensureExtensionCharge, ensureRentalChargeForBooking } = await import('./bookingLedgerService.js');
+    await ensureRentalChargeForBooking({
+      ownerId,
+      bookingId,
+      actorId: actorId || ownerId,
+      amount: previousTotal,
+      reservationId: booking.reservationId,
+    });
+    await ensureExtensionCharge({
+      ownerId,
+      bookingId,
+      actorId: actorId || ownerId,
+      extensionId: extension._id,
+      amount: preview.additionalAmount,
+      notes: `Extension +${preview.additionalDays} day(s)`,
+    });
+  } catch (ledgerErr) {
+    console.error('[extension] ledger charge failed:', ledgerErr.message);
+  }
+
   await logAudit({
     owner: ownerId,
     actor: actorId || ownerId,

@@ -3,6 +3,12 @@ import Booking from "../models/Booking.js";
 import Car from "../models/Car.js";
 import Payment from "../models/Payment.js";
 import {
+  ensureRentalChargeForBooking,
+  ensureInitialPaymentForBooking,
+  syncLegacyPaymentStatusChange,
+  deleteLedgerForBookings,
+} from "../services/bookingLedgerService.js";
+import {
   escapeRegex,
   isValidEmail,
   parseDateRange,
@@ -467,6 +473,17 @@ export const createBooking = async (req, res) => {
     }
 
     try {
+      await ensureRentalChargeForBooking({
+        ownerId: carForBooking.owner,
+        bookingId: booking._id,
+        amount: price,
+        reservationId,
+      });
+    } catch (ledgerError) {
+      console.error('Ledger rental seed failed:', ledgerError.message);
+    }
+
+    try {
       await upsertGuestFromBooking(booking);
       await createNotification({
         owner: carForBooking.owner,
@@ -837,6 +854,28 @@ export const createWalkInBooking = async (req, res) => {
       console.error('Payment record create failed:', paymentError.message);
     }
 
+    try {
+      await ensureRentalChargeForBooking({
+        ownerId,
+        bookingId: booking._id,
+        actorId: ownerId,
+        amount: price,
+        reservationId,
+      });
+      if (paymentStatus === 'paid') {
+        await ensureInitialPaymentForBooking({
+          ownerId,
+          bookingId: booking._id,
+          actorId: ownerId,
+          amount: price,
+          method: 'other',
+          reservationId,
+        });
+      }
+    } catch (ledgerError) {
+      console.error('Ledger walk-in seed failed:', ledgerError.message);
+    }
+
     if (clientDocumentId && mongoose.isValidObjectId(clientDocumentId)) {
       try {
         const { linkBookingToClientDocument } = await import('../services/clientDocumentService.js');
@@ -1166,6 +1205,17 @@ export const changePaymentStatus = async (req, res) => {
       { booking: bookingId },
       { status: paymentStatus },
     );
+
+    try {
+      await syncLegacyPaymentStatusChange({
+        ownerId: _id,
+        bookingId,
+        actorId: _id,
+        paymentStatus,
+      });
+    } catch (ledgerError) {
+      console.error('Ledger payment-status sync failed:', ledgerError.message);
+    }
 
     res.json({ success: true, message: `Payment status updated to ${paymentStatus}` });
   } catch (error) {
@@ -1617,6 +1667,7 @@ export const deleteBooking = async (req, res) => {
     }
 
     await Payment.deleteMany({ booking: bookingId });
+    await deleteLedgerForBookings([bookingId]);
     await Booking.findByIdAndDelete(bookingId);
 
     res.json({ success: true, message: 'Reservation deleted' });
@@ -1657,6 +1708,7 @@ export const deleteBookingsBulk = async (req, res) => {
     }
 
     await Payment.deleteMany({ booking: { $in: ownedIds } });
+    await deleteLedgerForBookings(ownedIds);
     const result = await Booking.deleteMany({ _id: { $in: ownedIds }, owner: _id });
     const deletedCount = result.deletedCount || 0;
 

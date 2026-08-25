@@ -231,6 +231,37 @@ const bookingSchema = new mongoose.Schema({
       at: { type: Date, default: null },
     },
   },
+  /**
+   * Denormalized offline ledger cache (BookingLedgerEntry is SSOT when entries exist).
+   * Phase 1: may be empty; GET financial computes from ledger or legacy Payment/booking.
+   * Deposit is liability — separate from balanceDue.
+   */
+  financial: {
+    chargesTotal: { type: Number, default: 0 },
+    paymentsTotal: { type: Number, default: 0 },
+    refundsTotal: { type: Number, default: 0 },
+    balanceDue: { type: Number, default: 0 },
+    depositRequired: { type: Number, default: 0 },
+    depositHeld: { type: Number, default: 0 },
+    depositReleased: { type: Number, default: 0 },
+    depositClaimed: { type: Number, default: 0 },
+    depositStatus: {
+      type: String,
+      enum: ['none', 'pending', 'held', 'partially_released', 'released', 'claimed'],
+      default: 'none',
+    },
+    settlementStatus: {
+      type: String,
+      enum: ['unpaid', 'partial', 'paid', 'refunded'],
+      default: 'unpaid',
+    },
+    source: {
+      type: String,
+      enum: ['', 'ledger', 'legacy'],
+      default: '',
+    },
+    recomputedAt: { type: Date, default: null },
+  },
 }, { timestamps: true });
 
 bookingSchema.index({ car: 1, status: 1, pickupDate: 1, returnDate: 1 });

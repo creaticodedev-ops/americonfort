@@ -8,6 +8,7 @@ import { useI18n } from '../../../i18n/I18nContext'
 import { useAppContext } from '../../../context/AppContext'
 import BookingSignaturePanel from './BookingSignaturePanel'
 import BookingActionsMenu from './BookingActionsMenu'
+import BookingMoneySummary from './BookingMoneySummary'
 import { formatDateTime, getBookingAttention, resId } from './bookingUtils'
 
 const inputClass =
@@ -199,6 +200,8 @@ const BookingInspector = ({
       </div>
 
       <div className="admin-booking-inspector-body">
+        <BookingMoneySummary bookingId={booking._id} currency={currency} />
+
         <DetailSection title={t('admin.details.period')} collapsible defaultOpen>
           <DetailRow label={t('admin.details.pickup')}>{formatDateTime(booking.pickupDate)}</DetailRow>
           <DetailRow label={t('admin.details.return')}>{formatDateTime(booking.returnDate)}</DetailRow>
