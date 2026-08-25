@@ -1,63 +1,57 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { assets } from '../assets/assets'
 import { Link } from 'react-router-dom'
 import { useI18n } from '../i18n/I18nContext'
 import { formatLocationsDisplay } from '../utils/carLocations'
 import ResponsiveImage from './ResponsiveImage'
 
-const SpecIcon = ({ name }) => {
-  const common = {
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: '1.6',
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    className: 'h-3.5 w-3.5 shrink-0',
-    'aria-hidden': true,
-  }
-  if (name === 'seats') {
-    return (
-      <svg {...common}>
-        <circle cx="9" cy="7" r="2.4" />
-        <path d="M4.5 18.5v-1.2A3.8 3.8 0 0 1 8.3 13.5h1.4A3.8 3.8 0 0 1 13.5 17.3v1.2" />
-        <circle cx="16.2" cy="8.2" r="2" />
-        <path d="M15 18.5v-1a3.2 3.2 0 0 1 2.4-3.1h.4A3.2 3.2 0 0 1 21 17.4v1.1" />
-      </svg>
-    )
-  }
-  if (name === 'fuel') {
-    return (
-      <svg {...common}>
-        <path d="M4.8 20V6.8A1.8 1.8 0 0 1 6.6 5h6.2A1.8 1.8 0 0 1 14.6 6.8V20" />
-        <path d="M4.8 20h9.8M7 8.2h5.4M16.2 8.5l2.6 2.6v6.2a1.7 1.7 0 1 0 3.4 0V12.2L20 10.4" />
-      </svg>
-    )
-  }
-  return (
-    <svg {...common}>
-      <circle cx="12" cy="12" r="7.2" />
-      <circle cx="12" cy="12" r="1.6" />
-      <path d="M12 4.8v2.2M12 17v2.2M4.8 12h2.2M17 12h2.2" />
-    </svg>
-  )
+const TONES = ['warm', 'cool', 'ember']
+
+const toneFromId = (id) => {
+  const s = String(id || '')
+  let h = 0
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return TONES[h % TONES.length]
 }
 
+/**
+ * Premium public fleet card — used on home featured + /cars.
+ * Visual treatment only; pricing, availability, and links stay data-driven.
+ */
 const CarCard = ({ car }) => {
   const currency = import.meta.env.VITE_CURRENCY || 'MAD '
   const { t } = useI18n()
   const fallbackImage = assets.car_image1
   const available = Boolean(car.isAvaliable)
   const locationLabel = formatLocationsDisplay(car)
+  const tone = useMemo(() => toneFromId(car._id), [car._id])
+
+  const specs = [
+    car.seating_capacity ? t('carDetails.seats', { count: car.seating_capacity }) : null,
+    car.fuel_type || null,
+    car.transmission || null,
+  ].filter(Boolean)
 
   return (
-    <article className={`fleet-card${available ? '' : ' is-unavailable'}`}>
+    <article
+      className={`fleet-card fleet-card--${tone}${available ? '' : ' is-unavailable'}`}
+      data-tone={tone}
+    >
       <Link
         to={`/car-details/${car._id}`}
         onClick={() => window.scrollTo(0, 0)}
         className="fleet-card-link group"
       >
         <div className="fleet-card-media">
+          <div className="fleet-card-media-atmosphere" aria-hidden />
+          <div className="fleet-card-media-vignette" aria-hidden />
+          <div className="fleet-card-media-floor" aria-hidden />
+
+          <span className={`fleet-card-badge${available ? ' is-on' : ' is-off'}`}>
+            <span className="fleet-card-badge-dot" aria-hidden />
+            {available ? t('carCard.available') : t('carCard.unavailable')}
+          </span>
+
           <ResponsiveImage
             src={car.image || car.images?.[0] || fallbackImage}
             fallbackSrc={fallbackImage}
@@ -70,45 +64,47 @@ const CarCard = ({ car }) => {
             decoding="async"
             className="fleet-card-img"
           />
-          <span className={`fleet-card-badge${available ? '' : ' is-off'}`}>
-            {available ? t('carCard.available') : t('carCard.unavailable')}
-          </span>
+
           <div className="fleet-card-price">
             <span className="fleet-card-price-value">
-              {currency}{car.pricePerDay}
+              {currency}
+              {car.pricePerDay}
             </span>
             <span className="fleet-card-price-unit">{t('carCard.perDay')}</span>
           </div>
         </div>
 
         <div className="fleet-card-body">
-          <h3 className="fleet-card-name">
-            {car.brand} {car.model}
-          </h3>
-          <p className="fleet-card-meta">
-            {car.category} · {car.year}
-          </p>
+          <div className="fleet-card-identity">
+            <h3 className="fleet-card-name">
+              <span className="fleet-card-brand">{car.brand}</span>
+              <span className="fleet-card-model">{car.model}</span>
+            </h3>
+            {(car.category || car.year) && (
+              <p className="fleet-card-meta">
+                {car.category ? <span>{car.category}</span> : null}
+                {car.category && car.year ? <span className="fleet-card-meta-sep" aria-hidden>·</span> : null}
+                {car.year ? <span className="fleet-card-year">{car.year}</span> : null}
+              </p>
+            )}
+          </div>
 
-          <ul className="fleet-card-specs">
-            <li>
-              <SpecIcon name="seats" />
-              <span>{t('carDetails.seats', { count: car.seating_capacity })}</span>
-            </li>
-            <li>
-              <SpecIcon name="fuel" />
-              <span>{car.fuel_type}</span>
-            </li>
-            <li>
-              <SpecIcon name="gear" />
-              <span>{car.transmission}</span>
-            </li>
-          </ul>
+          {specs.length > 0 && (
+            <p className="fleet-card-specs" aria-label={specs.join(', ')}>
+              {specs.map((spec, i) => (
+                <React.Fragment key={`${spec}-${i}`}>
+                  {i > 0 ? <span className="fleet-card-specs-sep" aria-hidden>·</span> : null}
+                  <span>{spec}</span>
+                </React.Fragment>
+              ))}
+            </p>
+          )}
 
           {locationLabel ? (
             <p className="fleet-card-location">
               <svg
                 viewBox="0 0 24 24"
-                className="h-3.5 w-3.5 shrink-0 text-primary"
+                className="fleet-card-location-icon"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.7"
@@ -122,7 +118,7 @@ const CarCard = ({ car }) => {
           ) : null}
 
           <span className="fleet-card-cta">
-            {t('carCard.viewDetails')}
+            <span className="fleet-card-cta-label">{t('carCard.viewDetails')}</span>
             <span className="fleet-card-cta-arrow" aria-hidden="true">→</span>
           </span>
         </div>

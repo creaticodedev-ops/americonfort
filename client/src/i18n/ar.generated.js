@@ -43,15 +43,11 @@ export const ar = {
   },
   "featured": {
     "eyebrow": "الأسطول",
-    "title": "اختر سيارتك",
+    "title": "مركبات مميزة",
     "subtitle": "تصفّح حسب الفئة، عاين المركبة، ثم احجز خلال دقائق — أسعار واضحة وبدون حساب.",
     "exploreAll": "استكشف الأسطول كاملاً",
     "viewCategory": "عرض الفئة",
-    "airportLink": "كراء سيارة مطار الدار البيضاء",
-    "railAria": "مركبات أخرى في هذه الفئة",
-    "specSeats": "مقاعد",
-    "specFuel": "وقود",
-    "specGear": "ناقل"
+    "airportLink": "كراء سيارة مطار الدار البيضاء"
   },
   "banner": {
     "eyebrow": "Ready when you are",
