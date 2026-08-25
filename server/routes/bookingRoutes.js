@@ -8,6 +8,7 @@ import {
   createBooking,
   createWalkInBooking,
   deleteBooking,
+  deleteBookingsBulk,
   exportOwnerBookings,
   getCalendarBookings,
   getOwnerBookings,
@@ -56,5 +57,6 @@ bookingRouter.post(
 );
 bookingRouter.get('/owner/:bookingId/documents/:docType', ...bookingsGate, getBookingDocumentUrl);
 bookingRouter.post('/delete', ...bookingsGate, deleteBooking);
+bookingRouter.post('/delete-bulk', ...bookingsGate, deleteBookingsBulk);
 
 export default bookingRouter;

@@ -1626,6 +1626,54 @@ export const deleteBooking = async (req, res) => {
   }
 };
 
+const BULK_DELETE_MAX = 100;
+
+export const deleteBookingsBulk = async (req, res) => {
+  try {
+    const { _id } = req.user;
+    const rawIds = Array.isArray(req.body?.bookingIds) ? req.body.bookingIds : [];
+    const uniqueIds = [...new Set(rawIds.map((id) => String(id || '').trim()))].filter((id) =>
+      mongoose.isValidObjectId(id)
+    );
+
+    if (!uniqueIds.length) {
+      return res.status(400).json({ success: false, message: 'No reservations selected' });
+    }
+    if (uniqueIds.length > BULK_DELETE_MAX) {
+      return res.status(400).json({
+        success: false,
+        message: `Too many reservations selected (max ${BULK_DELETE_MAX})`,
+      });
+    }
+
+    const owned = await Booking.find({
+      _id: { $in: uniqueIds },
+      owner: _id,
+    }).select('_id');
+
+    const ownedIds = owned.map((b) => b._id);
+    if (!ownedIds.length) {
+      return res.status(404).json({ success: false, message: 'No matching reservations found' });
+    }
+
+    await Payment.deleteMany({ booking: { $in: ownedIds } });
+    const result = await Booking.deleteMany({ _id: { $in: ownedIds }, owner: _id });
+    const deletedCount = result.deletedCount || 0;
+
+    res.json({
+      success: true,
+      deletedCount,
+      message:
+        deletedCount === 1
+          ? '1 reservation deleted'
+          : `${deletedCount} reservations deleted`,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to delete reservations' });
+  }
+};
+
 export const exportOwnerBookings = async (req, res) => {
   const { exportReservationsXlsx } = await import('./xlsxExportController.js');
   return exportReservationsXlsx(req, res);

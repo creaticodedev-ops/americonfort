@@ -85,6 +85,8 @@ const ManageBookings = () => {
   const [filters, setFilters] = useState(emptyFilters)
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters)
   const [selectedBooking, setSelectedBooking] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [confirmBusy, setConfirmBusy] = useState(false)
   const [editing, setEditing] = useState(null)
   const [editForm, setEditForm] = useState(emptyEdit)
   const closeEdit = useCallback(() => setEditing(null), [])
@@ -151,6 +153,41 @@ const ManageBookings = () => {
   useEffect(() => {
     fetchOwnerBookings()
   }, [queryString])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [queryString])
+
+  const visibleIds = useMemo(() => bookings.map((b) => b._id), [bookings])
+  const selectedCount = selectedIds.size
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+  const someVisibleSelected =
+    visibleIds.some((id) => selectedIds.has(id)) && !allVisibleSelected
+
+  const toggleSelect = useCallback((bookingId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(bookingId)) next.delete(bookingId)
+      else next.add(bookingId)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAllVisible = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      const allSelected = visibleIds.length > 0 && visibleIds.every((id) => next.has(id))
+      if (allSelected) {
+        visibleIds.forEach((id) => next.delete(id))
+      } else {
+        visibleIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }, [visibleIds])
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
 
   useEffect(() => {
     axios.get('/api/owner/cars')
@@ -357,30 +394,62 @@ const ManageBookings = () => {
     setConfirmAction({
       type: 'delete',
       bookingId,
-      title: 'Delete reservation',
-      message: 'Delete this reservation permanently? This cannot be undone.',
-      confirmText: 'Delete',
+      title: t('admin.bookings.deleteTitle'),
+      message: t('admin.bookings.deleteConfirm'),
+      confirmText: t('admin.bookings.delete'),
+      variant: 'danger',
+    })
+  }
+
+  const deleteSelectedBookings = () => {
+    if (selectedCount < 1) return
+    setConfirmAction({
+      type: 'bulk-delete',
+      bookingIds: [...selectedIds],
+      title: t('admin.bookings.bulkDeleteTitle'),
+      message: t('admin.bookings.bulkDeleteConfirm', { count: selectedCount }),
+      confirmText: t('admin.bookings.deleteSelected', { count: selectedCount }),
       variant: 'danger',
     })
   }
 
   const runConfirmAction = async () => {
-    if (!confirmAction) return
-    const { type, bookingId, status } = confirmAction
-    setConfirmAction(null)
+    if (!confirmAction || confirmBusy) return
+    const { type, bookingId, bookingIds, status } = confirmAction
+    setConfirmBusy(true)
     try {
       if (type === 'delete') {
         const { data } = await axios.post('/api/bookings/delete', { bookingId })
         if (data.success) {
           toast.success(data.message)
           if (selectedBooking?._id === bookingId) setSelectedBooking(null)
+          setSelectedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(bookingId)
+            return next
+          })
+          setConfirmAction(null)
+          fetchOwnerBookings()
+        } else toast.error(data.message)
+      } else if (type === 'bulk-delete') {
+        const { data } = await axios.post('/api/bookings/delete-bulk', { bookingIds })
+        if (data.success) {
+          toast.success(data.message || t('admin.bookings.bulkDeleteSuccess', { count: data.deletedCount || bookingIds.length }))
+          if (selectedBooking && bookingIds.map(String).includes(String(selectedBooking._id))) {
+            setSelectedBooking(null)
+          }
+          clearSelection()
+          setConfirmAction(null)
           fetchOwnerBookings()
         } else toast.error(data.message)
       } else if (type === 'status') {
+        setConfirmAction(null)
         await changeBookingStatus(bookingId, status)
       }
     } catch (error) {
       toast.error(getErrorMessage(error))
+    } finally {
+      setConfirmBusy(false)
     }
   }
 
@@ -389,9 +458,9 @@ const ManageBookings = () => {
       type: 'status',
       bookingId,
       status: 'cancelled',
-      title: 'Cancel reservation',
-      message: 'Cancel this reservation? The customer will see it as cancelled.',
-      confirmText: 'Cancel reservation',
+      title: t('admin.bookings.cancelTitle'),
+      message: t('admin.bookings.cancelConfirm'),
+      confirmText: t('admin.bookings.cancel'),
       variant: 'danger',
     })
   }
@@ -679,6 +748,27 @@ const ManageBookings = () => {
         labelClass={labelClass}
       />
 
+      {selectedCount > 0 && (
+        <div className="admin-booking-bulkbar" role="region" aria-label={t('admin.bookings.bulkSelectionAria')}>
+          <div className="admin-booking-bulkbar__info">
+            <span className="admin-booking-bulkbar__count">
+              {t('admin.bookings.selectedCount', { count: selectedCount })}
+            </span>
+            <button type="button" className="admin-booking-bulkbar__clear" onClick={clearSelection}>
+              {t('admin.bookings.clearSelection')}
+            </button>
+          </div>
+          <button
+            type="button"
+            className="admin-btn admin-btn--danger"
+            onClick={deleteSelectedBookings}
+            disabled={confirmBusy}
+          >
+            {t('admin.bookings.deleteSelected', { count: selectedCount })}
+          </button>
+        </div>
+      )}
+
       <div className="admin-booking-workspace">
         <div className="admin-booking-list-panel">
           {loading && bookings.length === 0 ? (
@@ -692,9 +782,11 @@ const ManageBookings = () => {
               <BookingCardList
                 bookings={bookings}
                 selectedId={selectedBooking?._id}
+                selectedIds={selectedIds}
                 currency={currency}
                 t={t}
                 onSelect={setSelectedBooking}
+                onToggleSelect={toggleSelect}
                 buildMoreItems={buildMoreItems}
               />
               <div className="admin-booking-ops-table-wrap">
@@ -702,9 +794,14 @@ const ManageBookings = () => {
                   bookings={bookings}
                   loading={loading}
                   selectedId={selectedBooking?._id}
+                  selectedIds={selectedIds}
+                  allVisibleSelected={allVisibleSelected}
+                  someVisibleSelected={someVisibleSelected}
                   currency={currency}
                   t={t}
                   onSelect={setSelectedBooking}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectAll={toggleSelectAllVisible}
                   buildMoreItems={buildMoreItems}
                   skeleton={<SkeletonRows rows={6} />}
                   emptyState={listEmpty}
@@ -763,7 +860,11 @@ const ManageBookings = () => {
         message={confirmAction?.message}
         confirmText={confirmAction?.confirmText || 'Confirm'}
         variant={confirmAction?.variant || 'danger'}
-        onCancel={() => setConfirmAction(null)}
+        loading={confirmBusy}
+        onCancel={() => {
+          if (confirmBusy) return
+          setConfirmAction(null)
+        }}
         onConfirm={runConfirmAction}
       />
 
