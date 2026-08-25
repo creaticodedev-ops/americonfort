@@ -60,26 +60,21 @@ export const ar = {
     "airportCta": "Casablanca Mohammed V airport"
   },
   "testimonials": {
-    "eyebrow": "Client stories",
-    "title": "Trusted on every journey",
-    "subtitle": "Travelers choose Americonfort for reliability, clarity, and a premium rental experience.",
-    "items": [
-      {
-        "name": "Sarah M.",
-        "location": "Casablanca",
-        "text": "Excellent service, the car was spotless and the booking process was incredibly easy."
-      },
-      {
-        "name": "Ahmed K.",
-        "location": "Casablanca",
-        "text": "Very professional team. The vehicle was exactly as described. Highly recommended."
-      },
-      {
-        "name": "Youssef B.",
-        "location": "Marrakech",
-        "text": "The car was in perfect condition, and the whole experience was fast and hassle-free."
-      }
-    ]
+    "eyebrow": "تقييمات Google",
+    "title": "ثقة في كل رحلة",
+    "subtitle": "تقييمات ومراجعات حقيقية من مسافرين حجزوا مع أميريكونفورت.",
+    "googleLabel": "Google",
+    "outOfFive": "من 5",
+    "reviewCount": "{{count}} مراجعة على Google",
+    "basedOn": "بناءً على مراجعات Google",
+    "seeAll": "عرض جميع المراجعات على Google ←",
+    "shareExperience": "شارك تجربتك",
+    "empty": "ستظهر المراجعات هنا عند توفرها على Google.",
+    "noText": "تقييم على Google دون تعليق مكتوب.",
+    "prev": "المراجعة السابقة",
+    "next": "المراجعة التالية",
+    "progress": "شرائح المراجعات",
+    "slide": "مراجعة {{n}}"
   },
   "whatsappHelp": {
     "eyebrow": "Need help?",

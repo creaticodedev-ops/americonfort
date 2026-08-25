@@ -16,6 +16,7 @@ import contractRouter from "./routes/contractRoutes.js";
 import invoiceRouter from "./routes/invoiceRoutes.js";
 import exportTemplateRouter from "./routes/exportTemplateRoutes.js";
 import adminModulesRouter from "./routes/adminModulesRoutes.js";
+import publicRouter from "./routes/publicRoutes.js";
 import { protectDocumentUploads } from "./middleware/uploadAccess.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -108,7 +109,7 @@ app.use((_req, res, next) => {
     "frame-ancestors 'none'",
     "form-action 'self' https://checkout.stripe.com",
     [
-      "img-src 'self' data: blob: https://ik.imagekit.io https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com",
+      "img-src 'self' data: blob: https://ik.imagekit.io https://images.unsplash.com https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://lh5.googleusercontent.com https://lh6.googleusercontent.com https://www.google-analytics.com https://www.googletagmanager.com",
       (process.env.API_PUBLIC_URL || "").replace(/\/$/, ""),
     ].filter(Boolean).join(" "),
     "font-src 'self' data:",
@@ -197,6 +198,7 @@ app.use("/api/owner", ownerRouter);
 app.use("/api/owner", adminModulesRouter);
 app.use("/api/bookings", bookingRouter);
 app.use("/api/pickup-locations", pickupLocationRouter);
+app.use("/api/public", publicRouter);
 app.use("/api/booking-completion", completionRouter);
 app.use("/api/super-admin", superAdminRouter);
 app.use("/api/contracts", contractRouter);
