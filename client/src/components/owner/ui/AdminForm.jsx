@@ -1,5 +1,6 @@
 import React from 'react'
 import { DateField } from '../../date/DateField'
+import { DateTimeField } from '../../date/DateTimeField'
 
 /** Shared CRUD form layout — mobile-first, stacks on small screens. */
 export const AdminForm = ({ children, className = '', onSubmit, id }) => (
@@ -69,6 +70,25 @@ export const AdminFormInput = ({ className = '', type, ...props }) => {
         name={props.name}
         aria-label={props['aria-label']}
         placeholder={props.placeholder}
+        required={props.required}
+      />
+    )
+  }
+  if (type === 'datetime-local') {
+    return (
+      <DateTimeField
+        variant="admin"
+        className={className}
+        value={props.value ?? ''}
+        onChange={props.onChange}
+        min={props.min}
+        max={props.max}
+        disabled={props.disabled}
+        id={props.id}
+        name={props.name}
+        aria-label={props['aria-label']}
+        placeholder={props.placeholder}
+        required={props.required}
       />
     )
   }

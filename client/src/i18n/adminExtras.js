@@ -3,6 +3,10 @@
 export const extrasEn = {
   datePicker: {
     selectDate: 'Select date',
+    selectDateTime: 'Select date & time',
+    time: 'Time',
+    hour: 'Hour',
+    minute: 'Minute',
     clear: 'Clear',
     today: 'Today',
     done: 'Done',
@@ -549,6 +553,10 @@ export const extrasEn = {
 export const extrasFr = {
   datePicker: {
     selectDate: 'Choisir une date',
+    selectDateTime: 'Choisir date et heure',
+    time: 'Heure',
+    hour: 'Heure',
+    minute: 'Minute',
     clear: 'Effacer',
     today: "Aujourd'hui",
     done: 'OK',
@@ -1100,6 +1108,10 @@ export const extrasFr = {
 export const extrasEs = {
   datePicker: {
     selectDate: 'Seleccionar fecha',
+    selectDateTime: 'Seleccionar fecha y hora',
+    time: 'Hora',
+    hour: 'Hora',
+    minute: 'Minuto',
     clear: 'Borrar',
     today: 'Hoy',
     done: 'Listo',
@@ -1652,6 +1664,10 @@ export const extrasEs = {
 export const extrasAr = {
   datePicker: {
     selectDate: 'اختر التاريخ',
+    selectDateTime: 'اختر التاريخ والوقت',
+    time: 'الوقت',
+    hour: 'الساعة',
+    minute: 'الدقيقة',
     clear: 'مسح',
     today: 'اليوم',
     done: 'تم',

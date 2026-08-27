@@ -51,3 +51,36 @@ export const formatDisplayDate = (iso, language = 'en') => {
 }
 
 export const todayISO = () => toISODate(startOfDay(new Date()))
+
+/** Split datetime-local / ISO-ish values into date + HH:mm (local). */
+export const splitDateTimeValue = (value) => {
+  if (!value) return { date: '', time: '10:00' }
+  const raw = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) {
+    return { date: raw.slice(0, 10), time: raw.slice(11, 16) }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return { date: raw, time: '10:00' }
+  }
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return { date: '', time: '10:00' }
+  return {
+    date: toISODate(d),
+    time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
+  }
+}
+
+export const mergeDateTimeValue = (date, time) => {
+  if (!date) return ''
+  const hhmm = /^\d{2}:\d{2}$/.test(String(time || '')) ? time : '10:00'
+  return `${date}T${hhmm}`
+}
+
+export const formatDisplayDateTime = (value, language = 'en') => {
+  const { date, time } = splitDateTimeValue(value)
+  if (!date) return ''
+  return `${formatDisplayDate(date, language)} · ${time}`
+}
+
+export const HOURS_24 = Array.from({ length: 24 }, (_, i) => pad2(i))
+export const MINUTES_60 = Array.from({ length: 60 }, (_, i) => pad2(i))

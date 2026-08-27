@@ -22,6 +22,7 @@ export const DateField = ({
   id,
   name,
   placeholder,
+  required = false,
   'aria-label': ariaLabel,
 }) => {
   const { t, language } = useI18n()
@@ -59,6 +60,7 @@ export const DateField = ({
         aria-label={ariaLabel || label || t('admin.datePicker.selectDate')}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-required={required || undefined}
       >
         <span className="hdn-date-field__value tabular-nums">{display}</span>
         <svg className="hdn-date-field__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>

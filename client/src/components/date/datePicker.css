@@ -431,12 +431,122 @@
   color: var(--admin-fg, #f5f0eb);
 }
 
-/* Date field trigger */
+.hdn-cal__slot {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #eee8e2;
+}
+
+.hdn-cal--admin .hdn-cal__slot {
+  border-top-color: var(--admin-border, #eee8e2);
+}
+
+.hdn-cal__time {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hdn-cal__time-label {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8078;
+}
+
+.hdn-cal--admin .hdn-cal__time-label {
+  color: var(--admin-fg-muted, #8a8078);
+}
+
+.hdn-cal__time-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.hdn-cal__time-select-wrap {
+  margin: 0;
+}
+
+.hdn-cal__time-select {
+  appearance: none;
+  min-width: 3.25rem;
+  height: 2.35rem;
+  padding: 0 0.55rem;
+  border-radius: 0.7rem;
+  border: 1px solid #e5ddd6;
+  background: #faf8f6;
+  color: #1c1714;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hdn-cal__time-select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, #800020 35%, #e5ddd6);
+}
+
+.hdn-cal__time-select:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, #800020 45%, #e5ddd6);
+  box-shadow: 0 0 0 3px rgb(128 0 32 / 14%);
+}
+
+.hdn-cal__time-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hdn-cal--admin .hdn-cal__time-select {
+  background: var(--admin-surface-2, #faf8f6);
+  border-color: var(--admin-border, #e5ddd6);
+  color: var(--admin-fg, #1c1714);
+}
+
+.hdn-cal__time-sep {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #8a8078;
+}
+
+.hdn-date-field__native-mirror {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .hdn-date-field {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   min-width: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .hdn-date-field__label {

@@ -13,6 +13,7 @@ import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildContractPatch, initContractForm, toDateInput } from '../../utils/documentFormUtils'
 import { DateField } from '../../components/date/DateField'
+import { DateTimeField } from '../../components/date/DateTimeField'
 
 const formatDateTime = (value) => {
   if (!value) return '—'
@@ -100,12 +101,26 @@ const Contracts = () => {
     const field = (key, label, type = 'text') => (
       <div key={key}>
         <label className={labelClass}>{label}</label>
-        <input
-          type={type}
-          className={fieldClass}
-          value={form[key] ?? ''}
-          onChange={(e) => set(key, e.target.value)}
-        />
+        {type === 'date' ? (
+          <DateField
+            variant="admin"
+            value={form[key] ?? ''}
+            onChange={(e) => set(key, e.target.value)}
+          />
+        ) : type === 'datetime-local' ? (
+          <DateTimeField
+            variant="admin"
+            value={form[key] ?? ''}
+            onChange={(e) => set(key, e.target.value)}
+          />
+        ) : (
+          <input
+            type={type}
+            className={fieldClass}
+            value={form[key] ?? ''}
+            onChange={(e) => set(key, e.target.value)}
+          />
+        )}
       </div>
     )
     const section = (title, children) => (

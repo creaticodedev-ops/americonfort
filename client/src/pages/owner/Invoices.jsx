@@ -9,6 +9,7 @@ import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildInvoicePatch, initInvoiceForm } from '../../utils/documentFormUtils'
 import { DateField } from '../../components/date/DateField'
+import { DateTimeField } from '../../components/date/DateTimeField'
 
 const formatDateTime = (value) => {
   if (!value) return '—'
@@ -79,6 +80,12 @@ const Invoices = () => {
         <label className={labelClass}>{label}</label>
         {type === 'date' ? (
           <DateField
+            variant="admin"
+            value={editForm[key] ?? ''}
+            onChange={(e) => update({ [key]: e.target.value })}
+          />
+        ) : type === 'datetime-local' ? (
+          <DateTimeField
             variant="admin"
             value={editForm[key] ?? ''}
             onChange={(e) => update({ [key]: e.target.value })}

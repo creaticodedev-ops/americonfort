@@ -165,6 +165,8 @@ export const CalendarPopover = ({
   disabledDates,
   labels = {},
   rangeFocus,
+  closeOnSelect = true,
+  footerSlot = null,
 }) => {
   const panelRef = useRef(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -266,7 +268,7 @@ export const CalendarPopover = ({
     setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1))
     if (mode === 'single') {
       onSelect?.(toISODate(date))
-      onClose?.()
+      if (closeOnSelect) onClose?.()
       return
     }
     if (activeField === 'start' || !start || (start && end)) {
@@ -299,7 +301,7 @@ export const CalendarPopover = ({
     setViewMonth(t)
     if (mode === 'single') {
       onSelect?.(todayISO())
-      onClose?.()
+      if (closeOnSelect) onClose?.()
     }
   }
 
@@ -451,6 +453,8 @@ export const CalendarPopover = ({
             ) : null}
           </div>
         ) : null}
+
+        {footerSlot ? <div className="hdn-cal__slot">{footerSlot}</div> : null}
 
         <div className="hdn-cal__footer">
           <div className="hdn-cal__footer-start">

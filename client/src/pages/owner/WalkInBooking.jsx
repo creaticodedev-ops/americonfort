@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../utils/apiError'
 import { getCarLocations } from '../../utils/carLocations'
 import PhoneInput from '../../components/PhoneInput'
 import { DateField } from '../../components/date/DateField'
+import { DateTimeField } from '../../components/date/DateTimeField'
 import { isPhoneValid } from '../../utils/phoneValidation'
 
 const emptySecondDriver = {
@@ -608,10 +609,21 @@ const WalkInBooking = () => {
                 />
               </Field>
               <Field label={t('admin.walkIn.pickup')} required>
-                <input type="datetime-local" className={input} required value={form.pickupDate} onChange={(e) => setField('pickupDate', e.target.value)} />
+                <DateTimeField
+                  variant="admin"
+                  required
+                  value={form.pickupDate}
+                  onChange={(e) => setField('pickupDate', e.target.value)}
+                />
               </Field>
               <Field label={t('admin.walkIn.return')} required>
-                <input type="datetime-local" className={input} required value={form.returnDate} onChange={(e) => setField('returnDate', e.target.value)} />
+                <DateTimeField
+                  variant="admin"
+                  required
+                  value={form.returnDate}
+                  min={form.pickupDate || undefined}
+                  onChange={(e) => setField('returnDate', e.target.value)}
+                />
               </Field>
               <Field label={t('admin.walkIn.pickupLoc')} required>
                 <AdminSearchSelect
