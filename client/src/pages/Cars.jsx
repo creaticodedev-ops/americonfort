@@ -175,18 +175,20 @@ const Cars = () => {
         <div className="fleet-atelier__atmosphere" aria-hidden="true" />
         <div className="fleet-atelier__grain" aria-hidden="true" />
         <div className="relative z-10 w-full max-w-3xl text-center">
-          <p className="fleet-atelier__eyebrow">{t('featured.eyebrow')}</p>
-          <h1 className="fleet-atelier__headline" style={{ fontSize: 'clamp(2.4rem, 5.5vw, 3.75rem)' }}>
-            {t('cars.title')}
-          </h1>
-          <p className="fleet-atelier__lede mx-auto mt-4">{t('cars.subtitle')}</p>
+          <header className="ac-head ac-head--center">
+            <p className="ac-eyebrow">{t('featured.eyebrow')}</p>
+            <h1 className="ac-title" style={{ fontSize: 'clamp(2.4rem, 5.5vw, 3.75rem)' }}>
+              {t('cars.title')}
+            </h1>
+            <p className="ac-lede">{t('cars.subtitle')}</p>
+          </header>
         </div>
 
         <Motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, duration: 0.5 }}
-          className="relative z-10 flex items-center bg-white px-4 mt-8 max-w-xl w-full h-12 rounded-[0.15rem] border border-borderColor"
+          className="relative z-10 flex items-center bg-white px-4 mt-8 max-w-xl w-full h-12 rounded-[var(--ac-radius)] border border-borderColor shadow-[var(--ac-shadow)]"
         >
           <img src={assets.search_icon} alt="" width={18} height={18} className="w-[1.125rem] h-[1.125rem] me-2 shrink-0" />
           <input
@@ -201,13 +203,13 @@ const Cars = () => {
 
         {availableCategories.length > 0 && (
           <nav
-            className="fleet-cat-nav relative z-10 mt-8 w-full max-w-4xl"
+            className="ac-tabs relative z-10 mt-8 w-full max-w-4xl justify-center"
             aria-label={t('cars.categoryLabel')}
           >
             <Link
               to="/cars"
               onClick={() => selectCategory('')}
-              className={`fleet-cat-chip ${!activeCategory ? 'is-active' : ''}`}
+              className={`ac-tab${!activeCategory ? ' is-on' : ''}`}
             >
               {t('cars.allCategories')}
             </Link>
@@ -216,8 +218,8 @@ const Cars = () => {
                 key={cat}
                 to={`/cars?category=${encodeURIComponent(cat)}`}
                 onClick={() => selectCategory(cat)}
-                className={`fleet-cat-chip ${
-                  activeCategory.toLowerCase() === cat.toLowerCase() ? 'is-active' : ''
+                className={`ac-tab${
+                  activeCategory.toLowerCase() === cat.toLowerCase() ? ' is-on' : ''
                 }`}
               >
                 {cat}
@@ -226,7 +228,7 @@ const Cars = () => {
           </nav>
         )}
         <p className="relative z-10 mt-6 text-center text-sm text-muted">
-          <Link to={AIRPORT_LANDING_PATH} className="fleet-atelier__airport">
+          <Link to={AIRPORT_LANDING_PATH} className="ac-text-link">
             {t('cars.airportLink')}
           </Link>
         </p>

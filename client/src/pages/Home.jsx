@@ -35,13 +35,15 @@ const Home = () => {
         path="/"
         jsonLd={jsonLd}
       />
-      <Hero />
-      <Suspense fallback={<BelowFoldFallback />}>
-        <FeaturedSection />
-        <Banner />
-        <Testimonial />
-        <WhatsAppHelp />
-      </Suspense>
+      <div className="ac-home">
+        <Hero />
+        <Suspense fallback={<BelowFoldFallback />}>
+          <FeaturedSection />
+          <Banner />
+          <Testimonial />
+          <WhatsAppHelp />
+        </Suspense>
+      </div>
     </>
   )
 }

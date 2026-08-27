@@ -133,8 +133,10 @@ const ReviewsSection = () => {
   const trackOffset = isRtl ? index * 100 : -index * 100
 
   return (
-    <section className="g-reviews page-pad page-shell" aria-label={t('testimonials.title')}>
+    <section className="ac-section g-reviews" aria-label={t('testimonials.title')}>
+      <div className="page-pad page-shell">
       <Title
+        align="left"
         eyebrow={t('testimonials.eyebrow')}
         title={t('testimonials.title')}
         subTitle={t('testimonials.subtitle')}
@@ -159,7 +161,7 @@ const ReviewsSection = () => {
           <div className="g-reviews-actions">
             {payload.mapsUrl ? (
               <a
-                className="g-reviews-cta"
+                className="ac-text-link"
                 href={payload.mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -169,7 +171,7 @@ const ReviewsSection = () => {
             ) : null}
             {payload.writeReviewUrl ? (
               <a
-                className="g-reviews-cta-secondary"
+                className="ac-text-link"
                 href={payload.writeReviewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -283,6 +285,7 @@ const ReviewsSection = () => {
             </>
           )}
         </div>
+      </div>
       </div>
     </section>
   )

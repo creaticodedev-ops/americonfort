@@ -17,15 +17,16 @@ const displayNames = (car) => {
 }
 
 /**
- * Showroom plate — vehicle dominates; info is a tight caption bar.
+ * Canonical vehicle plate — same language on home and /cars.
  */
-const CarCard = ({ car }) => {
+const CarCard = ({ car, showCategory = false }) => {
   const currency = import.meta.env.VITE_CURRENCY || 'MAD '
   const { t } = useI18n()
   const fallbackImage = assets.car_image1
   const available = Boolean(car.isAvaliable)
   const locationLabel = formatLocationsDisplay(car)
   const { brand, model } = useMemo(() => displayNames(car), [car.brand, car.model])
+  const category = String(car.category || '').trim()
 
   const specs = [
     car.seating_capacity ? `${car.seating_capacity} ${t('carCard.specSeats').toLowerCase()}` : null,
@@ -38,8 +39,8 @@ const CarCard = ({ car }) => {
   return (
     <Motion.article
       className={`show-card${available ? '' : ' is-off'}`}
-      whileHover={{ y: -5 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+      whileHover={{ y: -4 }}
+      transition={{ type: 'spring', stiffness: 340, damping: 28 }}
     >
       <Link
         to={`/car-details/${car._id}`}
@@ -54,16 +55,21 @@ const CarCard = ({ car }) => {
             fallbackSrc={fallbackImage}
             alt={`${brand} ${model}`.trim()}
             widths={[400, 640, 960]}
-            sizes="(max-width: 767px) 78vw, (max-width: 1100px) 40vw, 320px"
+            sizes="(max-width: 767px) 86vw, (max-width: 1100px) 44vw, 320px"
             width={640}
             height={400}
             loading="lazy"
             decoding="async"
             className="show-card__img"
           />
-          <span className={`show-card__live${available ? ' is-on' : ''}`}>
-            {available ? t('carCard.available') : t('carCard.unavailable')}
-          </span>
+          <div className="show-card__chips">
+            <span className={`show-card__live${available ? ' is-on' : ''}`}>
+              {available ? t('carCard.available') : t('carCard.unavailable')}
+            </span>
+            {showCategory && category ? (
+              <span className="show-card__cat">{category}</span>
+            ) : null}
+          </div>
         </div>
 
         <div className="show-card__cap">

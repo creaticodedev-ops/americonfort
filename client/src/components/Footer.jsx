@@ -19,125 +19,95 @@ const Footer = () => {
   ].filter(Boolean)
 
   return (
-    <footer className="page-pad page-shell mt-8 md:mt-16 text-sm text-muted bg-light">
-      <div className="flex flex-col md:flex-row flex-wrap justify-between items-start gap-10 pb-10 border-b border-borderColor">
-        <div className="max-w-sm w-full">
-          <img
-            src={brandLogo}
-            alt={BRAND_NAME}
-            width={200}
-            height={96}
-            loading="lazy"
-            decoding="async"
-            className="block h-9 sm:h-10 lg:h-11 mb-3 w-auto max-h-10 lg:max-h-11 object-contain"
-          />
-
-          <p className="leading-relaxed">
-            {t('footer.description')}
-          </p>
-
-          <div className="flex items-center gap-4 mt-6">
-            {socialLinks.map(({ src, label, href }) => (
-              <a
-                key={label}
-                href={href}
-                aria-label={label}
-                {...(href.startsWith('http')
-                  ? { target: '_blank', rel: 'noopener noreferrer' }
-                  : {})}
-              >
-                <img src={src} width={20} height={20} loading="lazy" className="w-5 h-5 hover:opacity-70 transition" alt="" />
-              </a>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-10 w-full md:w-auto md:flex-1 md:max-w-2xl">
-          <div>
-            <h3 className="text-base font-medium text-gray-900 uppercase tracking-wide">
-              {t('footer.quickLinks')}
-            </h3>
-            <ul className="mt-4 flex flex-col gap-2">
-              <li><Link className="hover:text-gray-700 transition" to="/">{t('footer.home')}</Link></li>
-              <li><Link className="hover:text-gray-700 transition" to="/cars">{t('footer.browseCars')}</Link></li>
-              <li>
-                <Link className="hover:text-gray-700 transition" to={AIRPORT_LANDING_PATH}>
-                  {t('footer.airportRental')}
-                </Link>
-              </li>
-              <li><Link className="hover:text-gray-700 transition" to="/about">{t('footer.aboutUs')}</Link></li>
-              <li><Link className="hover:text-gray-700 transition" to="/contact">{t('footer.contact')}</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-base font-medium text-gray-900 uppercase tracking-wide">
-              {t('footer.resources')}
-            </h3>
-            <ul className="mt-4 flex flex-col gap-2">
-              <li><Link className="hover:text-gray-700 transition" to="/faq">{t('footer.helpCenter')}</Link></li>
-              <li><Link className="hover:text-gray-700 transition" to="/terms">{t('footer.termsOfService')}</Link></li>
-              <li><Link className="hover:text-gray-700 transition" to="/privacy">{t('footer.privacyPolicy')}</Link></li>
-              <li><Link className="hover:text-gray-700 transition" to="/insurance">{t('footer.insurance')}</Link></li>
-            </ul>
-          </div>
-
-          <div className="col-span-2 sm:col-span-1">
-            <h3 className="text-base font-medium text-gray-900 uppercase tracking-wide">
-              {t('footer.contact')}
-            </h3>
-            <ul className="mt-4 flex flex-col gap-2 break-words">
-              <li>{BUSINESS.streetAddress}</li>
-              <li>{BUSINESS.addressLocality}, Maroc</li>
-              <li>
+    <footer className="ac-footer">
+      <div className="page-pad page-shell">
+        <div className="ac-footer__top">
+          <div className="ac-footer__brand">
+            <img
+              src={brandLogo}
+              alt={BRAND_NAME}
+              width={200}
+              height={96}
+              loading="lazy"
+              decoding="async"
+              className="ac-footer__logo"
+            />
+            <p className="ac-footer__desc">{t('footer.description')}</p>
+            <div className="ac-footer__social">
+              {socialLinks.map(({ src, label, href }) => (
                 <a
-                  className="hover:text-gray-700 transition"
-                  href={`tel:${BUSINESS.telephone}`}
-                  onClick={() => trackPhoneClick({ ctaLocation: 'footer' })}
+                  key={label}
+                  href={href}
+                  aria-label={label}
+                  className="ac-footer__social-link"
+                  {...(href.startsWith('http')
+                    ? { target: '_blank', rel: 'noopener noreferrer' }
+                    : {})}
                 >
-                  {BUSINESS.telephoneDisplay}
+                  <img src={src} width={20} height={20} loading="lazy" className="w-5 h-5" alt="" />
                 </a>
-              </li>
-              <li>
-                <a
-                  className="hover:text-gray-700 transition"
-                  href={`mailto:${BUSINESS.email}`}
-                  onClick={() => trackContactSubmit({ ctaLocation: 'footer', method: 'email' })}
-                >
-                  {BUSINESS.email}
-                </a>
-              </li>
-            </ul>
+              ))}
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="flex flex-col md:flex-row gap-3 items-center justify-between py-6 text-gray-600 text-center md:text-left">
-        <p className="text-xs sm:text-sm">© {new Date().getFullYear()} ZAKARIA DOUAMI. {t('footer.rights')}</p>
+          <div className="ac-footer__cols">
+            <div>
+              <h3 className="ac-footer__col-title">{t('footer.quickLinks')}</h3>
+              <ul className="ac-footer__list">
+                <li><Link to="/">{t('footer.home')}</Link></li>
+                <li><Link to="/cars">{t('footer.browseCars')}</Link></li>
+                <li><Link to={AIRPORT_LANDING_PATH}>{t('footer.airportRental')}</Link></li>
+                <li><Link to="/about">{t('footer.aboutUs')}</Link></li>
+                <li><Link to="/contact">{t('footer.contact')}</Link></li>
+              </ul>
+            </div>
 
-        <div className="flex flex-col items-center gap-2 md:items-end">
-          <ul className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs sm:text-sm">
-            {[
-              { label: t('footer.privacy'), to: '/privacy' },
-              { label: t('footer.terms'), to: '/terms' },
-              { label: t('footer.cookies'), to: '/cookies' },
-            ].map((item, i, arr) => (
-              <React.Fragment key={item.to}>
+            <div>
+              <h3 className="ac-footer__col-title">{t('footer.resources')}</h3>
+              <ul className="ac-footer__list">
+                <li><Link to="/faq">{t('footer.helpCenter')}</Link></li>
+                <li><Link to="/terms">{t('footer.termsOfService')}</Link></li>
+                <li><Link to="/privacy">{t('footer.privacyPolicy')}</Link></li>
+                <li><Link to="/insurance">{t('footer.insurance')}</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="ac-footer__col-title">{t('footer.contact')}</h3>
+              <ul className="ac-footer__list">
+                <li>{BUSINESS.streetAddress}</li>
+                <li>{BUSINESS.addressLocality}, Maroc</li>
                 <li>
-                  <Link className="hover:text-gray-800 transition" to={item.to}>
-                    {item.label}
-                  </Link>
+                  <a
+                    href={`tel:${BUSINESS.telephone}`}
+                    onClick={() => trackPhoneClick({ ctaLocation: 'footer' })}
+                  >
+                    {BUSINESS.telephoneDisplay}
+                  </a>
                 </li>
-                {i < arr.length - 1 && <span className="text-borderColor" aria-hidden>|</span>}
-              </React.Fragment>
-            ))}
-          </ul>
-          <Link
-            to="/owner"
-            className="text-[10px] text-muted hover:text-ink transition tracking-wide"
-          >
-            {t('footer.staffPortal')}
-          </Link>
+                <li>
+                  <a
+                    href={`mailto:${BUSINESS.email}`}
+                    onClick={() => trackContactSubmit({ ctaLocation: 'footer', method: 'email' })}
+                  >
+                    {BUSINESS.email}
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="ac-footer__bottom">
+          <p>© {new Date().getFullYear()} ZAKARIA DOUAMI. {t('footer.rights')}</p>
+          <div className="ac-footer__legal">
+            <Link to="/privacy">{t('footer.privacy')}</Link>
+            <Link to="/terms">{t('footer.terms')}</Link>
+            <Link to="/cookies">{t('footer.cookies')}</Link>
+            <Link to="/owner" className="ac-footer__staff">
+              {t('footer.staffPortal')}
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
