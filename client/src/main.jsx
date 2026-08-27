@@ -9,9 +9,10 @@ import { SuperAdminProvider } from './context/SuperAdminContext.jsx'
 import { I18nProvider } from './i18n/I18nContext.jsx'
 import { isChunkLoadError } from './utils/lazyWithRetry'
 
-// Deploy bust: force a fresh hashed entry so poisoned CDN 404s for old index-*.js cannot stick.
 preloadCriticalFonts()
 loadExtendedLatinFonts()
+// Keep a live string so production minify still emits a new entry hash after CDN 404 incidents.
+if (typeof window !== 'undefined') window.__AC_BUILD__ = '2026-08-27-recover'
 
 const CHUNK_RELOAD_KEY = 'americonfort:chunk-reload'
 const CHUNK_RELOAD_COUNT_KEY = 'americonfort:chunk-reload-count'
