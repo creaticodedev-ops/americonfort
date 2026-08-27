@@ -124,7 +124,10 @@ const bookingSpan = (booking) => {
 export const bookingOverlapsRange = (booking, range) => {
   const span = bookingSpan(booking);
   if (!span) return false;
-  return span.start <= range.to && span.end >= range.from;
+  const from = range?.from || range?.start;
+  const to = range?.to || range?.end;
+  if (!from || !to) return false;
+  return span.start <= to && span.end >= from;
 };
 
 export const bookingCalendarDays = (booking) => {
@@ -169,8 +172,8 @@ export const occupiedDayIsos = (spanStart, spanEnd) => {
 };
 
 export const periodDayIsos = (range) => {
-  const start = toUtcStart(range.from);
-  const last = toUtcStart(range.to);
+  const start = toUtcStart(range?.from || range?.start);
+  const last = toUtcStart(range?.to || range?.end);
   if (!start || !last || last < start) return [];
   const days = [];
   let cursor = start;
@@ -296,6 +299,17 @@ const startOfUtcIsoWeek = (date) => {
 
 const buildBuckets = (range, grain) => {
   const buckets = [];
+  const pushBucket = (key, label, start, end) => {
+    buckets.push({
+      key,
+      label,
+      start,
+      end,
+      // Period helpers (bookingOverlapsRange, proratedRevenue) expect from/to
+      from: start,
+      to: end,
+    });
+  };
   if (grain === 'monthly') {
     let cursor = new Date(Date.UTC(range.from.getUTCFullYear(), range.from.getUTCMonth(), 1));
     const last = new Date(Date.UTC(range.to.getUTCFullYear(), range.to.getUTCMonth(), 1));
@@ -303,12 +317,12 @@ const buildBuckets = (range, grain) => {
       const start = cursor < range.from ? range.from : cursor;
       const monthEnd = toUtcEnd(new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)));
       const end = monthEnd > range.to ? range.to : monthEnd;
-      buckets.push({
-        key: `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`,
-        label: cursor.toLocaleString('en', { month: 'short', timeZone: 'UTC' }),
+      pushBucket(
+        `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`,
+        cursor.toLocaleString('en', { month: 'short', timeZone: 'UTC' }),
         start,
         end,
-      });
+      );
       cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
     }
     return buckets;
@@ -321,7 +335,7 @@ const buildBuckets = (range, grain) => {
       const start = cursor < range.from ? range.from : cursor;
       const end = weekEnd > range.to ? range.to : weekEnd;
       if (end >= range.from && start <= range.to) {
-        buckets.push({ key: `w${i}`, label: `W${i}`, start, end });
+        pushBucket(`w${i}`, `W${i}`, start, end);
         i += 1;
       }
       cursor = addUtcDays(cursor, 7);
@@ -331,12 +345,7 @@ const buildBuckets = (range, grain) => {
   let cursor = toUtcStart(range.from);
   const last = toUtcStart(range.to);
   while (cursor <= last) {
-    buckets.push({
-      key: toIsoDate(cursor),
-      label: `${cursor.getUTCDate()}`,
-      start: cursor,
-      end: toUtcEnd(cursor),
-    });
+    pushBucket(toIsoDate(cursor), `${cursor.getUTCDate()}`, cursor, toUtcEnd(cursor));
     cursor = addUtcDays(cursor, 1);
   }
   return buckets;
@@ -409,14 +418,22 @@ export const computeVehiclePeriodMetrics = ({
   const activeNowCount = bookings.filter((booking) => isBookingCurrentlyOnRent(booking, now)).length;
   const currentRental = bookings.find((booking) => isBookingCurrentlyOnRent(booking, now)) || null;
 
-  const lastAny = [...bookings]
-    .filter((booking) => booking.status !== 'cancelled' && (booking.returnDate || booking.pickupDate))
-    .sort((a, b) => new Date(b.returnDate || b.pickupDate) - new Date(a.returnDate || a.pickupDate))[0];
-  const lastInPeriod = [...nonCancelled]
-    .sort((a, b) => new Date(b.returnDate || b.pickupDate) - new Date(a.returnDate || a.pickupDate))[0];
+  const completedForLast = [...bookings]
+    .filter((booking) => booking.status === 'completed')
+    .sort((a, b) => new Date(b.returnDate || b.pickupDate) - new Date(a.returnDate || a.pickupDate));
+  const pastEnded = [...nonCancelled]
+    .filter((booking) => !isBookingCurrentlyOnRent(booking, now))
+    .filter((booking) => {
+      const end = booking.returnDate ? new Date(booking.returnDate) : null;
+      return end && end < now;
+    })
+    .sort((a, b) => new Date(b.returnDate || b.pickupDate) - new Date(a.returnDate || a.pickupDate));
+  const lastRentalBooking = completedForLast[0] || pastEnded[0] || null;
+
   const nextFuture = bookings
     .filter((booking) => booking.status !== 'cancelled' && booking.status !== 'completed' && booking.pickupDate)
-    .filter((booking) => new Date(booking.pickupDate) >= now)
+    .filter((booking) => new Date(booking.pickupDate) > now)
+    .filter((booking) => !isBookingCurrentlyOnRent(booking, now))
     .sort((a, b) => new Date(a.pickupDate) - new Date(b.pickupDate))[0];
 
   const periodDays = Math.max(1, range.periodDays || inclusiveUtcDays(range.from, range.to));
@@ -453,8 +470,8 @@ export const computeVehiclePeriodMetrics = ({
     periodDays,
     availableDays,
     unavailableDays,
-    lastRentalAt: (lastInPeriod || lastAny)
-      ? (lastInPeriod || lastAny).returnDate || (lastInPeriod || lastAny).pickupDate
+    lastRentalAt: lastRentalBooking
+      ? lastRentalBooking.returnDate || lastRentalBooking.pickupDate
       : null,
     nextReservationAt: nextFuture?.pickupDate || null,
     nextCustomer: nextFuture?.customerName || '',
@@ -539,6 +556,10 @@ export const buildFleetVehicleStats = async ({ ownerId, period = 'month', from, 
   const durationWeighted = rows.reduce((sum, row) => sum + (row.avgDuration || 0) * (row.totalRentals || 0), 0);
   const fleetUtilization = cars.length ? round1((rentalDays / (cars.length * periodDays)) * 100) : 0;
   const ranked = [...rows].sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
+  const avgDuration =
+    totalRentals > 0
+      ? round1(durationWeighted > 0 ? durationWeighted / totalRentals : rentalDays / totalRentals)
+      : 0;
   const kpis = {
     totalRevenue,
     bookingValue,
@@ -547,7 +568,7 @@ export const buildFleetVehicleStats = async ({ ownerId, period = 'month', from, 
     rentalDays,
     fleetUtilization,
     avgRentalValue: revenueRentals ? roundMoney(totalRevenue / revenueRentals) : 0,
-    avgDuration: totalRentals ? round1(durationWeighted / totalRentals) : 0,
+    avgDuration,
     available: rows.filter((row) => row.availability === 'available').length,
     rented: rows.filter((row) => row.availability === 'rented').length,
     offline: rows.filter((row) => row.availability === 'offline').length,

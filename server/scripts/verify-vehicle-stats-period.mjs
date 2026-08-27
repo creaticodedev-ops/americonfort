@@ -16,6 +16,7 @@ import {
   bookingRecognizedRevenue,
   occupiedDayIsos,
   inclusiveUtcDays,
+  buildTrendSeries,
 } from '../services/vehicleStatsService.js'
 import { calcRentalDays } from '../utils/helpers.js'
 
@@ -242,6 +243,31 @@ console.log('[10] fleet KPI consistency + trend grain')
   assert.equal(rentalDays, 3 + 2)
   assert.equal(rows[1].currentlyRented, true)
   assert.equal(rows[2].availability, 'maintenance')
+}
+
+console.log('[11] revenue trend buckets use from/to — weekly bars are non-zero')
+{
+  const range = resolveStatsPeriod('month', null, null, now)
+  const bookings = [
+    {
+      pickupDate: '2026-08-25T20:23:00.000Z',
+      returnDate: '2026-09-05T10:00:00.000Z',
+      status: 'confirmed',
+      price: 6600,
+      priceBreakdown: { days: 11 },
+    },
+  ]
+  const weekly = buildTrendSeries(bookings, range, 'weekly')
+  assert.ok(weekly.length >= 4)
+  const total = weekly.reduce((s, b) => s + b.amount, 0)
+  assert.ok(total > 0, `expected weekly trend revenue > 0, got ${total}`)
+  assert.equal(Math.round(total), 4200)
+  const daily = buildTrendSeries(bookings, range, 'daily')
+  const dailyTotal = daily.reduce((s, b) => s + b.amount, 0)
+  assert.ok(dailyTotal > 0)
+  // Zero-revenue days still present as buckets (chart must not break)
+  assert.ok(daily.some((b) => b.amount === 0))
+  assert.ok(daily.every((b) => typeof b.amount === 'number' && b.key && b.label))
 }
 
 console.log('\n[vehicle-stats-period] OK\n')

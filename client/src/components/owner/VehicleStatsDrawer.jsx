@@ -190,7 +190,7 @@ const VehicleStatsDrawer = ({
             </dl>
             <p className="mt-3 text-xs text-[var(--admin-fg-muted)]">
               {t('admin.vehicleStats.availabilityDays', {
-                available: overview.availableDays ?? 0,
+                available: overview.availableDays ?? overview.periodDays ?? 0,
                 unavailable: overview.unavailableDays ?? 0,
               })}
             </p>
