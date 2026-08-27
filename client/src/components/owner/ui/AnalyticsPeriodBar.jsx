@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from './adminIcons'
 import { useI18n } from '../../../i18n/I18nContext'
 import { rangeForPeriod, isoDateFromValue } from './periodRangeUtils'
+import { DateField } from '../../date/DateField'
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -21,56 +22,8 @@ const getPortalRoot = () => {
 }
 
 /**
- * Styled date face over a native date input — keeps calendar UX without ugly browser chrome.
- */
-const AnalyticsDateField = ({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-  disabled = false,
-  active = false,
-}) => {
-  const inputRef = useRef(null)
-  const openPicker = () => {
-    if (disabled) return
-    const el = inputRef.current
-    if (!el) return
-    if (typeof el.showPicker === 'function') el.showPicker()
-    else el.focus()
-  }
-
-  return (
-    <button
-      type="button"
-      className={`admin-analytics-date ${active ? 'is-active' : ''} ${disabled ? 'is-disabled' : ''}`}
-      onClick={openPicker}
-      disabled={disabled}
-      aria-label={label}
-    >
-      <span className="admin-analytics-date__label">{label}</span>
-      <span className="admin-analytics-date__value tabular-nums">{formatAnalyticsDate(value)}</span>
-      <Icon name="calendar" className="admin-analytics-date__icon h-3.5 w-3.5" />
-      <input
-        ref={inputRef}
-        type="date"
-        className="admin-analytics-date__native"
-        value={value || ''}
-        min={min || undefined}
-        max={max || undefined}
-        disabled={disabled}
-        tabIndex={-1}
-        onChange={(e) => onChange?.(e.target.value)}
-        aria-hidden
-      />
-    </button>
-  )
-}
-
-/**
  * Premium analytics period control for fleet / vehicle statistics.
- * Presets apply immediately; custom unlocks date fields.
+ * Presets apply immediately; custom unlocks shared HDN date fields.
  */
 export const AnalyticsPeriodBar = ({
   period = 'month',
@@ -101,8 +54,9 @@ export const AnalyticsPeriodBar = ({
     [t],
   )
 
-  const selected = presets.find((p) => p.id === period) || presets.find((p) => p.id === 'month')
+  const selected = presets.find((p) => p.id === period) || presets[0]
   const isCustom = period === 'custom'
+  const portal = getPortalRoot()
 
   const emit = (nextPeriod, nextFrom, nextTo) => {
     onChange?.({ period: nextPeriod, from: nextFrom, to: nextTo })
@@ -119,45 +73,36 @@ export const AnalyticsPeriodBar = ({
   }
 
   useEffect(() => {
-    if (!menuOpen || !triggerRef.current) return undefined
-    const place = () => {
-      const rect = triggerRef.current.getBoundingClientRect()
-      const width = Math.max(rect.width, 220)
-      const left = Math.min(rect.left, window.innerWidth - width - 8)
-      setPanelPos({
-        top: rect.bottom + 6,
-        left: Math.max(8, left),
-        width,
-      })
-    }
-    place()
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [menuOpen])
-
-  useEffect(() => {
     if (!menuOpen) return undefined
+    const update = () => {
+      const el = triggerRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const width = Math.max(220, rect.width)
+      let left = rect.left
+      left = Math.max(8, Math.min(left, window.innerWidth - width - 8))
+      setPanelPos({ top: rect.bottom + 6, left, width })
+    }
+    update()
+    const onDoc = (e) => {
+      if (rootRef.current?.contains(e.target)) return
+      if (panelRef.current?.contains(e.target)) return
+      setMenuOpen(false)
+    }
     const onKey = (e) => {
       if (e.key === 'Escape') setMenuOpen(false)
     }
-    const onPointer = (e) => {
-      const t = e.target
-      if (rootRef.current?.contains(t) || panelRef.current?.contains(t)) return
-      setMenuOpen(false)
-    }
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onPointer)
     return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+      document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onPointer)
     }
   }, [menuOpen])
-
-  const portal = getPortalRoot()
 
   return (
     <div
@@ -184,22 +129,24 @@ export const AnalyticsPeriodBar = ({
         <div className="admin-analytics-period__range" aria-live="polite">
           {isCustom ? (
             <>
-              <AnalyticsDateField
+              <DateField
+                variant="admin"
+                className="admin-analytics-period__date"
                 label={t('admin.vehicleStats.from')}
-                value={from}
-                max={to}
-                active
-                onChange={(v) => emit('custom', v, to)}
+                value={from || ''}
+                max={to || undefined}
+                onChange={(e) => emit('custom', e.target.value, to)}
               />
               <span className="admin-analytics-period__sep" aria-hidden>
                 →
               </span>
-              <AnalyticsDateField
+              <DateField
+                variant="admin"
+                className="admin-analytics-period__date"
                 label={t('admin.vehicleStats.to')}
-                value={to}
-                min={from}
-                active
-                onChange={(v) => emit('custom', from, v)}
+                value={to || ''}
+                min={from || undefined}
+                onChange={(e) => emit('custom', from, e.target.value)}
               />
             </>
           ) : (

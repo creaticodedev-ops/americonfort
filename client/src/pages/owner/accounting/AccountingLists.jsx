@@ -15,6 +15,7 @@ import {
   AdminFormSelect,
   AdminFormGrid,
 } from '../../../components/owner/ui'
+import { DateField } from '../../../components/date/DateField'
 import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
@@ -316,26 +317,27 @@ const AccountingListPage = ({
       />
 
       <FilterBar>
-        <input
-          type="date"
-          className={field}
+        <DateField
+          variant="admin"
+          className="min-w-[9.5rem]"
           value={from}
           onChange={(e) => {
             setPage(1)
             setFrom(e.target.value)
           }}
-          title={t('admin.lists.fromDate')}
           aria-label={t('admin.lists.fromDate')}
+          placeholder={t('admin.lists.fromDate')}
         />
-        <input
-          type="date"
-          className={field}
+        <DateField
+          variant="admin"
+          className="min-w-[9.5rem]"
           value={to}
           onChange={(e) => {
             setPage(1)
             setTo(e.target.value)
           }}
           aria-label={t('admin.lists.toDate')}
+          placeholder={t('admin.lists.toDate')}
         />
       </FilterBar>
 

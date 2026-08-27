@@ -8,6 +8,7 @@ import {
   SegmentedControl,
   Skeleton,
 } from '../../../components/owner/ui'
+import { DateField } from '../../../components/date/DateField'
 import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
@@ -105,18 +106,22 @@ const AccountingOverview = () => {
       />
 
       {period === 'custom' && (
-        <div className="flex flex-wrap gap-2 mb-4 items-center">
-          <input
-            type="date"
-            className="h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
+        <div className="flex flex-wrap gap-2 mb-4 items-end">
+          <DateField
+            variant="admin"
+            className="w-[10.5rem]"
+            label={t('admin.lists.fromDate')}
             value={from}
+            max={to || undefined}
             onChange={(e) => setFrom(e.target.value)}
           />
-          <span className="text-xs text-[var(--admin-fg-muted)]">{t('admin.accounting.to')}</span>
-          <input
-            type="date"
-            className="h-9 px-3 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm"
+          <span className="text-xs text-[var(--admin-fg-muted)] pb-2.5">{t('admin.accounting.to')}</span>
+          <DateField
+            variant="admin"
+            className="w-[10.5rem]"
+            label={t('admin.lists.toDate')}
             value={to}
+            min={from || undefined}
             onChange={(e) => setTo(e.target.value)}
           />
         </div>

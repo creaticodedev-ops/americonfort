@@ -1,4 +1,5 @@
 import React from 'react'
+import { DateField } from '../../date/DateField'
 
 /** Shared CRUD form layout — mobile-first, stacks on small screens. */
 export const AdminForm = ({ children, className = '', onSubmit, id }) => (
@@ -53,9 +54,26 @@ export const AdminFormField = ({
 
 const controlClass = (extra = '') => `admin-form-control${extra ? ` ${extra}` : ''}`
 
-export const AdminFormInput = ({ className = '', ...props }) => (
-  <input className={controlClass(className)} {...props} />
-)
+export const AdminFormInput = ({ className = '', type, ...props }) => {
+  if (type === 'date') {
+    return (
+      <DateField
+        variant="admin"
+        className={className}
+        value={props.value ?? ''}
+        onChange={props.onChange}
+        min={props.min}
+        max={props.max}
+        disabled={props.disabled}
+        id={props.id}
+        name={props.name}
+        aria-label={props['aria-label']}
+        placeholder={props.placeholder}
+      />
+    )
+  }
+  return <input type={type} className={controlClass(className)} {...props} />
+}
 
 export const AdminFormTextarea = ({ className = '', rows = 3, ...props }) => (
   <textarea className={`${controlClass(className)} admin-form-control--textarea`} rows={rows} {...props} />

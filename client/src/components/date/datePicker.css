@@ -1,0 +1,541 @@
+/* ═══════════════════════════════════════════════════════════
+   HDN / Ameri Confort — shared premium calendar & date fields
+   ═══════════════════════════════════════════════════════════ */
+
+.hdn-cal--sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: rgb(15 12 10 / 42%);
+  backdrop-filter: blur(3px);
+  animation: hdn-cal-fade 0.18s ease;
+}
+
+.hdn-cal--popover {
+  animation: hdn-cal-pop 0.18s ease;
+}
+
+@keyframes hdn-cal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hdn-cal-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hdn-cal__panel {
+  background: #fff;
+  border: 1px solid #e8e2dc;
+  box-shadow: 0 22px 50px -18px rgb(22 18 16 / 32%);
+  padding: 1rem 1.1rem 0.9rem;
+}
+
+.hdn-cal--popover .hdn-cal__panel {
+  border-radius: 1.15rem;
+  max-height: min(560px, calc(100vh - 24px));
+  overflow: auto;
+}
+
+.hdn-cal--sheet .hdn-cal__panel {
+  border-radius: 1.35rem 1.35rem 0 0;
+  max-height: 88svh;
+  overflow: auto;
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  border-bottom: 0;
+}
+
+.hdn-cal__handle {
+  width: 2.5rem;
+  height: 0.28rem;
+  margin: 0.15rem auto 0.85rem;
+  border-radius: 999px;
+  background: #ddd5ce;
+}
+
+.hdn-cal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.95rem;
+}
+
+.hdn-cal__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a8078;
+}
+
+.hdn-cal__month {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: #1c1714;
+  line-height: 1.2;
+}
+
+.hdn-cal__month-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  padding: 0.15rem 0.25rem 0.15rem 0;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  color: inherit;
+}
+
+.hdn-cal__month-btn:hover .hdn-cal__month {
+  color: #800020;
+}
+
+.hdn-cal__month-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(128 0 32 / 18%);
+}
+
+.hdn-cal__month-caret {
+  color: #9a9088;
+  transition: transform 0.15s ease;
+}
+
+.hdn-cal__picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.hdn-cal__picker-item {
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: #faf8f6;
+  color: #1c1714;
+  font-size: 0.875rem;
+  font-weight: 550;
+  padding: 0.7rem 0.4rem;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.hdn-cal__picker-item:hover {
+  background: #f3eee9;
+  border-color: #e5ddd6;
+}
+
+.hdn-cal__picker-item.is-selected {
+  background: #800020;
+  color: #fff;
+  border-color: #800020;
+}
+
+.hdn-cal--admin .hdn-cal__picker-item {
+  background: var(--admin-surface-2, #faf8f6);
+  color: var(--admin-fg, #1c1714);
+}
+
+.hdn-cal--admin .hdn-cal__picker-item.is-selected {
+  background: var(--admin-accent, #800020);
+  color: #fff;
+  border-color: var(--admin-accent, #800020);
+}
+
+.hdn-cal--admin .hdn-cal__month-btn:hover .hdn-cal__month {
+  color: var(--admin-accent, #800020);
+}
+
+.hdn-cal__nav {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.hdn-cal__nav-btn {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.7rem;
+  border: 1px solid #e5ddd6;
+  background: #faf8f6;
+  color: #3a322c;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.hdn-cal__nav-btn:hover {
+  background: #f3eee9;
+  border-color: #d8cfc7;
+}
+
+.hdn-cal__nav-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(128 0 32 / 18%);
+}
+
+.hdn-cal__months {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.hdn-cal__months.is-dual {
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.hdn-cal__weekdays,
+.hdn-cal__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.hdn-cal__weekday {
+  height: 1.85rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a9088;
+}
+
+.hdn-cal__cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.45rem;
+}
+
+.hdn-cal__cell.is-in-range {
+  background: color-mix(in srgb, #800020 10%, transparent);
+}
+
+.hdn-cal__cell.is-range-start {
+  background: linear-gradient(90deg, transparent 50%, color-mix(in srgb, #800020 10%, transparent) 50%);
+}
+
+.hdn-cal__cell.is-range-end {
+  background: linear-gradient(90deg, color-mix(in srgb, #800020 10%, transparent) 50%, transparent 50%);
+}
+
+.hdn-cal__day {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #1c1714;
+  font-size: 0.875rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.hdn-cal__day:hover:not(:disabled):not(.is-selected) {
+  background: #f3eee9;
+}
+
+.hdn-cal__day:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(128 0 32 / 22%);
+}
+
+.hdn-cal__day.is-today:not(.is-selected) {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #800020 55%, #c4b8ae);
+  font-weight: 650;
+}
+
+.hdn-cal__day.is-selected {
+  background: #800020;
+  color: #fff;
+  font-weight: 650;
+  box-shadow: 0 4px 12px -4px rgb(128 0 32 / 55%);
+}
+
+.hdn-cal__day.is-selected:hover {
+  background: #6b001b;
+}
+
+.hdn-cal__day.is-disabled {
+  color: #b7aea6;
+  cursor: not-allowed;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.72;
+}
+
+.hdn-cal__cell.is-outside .hdn-cal__day:not(.is-selected):not(.is-disabled) {
+  color: #a59c94;
+  opacity: 0.7;
+}
+
+.hdn-cal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.95rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #eee8e2;
+}
+
+.hdn-cal__footer-start {
+  display: flex;
+  gap: 0.85rem;
+}
+
+.hdn-cal__link {
+  border: 0;
+  background: transparent;
+  color: #7a7169;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  padding: 0.25rem 0;
+}
+
+.hdn-cal__link:hover {
+  color: #1c1714;
+}
+
+.hdn-cal__done {
+  border: 0;
+  border-radius: 0.75rem;
+  background: #800020;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.hdn-cal__done:hover {
+  background: #6b001b;
+}
+
+/* Admin theme — CSS variables */
+.hdn-cal--admin .hdn-cal__panel {
+  background: var(--admin-surface, #fff);
+  border-color: var(--admin-border, #e8e2dc);
+  box-shadow: var(--admin-shadow-lg, 0 22px 50px -18px rgb(22 18 16 / 28%));
+}
+
+.hdn-cal--admin .hdn-cal__month {
+  color: var(--admin-fg, #1c1714);
+}
+
+.hdn-cal--admin .hdn-cal__eyebrow,
+.hdn-cal--admin .hdn-cal__weekday {
+  color: var(--admin-fg-muted, #8a8078);
+}
+
+.hdn-cal--admin .hdn-cal__nav-btn {
+  background: var(--admin-surface-2, #faf8f6);
+  border-color: var(--admin-border, #e5ddd6);
+  color: var(--admin-fg, #3a322c);
+}
+
+.hdn-cal--admin .hdn-cal__nav-btn:hover {
+  background: color-mix(in srgb, var(--admin-fg) 5%, var(--admin-surface-2));
+}
+
+.hdn-cal--admin .hdn-cal__day {
+  color: var(--admin-fg, #1c1714);
+}
+
+.hdn-cal--admin .hdn-cal__day:hover:not(:disabled):not(.is-selected) {
+  background: color-mix(in srgb, var(--admin-fg) 6%, transparent);
+}
+
+.hdn-cal--admin .hdn-cal__day.is-today:not(.is-selected) {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--admin-accent, #800020) 55%, var(--admin-border));
+}
+
+.hdn-cal--admin .hdn-cal__day.is-selected {
+  background: var(--admin-accent, #800020);
+  color: #fff;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--admin-accent, #800020) 55%, transparent);
+}
+
+.hdn-cal--admin .hdn-cal__cell.is-in-range,
+.hdn-cal--admin .hdn-cal__cell.is-range-start,
+.hdn-cal--admin .hdn-cal__cell.is-range-end {
+  --hdn-range: color-mix(in srgb, var(--admin-accent, #800020) 12%, transparent);
+}
+
+.hdn-cal--admin .hdn-cal__cell.is-in-range {
+  background: var(--hdn-range);
+}
+
+.hdn-cal--admin .hdn-cal__cell.is-range-start {
+  background: linear-gradient(90deg, transparent 50%, var(--hdn-range) 50%);
+}
+
+.hdn-cal--admin .hdn-cal__cell.is-range-end {
+  background: linear-gradient(90deg, var(--hdn-range) 50%, transparent 50%);
+}
+
+.hdn-cal--admin .hdn-cal__footer {
+  border-top-color: var(--admin-border, #eee8e2);
+}
+
+.hdn-cal--admin .hdn-cal__link {
+  color: var(--admin-fg-muted, #7a7169);
+}
+
+.hdn-cal--admin .hdn-cal__link:hover {
+  color: var(--admin-fg, #1c1714);
+}
+
+.hdn-cal--admin .hdn-cal__done {
+  background: var(--admin-accent, #800020);
+}
+
+.hdn-cal--admin .hdn-cal__done:hover {
+  background: color-mix(in srgb, var(--admin-accent, #800020) 88%, #000);
+}
+
+.hdn-cal--admin .hdn-cal__day.is-disabled {
+  color: var(--admin-fg-muted, #b7aea6);
+  opacity: 0.65;
+}
+
+.hdn-cal--admin .hdn-cal__cell.is-outside .hdn-cal__day:not(.is-selected):not(.is-disabled) {
+  color: var(--admin-fg-muted, #a59c94);
+  opacity: 0.72;
+}
+
+/* Dark admin theme */
+.admin-app[data-theme='dark'] .hdn-cal--admin .hdn-cal__panel,
+.admin-app.theme-dark .hdn-cal--admin .hdn-cal__panel {
+  background: var(--admin-surface, #1c1917);
+  border-color: var(--admin-border, #3f3a36);
+}
+
+.admin-app[data-theme='dark'] .hdn-date-field--admin .hdn-date-field__trigger,
+.admin-app.theme-dark .hdn-date-field--admin .hdn-date-field__trigger {
+  background: var(--admin-surface, #1c1917);
+  border-color: var(--admin-border, #3f3a36);
+  color: var(--admin-fg, #f5f0eb);
+}
+
+/* Date field trigger */
+.hdn-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.hdn-date-field__label {
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-fg-muted, #8a8078);
+}
+
+.hdn-date-field__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--admin-radius, 0.65rem);
+  border: 1px solid var(--admin-border, #e5ddd6);
+  background: var(--admin-surface, #fff);
+  color: var(--admin-fg, #1c1714);
+  font-size: 0.875rem;
+  font-weight: 550;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.hdn-date-field__trigger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--admin-accent, #800020) 35%, var(--admin-border, #e5ddd6));
+}
+
+.hdn-date-field__trigger.is-open,
+.hdn-date-field__trigger:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--admin-accent, #800020) 45%, var(--admin-border, #e5ddd6));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent, #800020) 14%, transparent);
+}
+
+.hdn-date-field__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hdn-date-field__trigger:not(.has-value) .hdn-date-field__value {
+  color: var(--admin-fg-muted, #9a9088);
+  font-weight: 500;
+}
+
+.hdn-date-field__icon {
+  flex-shrink: 0;
+  color: var(--admin-fg-muted, #9a9088);
+}
+
+.hdn-date-field--public .hdn-date-field__trigger {
+  border-radius: 0.85rem;
+  min-height: 2.75rem;
+  border-color: #e8e2dc;
+  background: #fff;
+  color: #1c1714;
+}
+
+.hdn-date-field--public .hdn-date-field__label {
+  color: #8a8078;
+}
+
+.hdn-date-field--public .hdn-date-field__trigger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, #800020 35%, #e5ddd6);
+}
+
+.hdn-date-field--public .hdn-date-field__trigger.is-open,
+.hdn-date-field--public .hdn-date-field__trigger:focus-visible {
+  border-color: color-mix(in srgb, #800020 45%, #e5ddd6);
+  box-shadow: 0 0 0 3px rgb(128 0 32 / 14%);
+}
+
+/* Analytics period bar date faces → DateField compact */
+.admin-analytics-period__date {
+  min-width: 9.5rem;
+}
+
+.admin-analytics-period .hdn-date-field__trigger {
+  min-height: 2.35rem;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 767px) {
+  .hdn-cal__months.is-dual {
+    grid-template-columns: 1fr;
+  }
+
+  .hdn-cal__cell {
+    height: 2.75rem;
+  }
+
+  .hdn-cal__day {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}

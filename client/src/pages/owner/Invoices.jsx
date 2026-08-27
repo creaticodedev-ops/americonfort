@@ -8,6 +8,7 @@ import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildInvoicePatch, initInvoiceForm } from '../../utils/documentFormUtils'
+import { DateField } from '../../components/date/DateField'
 
 const formatDateTime = (value) => {
   if (!value) return '—'
@@ -76,7 +77,15 @@ const Invoices = () => {
     const field = (key, label, type = 'text') => (
       <div key={key}>
         <label className={labelClass}>{label}</label>
-        <input type={type} className={fieldClass} value={editForm[key] ?? ''} onChange={(e) => update({ [key]: e.target.value })} />
+        {type === 'date' ? (
+          <DateField
+            variant="admin"
+            value={editForm[key] ?? ''}
+            onChange={(e) => update({ [key]: e.target.value })}
+          />
+        ) : (
+          <input type={type} className={fieldClass} value={editForm[key] ?? ''} onChange={(e) => update({ [key]: e.target.value })} />
+        )}
       </div>
     )
 
@@ -555,11 +564,11 @@ const Invoices = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-500">{t('admin.invoices.invoiceDate')}</label>
-                  <input type="date" className="w-full rounded-lg border border-borderColor px-3 py-2 text-sm" value={form.invoiceDate} onChange={(e) => updateForm({ invoiceDate: e.target.value })} />
+                  <DateField variant="admin" value={form.invoiceDate} onChange={(e) => updateForm({ invoiceDate: e.target.value })} />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-500">{t('admin.invoices.dueDate')}</label>
-                  <input type="date" className="w-full rounded-lg border border-borderColor px-3 py-2 text-sm" value={form.dueDate} onChange={(e) => updateForm({ dueDate: e.target.value })} />
+                  <DateField variant="admin" value={form.dueDate} onChange={(e) => updateForm({ dueDate: e.target.value })} />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-500">{t('admin.invoices.customerName')}</label>

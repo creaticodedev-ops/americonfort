@@ -1,6 +1,15 @@
 /** Extra Admin UI strings merged into en/fr/es/ar admin dictionaries. */
 
 export const extrasEn = {
+  datePicker: {
+    selectDate: 'Select date',
+    clear: 'Clear',
+    today: 'Today',
+    done: 'Done',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
+    calendar: 'Calendar',
+  },
   status: {
     pending: 'Pending',
     confirmed: 'Confirmed',
@@ -538,6 +547,15 @@ export const extrasEn = {
 }
 
 export const extrasFr = {
+  datePicker: {
+    selectDate: 'Choisir une date',
+    clear: 'Effacer',
+    today: "Aujourd'hui",
+    done: 'OK',
+    prevMonth: 'Mois précédent',
+    nextMonth: 'Mois suivant',
+    calendar: 'Calendrier',
+  },
   status: {
     pending: 'En attente',
     confirmed: 'Confirmée',
@@ -1080,6 +1098,15 @@ export const extrasFr = {
 }
 
 export const extrasEs = {
+  datePicker: {
+    selectDate: 'Seleccionar fecha',
+    clear: 'Borrar',
+    today: 'Hoy',
+    done: 'Listo',
+    prevMonth: 'Mes anterior',
+    nextMonth: 'Mes siguiente',
+    calendar: 'Calendario',
+  },
   status: {
     pending: 'Pendiente',
     confirmed: 'Confirmada',
@@ -1623,6 +1650,15 @@ export const extrasEs = {
 
 /** Professional Arabic for car-rental SaaS (overrides machine translation). */
 export const extrasAr = {
+  datePicker: {
+    selectDate: 'اختر التاريخ',
+    clear: 'مسح',
+    today: 'اليوم',
+    done: 'تم',
+    prevMonth: 'الشهر السابق',
+    nextMonth: 'الشهر التالي',
+    calendar: 'التقويم',
+  },
   status: {
     pending: 'قيد الانتظار',
     confirmed: 'مؤكَّد',

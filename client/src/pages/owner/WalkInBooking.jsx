@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { getCarLocations } from '../../utils/carLocations'
 import PhoneInput from '../../components/PhoneInput'
+import { DateField } from '../../components/date/DateField'
 import { isPhoneValid } from '../../utils/phoneValidation'
 
 const emptySecondDriver = {
@@ -521,7 +522,7 @@ const WalkInBooking = () => {
                 <input className={input} value={form.nationality} onChange={(e) => setField('nationality', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.dateOfBirth')}>
-                <input type="date" className={input} value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
+                <DateField variant="admin" value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.placeOfBirth')}>
                 <input className={input} value={form.placeOfBirth} onChange={(e) => setField('placeOfBirth', e.target.value)} />
@@ -538,7 +539,7 @@ const WalkInBooking = () => {
                 <input className={input} value={form.identityDocumentNumber} onChange={(e) => setField('identityDocumentNumber', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.identityIssuedOn')}>
-                <input type="date" className={input} value={form.identityIssuedOn} onChange={(e) => setField('identityIssuedOn', e.target.value)} />
+                <DateField variant="admin" value={form.identityIssuedOn} onChange={(e) => setField('identityIssuedOn', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.passport')}>
                 <input className={input} value={form.passportNumber} onChange={(e) => setField('passportNumber', e.target.value)} />
@@ -547,10 +548,10 @@ const WalkInBooking = () => {
                 <input className={input} value={form.driverLicenseNumber} onChange={(e) => setField('driverLicenseNumber', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.licenseIssuedOn')}>
-                <input type="date" className={input} value={form.driverLicenseIssuedOn} onChange={(e) => setField('driverLicenseIssuedOn', e.target.value)} />
+                <DateField variant="admin" value={form.driverLicenseIssuedOn} onChange={(e) => setField('driverLicenseIssuedOn', e.target.value)} />
               </Field>
               <Field label={t('admin.walkIn.licenseExpiry')}>
-                <input type="date" className={input} value={form.driverLicenseExpiry} onChange={(e) => setField('driverLicenseExpiry', e.target.value)} />
+                <DateField variant="admin" value={form.driverLicenseExpiry} onChange={(e) => setField('driverLicenseExpiry', e.target.value)} />
               </Field>
             </div>
           </Section>
@@ -574,7 +575,7 @@ const WalkInBooking = () => {
                   <input className={input} value={form.secondDriver.phone} onChange={(e) => setSecondDriver('phone', e.target.value)} />
                 </Field>
                 <Field label={t('admin.walkIn.secondDriverDob')}>
-                  <input type="date" className={input} value={form.secondDriver.dateOfBirth} onChange={(e) => setSecondDriver('dateOfBirth', e.target.value)} />
+                  <DateField variant="admin" value={form.secondDriver.dateOfBirth} onChange={(e) => setSecondDriver('dateOfBirth', e.target.value)} />
                 </Field>
                 <Field label={t('admin.walkIn.secondDriverNationality')}>
                   <input className={input} value={form.secondDriver.nationality} onChange={(e) => setSecondDriver('nationality', e.target.value)} />
@@ -583,7 +584,7 @@ const WalkInBooking = () => {
                   <input className={input} value={form.secondDriver.driverLicenseNumber} onChange={(e) => setSecondDriver('driverLicenseNumber', e.target.value)} />
                 </Field>
                 <Field label={t('admin.walkIn.secondDriverLicenseExpiry')}>
-                  <input type="date" className={input} value={form.secondDriver.driverLicenseExpiry} onChange={(e) => setSecondDriver('driverLicenseExpiry', e.target.value)} />
+                  <DateField variant="admin" value={form.secondDriver.driverLicenseExpiry} onChange={(e) => setSecondDriver('driverLicenseExpiry', e.target.value)} />
                 </Field>
                 <Field label={t('admin.walkIn.secondDriverPassport')}>
                   <input className={input} value={form.secondDriver.passportNumber} onChange={(e) => setSecondDriver('passportNumber', e.target.value)} />

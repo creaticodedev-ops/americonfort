@@ -2,6 +2,7 @@ import React from 'react'
 import { useI18n } from '../../../i18n/I18nContext'
 import { Icon } from '../ui/adminIcons'
 import { AdminFormInput } from '../ui'
+import { DateField } from '../../date/DateField'
 import { resolveOpsScope } from './bookingUtils'
 
 const OPS_CHIP_IDS = ['all', 'attention', 'pickupToday', 'returnToday', 'onRent', 'ready', 'unpaid']
@@ -176,36 +177,32 @@ const BookingFilters = ({
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookings.pickupFrom')}</label>
-            <input
-              type="date"
-              className={inputClass}
+            <DateField
+              variant="admin"
               value={filters.pickupDateFrom}
               onChange={(e) => set('pickupDateFrom', e.target.value)}
             />
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookings.pickupTo')}</label>
-            <input
-              type="date"
-              className={inputClass}
+            <DateField
+              variant="admin"
               value={filters.pickupDateTo}
               onChange={(e) => set('pickupDateTo', e.target.value)}
             />
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookings.returnFrom')}</label>
-            <input
-              type="date"
-              className={inputClass}
+            <DateField
+              variant="admin"
               value={filters.returnDateFrom || ''}
               onChange={(e) => set('returnDateFrom', e.target.value)}
             />
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookings.returnTo')}</label>
-            <input
-              type="date"
-              className={inputClass}
+            <DateField
+              variant="admin"
               value={filters.returnDateTo || ''}
               onChange={(e) => set('returnDateTo', e.target.value)}
             />
