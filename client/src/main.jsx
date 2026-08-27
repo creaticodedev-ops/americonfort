@@ -9,6 +9,7 @@ import { SuperAdminProvider } from './context/SuperAdminContext.jsx'
 import { I18nProvider } from './i18n/I18nContext.jsx'
 import { isChunkLoadError } from './utils/lazyWithRetry'
 
+// Deploy bust: force a fresh hashed entry so poisoned CDN 404s for old index-*.js cannot stick.
 preloadCriticalFonts()
 loadExtendedLatinFonts()
 
