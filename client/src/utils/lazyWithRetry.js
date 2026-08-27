@@ -29,31 +29,38 @@ export const hardRecoverFromStaleChunks = (path = '/') => {
   } catch {
     /* private mode */
   }
+
+  const go = () => {
+    if (typeof window.__acHardRecover === 'function' && (path === '/' || !path)) {
+      window.__acHardRecover()
+      return
+    }
+    const next = new URL(path || '/', window.location.origin)
+    next.searchParams.set('_recover', String(Date.now()))
+    window.location.replace(next.toString())
+  }
+
+  const jobs = []
   try {
     if (navigator.serviceWorker?.getRegistrations) {
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.unregister())
-      })
+      jobs.push(
+        navigator.serviceWorker.getRegistrations().then((regs) =>
+          Promise.all(regs.map((r) => r.unregister())),
+        ),
+      )
     }
   } catch {
     /* ignore */
   }
   try {
     if (window.caches) {
-      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))
+      jobs.push(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))))
     }
   } catch {
     /* ignore */
   }
 
-  if (typeof window.__acHardRecover === 'function' && (path === '/' || !path)) {
-    window.__acHardRecover()
-    return
-  }
-
-  const next = new URL(path || '/', window.location.origin)
-  next.searchParams.set('_recover', String(Date.now()))
-  window.location.replace(next.toString())
+  Promise.all(jobs).finally(go)
 }
 
 /**

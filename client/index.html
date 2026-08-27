@@ -94,36 +94,58 @@
         var THIRD_PARTY = /cloudflareinsights\.com|googletagmanager\.com|google-analytics\.com|googletagservices\.com|doubleclick\.net/i;
         var RELOAD_KEY = 'americonfort:chunk-reload';
         var RELOAD_COUNT_KEY = 'americonfort:chunk-reload-count';
+        var recovering = false;
 
         function clearClientCaches() {
           try {
             sessionStorage.removeItem(RELOAD_KEY);
             sessionStorage.removeItem(RELOAD_COUNT_KEY);
           } catch (e) { /* private mode */ }
+          var jobs = [];
           try {
             if (navigator.serviceWorker) {
-              navigator.serviceWorker.getRegistrations().then(function (regs) {
-                regs.forEach(function (r) { r.unregister(); });
-              });
+              jobs.push(
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                })
+              );
             }
           } catch (e) { /* ignore */ }
           try {
             if (window.caches) {
-              caches.keys().then(function (keys) {
-                keys.forEach(function (k) { caches.delete(k); });
-              });
+              jobs.push(
+                caches.keys().then(function (keys) {
+                  return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                })
+              );
             }
           } catch (e) { /* ignore */ }
+          return Promise.all(jobs).catch(function () { /* ignore */ });
         }
 
         function hardRecover() {
-          clearClientCaches();
-          var next = new URL(window.location.origin + '/');
-          next.searchParams.set('_recover', String(Date.now()));
-          window.location.replace(next.toString());
+          if (recovering) return;
+          recovering = true;
+          clearClientCaches().finally(function () {
+            var next = new URL(window.location.origin + '/');
+            next.searchParams.set('_recover', String(Date.now()));
+            window.location.replace(next.toString());
+          });
         }
 
         window.__acHardRecover = hardRecover;
+
+        // After a successful recover navigation, drop the bust param from the URL.
+        try {
+          var u = new URL(window.location.href);
+          if (u.searchParams.has('_recover') || u.searchParams.has('_')) {
+            sessionStorage.removeItem(RELOAD_KEY);
+            sessionStorage.removeItem(RELOAD_COUNT_KEY);
+            u.searchParams.delete('_recover');
+            u.searchParams.delete('_');
+            window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+          }
+        } catch (e) { /* ignore */ }
 
         window.addEventListener('error', function (event) {
           var el = event.target;
@@ -140,37 +162,42 @@
           if (!THIRD_PARTY.test(msg) && !THIRD_PARTY.test(stack)) return;
           event.preventDefault();
         });
-        window.addEventListener('error', function (event) {
-          var el = event.target;
-          if (!el || el.tagName !== 'SCRIPT') return;
-          var url = el.src || '';
-          if (url.indexOf('/assets/') === -1) return;
-          var root = document.getElementById('root');
-          if (!root || root.childElementCount > 0) return;
 
-          // Stale HTML after deploy → missing hashed bundle. Recover up to 2 times.
-          var count = 0;
-          try {
-            count = parseInt(sessionStorage.getItem(RELOAD_COUNT_KEY) || '0', 10) || 0;
-          } catch (e) { /* private mode */ }
+        function sleep(ms) {
+          return new Promise(function (resolve) { setTimeout(resolve, ms); });
+        }
 
-          if (count < 2) {
-            try {
-              sessionStorage.setItem(RELOAD_KEY, '1');
-              sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1));
-            } catch (e) { /* private mode */ }
-            var next = new URL(window.location.origin + '/');
-            next.searchParams.set('_', String(Date.now()));
-            window.location.replace(next.toString());
-            return;
+        /** Mid-deploy race: HTML can arrive before hashed assets. Poll briefly. */
+        function waitForAsset(url, attempts, gapMs) {
+          var left = attempts;
+          function tick() {
+            return fetch(url, { method: 'HEAD', cache: 'no-store', credentials: 'omit' })
+              .then(function (res) {
+                if (res && res.ok) return true;
+                left -= 1;
+                if (left <= 0) return false;
+                return sleep(gapMs).then(tick);
+              })
+              .catch(function () {
+                left -= 1;
+                if (left <= 0) return false;
+                return sleep(gapMs).then(tick);
+              });
           }
+          return tick();
+        }
 
+        function showRecoverUi(root) {
           try {
             sessionStorage.removeItem(RELOAD_KEY);
             sessionStorage.removeItem(RELOAD_COUNT_KEY);
           } catch (e) { /* private mode */ }
 
-          root.innerHTML = '<div style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;text-align:center;color:#0f172a"><p style="font-size:1.125rem;font-weight:600">Unable to load Americonfort</p><p style="margin-top:8px;max-width:28rem;color:#64748b">The application files did not load — usually a stale cache after an update. Clear this site&apos;s data or tap Recover.</p><p style="margin-top:16px"><a href="/" id="ac-recover" style="color:#8f1f1f;font-weight:600">Recover</a></p></div>';
+          root.innerHTML =
+            '<div style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;text-align:center;color:#0f172a">' +
+            '<p style="font-size:1.125rem;font-weight:600">Unable to load Americonfort</p>' +
+            '<p style="margin-top:8px;max-width:28rem;color:#64748b">The application files did not load — usually a stale cache after an update. Clear this site&apos;s data or tap Recover.</p>' +
+            '<p style="margin-top:16px"><a href="/?_recover=1" id="ac-recover" style="color:#8f1f1f;font-weight:600">Recover</a></p></div>';
           var recover = document.getElementById('ac-recover');
           if (recover) {
             recover.addEventListener('click', function (ev) {
@@ -178,6 +205,39 @@
               hardRecover();
             });
           }
+        }
+
+        window.addEventListener('error', function (event) {
+          var el = event.target;
+          if (!el || el.tagName !== 'SCRIPT') return;
+          var url = el.src || '';
+          if (url.indexOf('/assets/') === -1) return;
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount > 0 || recovering) return;
+
+          recovering = true;
+          var count = 0;
+          try {
+            count = parseInt(sessionStorage.getItem(RELOAD_COUNT_KEY) || '0', 10) || 0;
+          } catch (e) { /* private mode */ }
+
+          // Wait for the missing bundle (deploy race), then hard-reload once or twice.
+          waitForAsset(url, 6, 1200).then(function (ready) {
+            if (ready && count < 3) {
+              try {
+                sessionStorage.setItem(RELOAD_KEY, '1');
+                sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1));
+              } catch (e) { /* private mode */ }
+              clearClientCaches().finally(function () {
+                var next = new URL(window.location.href);
+                next.searchParams.set('_', String(Date.now()));
+                window.location.replace(next.toString());
+              });
+              return;
+            }
+            recovering = false;
+            showRecoverUi(root);
+          });
         }, true);
       })();
     </script>
