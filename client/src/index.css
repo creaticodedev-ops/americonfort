@@ -177,23 +177,17 @@ textarea {
 }
 
 .fleet-live__intro {
-  display: grid;
-  gap: 1.75rem;
-  align-items: end;
+  display: block;
+  max-width: 40rem;
 }
 
-@media (min-width: 900px) {
-  .fleet-live__intro {
-    grid-template-columns: minmax(0, 1.5fr) auto;
-    gap: 2.5rem;
-  }
+.fleet-live__intro--solo {
+  text-align: start;
 }
 
 .fleet-live__eyebrow {
-  margin: 0 0 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
+  margin: 0 0 0.85rem;
+  display: inline-block;
   font-size: 0.6875rem;
   font-weight: 650;
   letter-spacing: 0.22em;
@@ -201,78 +195,264 @@ textarea {
   color: var(--color-primary);
 }
 
-.fleet-live__pulse {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: var(--color-primary);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 40%, transparent);
-  animation: fleet-pulse 1.8s ease-in-out infinite;
-}
-
-.fleet-live__title {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.fleet-live__brand {
-  font-family: var(--font-display);
-  font-size: clamp(1.2rem, 2.2vw, 1.6rem);
-  font-weight: 500;
-  color: var(--color-ink);
-}
-
 .fleet-live__headline {
+  margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.7rem, 6.2vw, 4.5rem);
+  font-size: clamp(2.6rem, 5.8vw, 4.1rem);
   font-weight: 500;
-  line-height: 0.96;
+  line-height: 0.98;
   letter-spacing: -0.035em;
   color: var(--color-ink);
   text-wrap: balance;
 }
 
 .fleet-live__lede {
-  margin: 1.1rem 0 0;
+  margin: 1rem 0 0;
   max-width: 34rem;
   font-size: 1rem;
   line-height: 1.65;
   color: var(--color-muted);
 }
 
-.fleet-live__stat {
+/* Car-dominant hero panel */
+.fleet-hero {
+  display: grid;
+  gap: 0;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-borderColor) 70%, transparent);
+  background: #fff;
+  box-shadow: 0 28px 60px -40px rgba(22, 18, 16, 0.4);
+}
+
+@media (min-width: 960px) {
+  .fleet-hero {
+    grid-template-columns: minmax(0, 1.65fr) minmax(15rem, 0.85fr);
+    min-height: 28rem;
+  }
+}
+
+.fleet-hero__visual {
+  position: relative;
+  display: block;
+  min-height: 16.5rem;
+  overflow: hidden;
+  text-decoration: none;
+  background: linear-gradient(155deg, #e8e0d7 0%, #d5cdc3 48%, #e6ded5 100%);
+}
+
+@media (min-width: 640px) {
+  .fleet-hero__visual {
+    min-height: 20rem;
+  }
+}
+
+@media (min-width: 960px) {
+  .fleet-hero__visual {
+    min-height: 100%;
+  }
+}
+
+.fleet-hero__studio {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 70% at 50% 100%, rgba(255, 255, 255, 0.55), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 40%);
+  pointer-events: none;
+}
+
+.fleet-hero__bloom {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 8%;
+  height: 52%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(143, 31, 31, 0.16), transparent 70%);
+  pointer-events: none;
+}
+
+.fleet-hero__ground {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 6%;
+  height: 22%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(22, 18, 16, 0.22), transparent 70%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.fleet-hero__car {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 0.35rem 0.25rem 1.1rem;
+}
+
+.fleet-hero__img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  object-position: center 70%;
+  transform: scale(1.22);
+  filter:
+    drop-shadow(0 22px 28px rgba(22, 18, 16, 0.26))
+    contrast(1.04);
+  mix-blend-mode: multiply;
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fleet-hero__visual:hover .fleet-hero__img {
+  transform: scale(1.28) translateY(-4px);
+}
+
+@media (min-width: 960px) {
+  .fleet-hero__car {
+    padding: 0.5rem 0.35rem 1.4rem;
+  }
+
+  .fleet-hero__img {
+    transform: scale(1.28);
+    object-position: center 68%;
+  }
+
+  .fleet-hero__visual:hover .fleet-hero__img {
+    transform: scale(1.34) translateY(-6px);
+  }
+}
+
+.fleet-hero__panel {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 1.1rem 1.25rem;
-  border-radius: 1.25rem;
-  border: 1px solid color-mix(in srgb, var(--color-borderColor) 70%, transparent);
-  background: color-mix(in srgb, #fff 72%, transparent);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 18px 40px -28px rgba(22, 18, 16, 0.4);
-  min-width: 8.5rem;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1.35rem 1.35rem 1.5rem;
+  background: #fff;
+  border-top: 1px solid color-mix(in srgb, var(--color-borderColor) 70%, transparent);
 }
 
-.fleet-live__stat-value {
-  font-family: var(--font-display);
-  font-size: clamp(2.6rem, 4vw, 3.5rem);
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, var(--color-ink) 30%, var(--color-primary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+@media (min-width: 960px) {
+  .fleet-hero__panel {
+    padding: 2rem 1.75rem 2rem 1.6rem;
+    border-top: 0;
+    border-inline-start: 1px solid color-mix(in srgb, var(--color-borderColor) 70%, transparent);
+  }
 }
 
-.fleet-live__stat-label {
+.fleet-hero__status {
+  margin: 0 0 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.625rem;
   font-weight: 650;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  color: #1f5c3c;
+}
+
+.fleet-hero__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.fleet-hero__dot.is-on {
+  background: #2a7a52;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #2a7a52 20%, transparent);
+}
+
+.fleet-hero__brand {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.fleet-hero__model {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.4vw, 2.75rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+}
+
+.fleet-hero__meta {
+  margin: 0.45rem 0 0;
+  font-size: 0.8125rem;
   color: var(--color-muted);
+}
+
+.fleet-hero__price {
+  margin-top: 1.15rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.fleet-hero__currency {
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.fleet-hero__amount {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+}
+
+.fleet-hero__unit {
+  font-size: 0.65rem;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.fleet-hero__loc {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.fleet-hero__cta {
+  margin-top: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: fit-content;
+  padding: 0.8rem 1.2rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.25s ease, gap 0.25s ease, transform 0.25s ease;
+}
+
+.fleet-hero__cta:hover {
+  background: var(--color-primary);
+  gap: 0.7rem;
+  transform: translateY(-1px);
 }
 
 .fleet-live__filters {
@@ -370,18 +550,6 @@ textarea {
   background: var(--color-primary-dull);
   gap: 0.9rem;
   transform: translateY(-2px);
-}
-
-.fleet-live__cta-shine {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 48%, transparent 65%);
-  transform: translateX(-120%);
-  transition: transform 0.65s ease;
-}
-
-.fleet-live__cta:hover .fleet-live__cta-shine {
-  transform: translateX(120%);
 }
 
 .fleet-live__cta-icon {
@@ -1188,7 +1356,7 @@ html[dir='rtl'] .fleet-rail__action:hover .fleet-rail__action-arrow {
 
 .fleet-plate__stage {
   position: relative;
-  aspect-ratio: 16 / 11;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
   background: linear-gradient(160deg, var(--fleet-wash-a), var(--fleet-wash-b));
 }
@@ -1233,20 +1401,7 @@ html[dir='rtl'] .fleet-rail__action:hover .fleet-rail__action-arrow {
 }
 
 .fleet-plate__year-mark {
-  position: absolute;
-  top: 48%;
-  inset-inline-end: -1%;
-  transform: translateY(-55%);
-  font-family: var(--font-display);
-  font-size: clamp(3.75rem, 11vw, 5.5rem);
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.045em;
-  color: color-mix(in srgb, var(--color-ink) 5.5%, transparent);
-  pointer-events: none;
-  user-select: none;
-  z-index: 0;
-  white-space: nowrap;
+  display: none;
 }
 
 .fleet-plate__vehicle {
@@ -1255,7 +1410,7 @@ html[dir='rtl'] .fleet-rail__action:hover .fleet-rail__action-arrow {
   z-index: 2;
   display: grid;
   place-items: center;
-  padding: 1.5rem 0.75rem 2rem;
+  padding: 0.35rem 0.2rem 1.15rem;
 }
 
 .fleet-plate__img {
@@ -1263,21 +1418,21 @@ html[dir='rtl'] .fleet-rail__action:hover .fleet-rail__action-arrow {
   height: 100%;
   max-height: 100%;
   object-fit: contain;
-  object-position: center 64%;
+  object-position: center 72%;
   filter:
     drop-shadow(0 16px 20px rgba(22, 18, 16, 0.16))
     contrast(1.03);
-  transform: translateY(2px) scale(1.08);
+  transform: translateY(0) scale(1.24);
   transition:
-    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-    filter 0.8s ease;
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.7s ease;
   mix-blend-mode: multiply;
 }
 
 .fleet-plate:hover .fleet-plate__img {
-  transform: translateY(-6px) scale(1.13);
+  transform: translateY(-5px) scale(1.3);
   filter:
-    drop-shadow(0 28px 30px rgba(22, 18, 16, 0.22))
+    drop-shadow(0 26px 28px rgba(22, 18, 16, 0.22))
     contrast(1.04);
 }
 

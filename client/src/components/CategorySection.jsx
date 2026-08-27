@@ -64,7 +64,7 @@ const CategorySection = ({
 
       <div className="fleet-rail__track" data-count={Math.min(cars.length, 3)}>
         {cars.map((car, i) => {
-          const card = <CarCard car={car} featured={i === 0 && cars.length > 1} />
+          const card = <CarCard car={car} />
           if (!animate) {
             return (
               <div key={car._id} className="fleet-rail__item">

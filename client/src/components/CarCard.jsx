@@ -1,7 +1,7 @@
 import React, { useMemo, useRef } from 'react'
 import { assets } from '../assets/assets'
 import { Link } from 'react-router-dom'
-import { motion as Motion, useMotionTemplate, useMotionValue, useSpring } from 'motion/react'
+import { motion as Motion, useMotionValue, useSpring } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { formatLocationsDisplay } from '../utils/carLocations'
 import ResponsiveImage from './ResponsiveImage'
@@ -26,9 +26,9 @@ const displayNames = (car) => {
 }
 
 /**
- * Kinetic vehicle plate — pointer-reactive showroom card.
+ * Premium vehicle plate — car-dominant stage, quiet chrome.
  */
-const CarCard = ({ car, featured = false }) => {
+const CarCard = ({ car }) => {
   const currency = import.meta.env.VITE_CURRENCY || 'MAD '
   const { t } = useI18n()
   const fallbackImage = assets.car_image1
@@ -38,29 +38,23 @@ const CarCard = ({ car, featured = false }) => {
   const { brand, model } = useMemo(() => displayNames(car), [car.brand, car.model])
   const ref = useRef(null)
 
-  const mx = useMotionValue(50)
-  const my = useMotionValue(50)
   const tiltX = useMotionValue(0)
   const tiltY = useMotionValue(0)
-  const rx = useSpring(tiltX, { stiffness: 180, damping: 20 })
-  const ry = useSpring(tiltY, { stiffness: 180, damping: 20 })
-  const glare = useMotionTemplate`radial-gradient(420px circle at ${mx}% ${my}%, rgba(255,255,255,0.35), transparent 45%)`
+  const rx = useSpring(tiltX, { stiffness: 200, damping: 24 })
+  const ry = useSpring(tiltY, { stiffness: 200, damping: 24 })
 
   const onMove = (e) => {
+    if (window.matchMedia('(pointer: coarse)').matches) return
     const el = ref.current
     if (!el) return
     const r = el.getBoundingClientRect()
     const px = (e.clientX - r.left) / r.width
     const py = (e.clientY - r.top) / r.height
-    mx.set(px * 100)
-    my.set(py * 100)
-    tiltY.set((px - 0.5) * 9)
-    tiltX.set((0.5 - py) * 7)
+    tiltY.set((px - 0.5) * 4)
+    tiltX.set((0.5 - py) * 3)
   }
 
   const onLeave = () => {
-    mx.set(50)
-    my.set(50)
     tiltX.set(0)
     tiltY.set(0)
   }
@@ -76,13 +70,13 @@ const CarCard = ({ car, featured = false }) => {
   return (
     <Motion.article
       ref={ref}
-      className={`fleet-plate fleet-plate--${tone}${available ? '' : ' is-unavailable'}${featured ? ' is-featured' : ''}`}
+      className={`fleet-plate fleet-plate--${tone}${available ? '' : ' is-unavailable'}`}
       data-tone={tone}
       style={{ rotateX: rx, rotateY: ry, transformStyle: 'preserve-3d' }}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
-      whileHover={{ y: -8 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      whileHover={{ y: -6 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 24 }}
     >
       <Link
         to={`/car-details/${car._id}`}
@@ -93,13 +87,6 @@ const CarCard = ({ car, featured = false }) => {
           <div className="fleet-plate__wash" aria-hidden />
           <div className="fleet-plate__glow" aria-hidden />
           <div className="fleet-plate__floor" aria-hidden />
-          <Motion.div className="fleet-plate__glare" style={{ background: glare }} aria-hidden />
-          {car.year ? (
-            <span className="fleet-plate__year-mark" aria-hidden>
-              {car.year}
-            </span>
-          ) : null}
-
           <div className="fleet-plate__vehicle">
             <ResponsiveImage
               src={car.image || car.images?.[0] || fallbackImage}
