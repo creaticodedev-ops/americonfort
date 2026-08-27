@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react'
-import Title from './Title'
 import { assets } from '../assets/assets'
 import CategorySection from './CategorySection'
 import { Link } from 'react-router-dom'
@@ -22,68 +21,86 @@ const FeaturedSection = () => {
     }))
   }, [cars])
 
+  const fleetCount = useMemo(() => cars.length, [cars])
+
   return (
-    <section className="relative py-16 md:py-20 page-pad page-shell bg-light">
-      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-sand/50 to-transparent pointer-events-none" />
+    <section className="fleet-atelier relative overflow-hidden">
+      <div className="fleet-atelier__atmosphere" aria-hidden="true" />
+      <div className="fleet-atelier__grain" aria-hidden="true" />
 
-      <Motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.55, ease: 'easeOut' }}
-        className="relative"
-      >
-        <Title
-          eyebrow={t('featured.eyebrow')}
-          title={t('featured.title')}
-          subTitle={t('featured.subtitle')}
-        />
-        <div className="fleet-title-mark" aria-hidden="true" />
-      </Motion.div>
+      <div className="relative page-pad page-shell py-20 md:py-28">
+        <Motion.header
+          initial={{ opacity: 0, y: 28 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.35 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="fleet-atelier__intro"
+        >
+          <div className="fleet-atelier__intro-copy">
+            <p className="fleet-atelier__eyebrow">{t('featured.eyebrow')}</p>
+            <h2 className="fleet-atelier__title">
+              <span className="fleet-atelier__brand">Americonfort</span>
+              <span className="fleet-atelier__headline">{t('featured.title')}</span>
+            </h2>
+            <p className="fleet-atelier__lede">{t('featured.subtitle')}</p>
+          </div>
 
-      <div className="relative mt-10 md:mt-12 space-y-11 md:space-y-14">
-        {sections.map((section) => (
-          <CategorySection
-            key={section.category}
-            category={section.category}
-            count={section.total}
-            cars={section.cars}
-            actionTo={`/cars?category=${encodeURIComponent(section.category)}`}
-            actionLabel={t('featured.viewCategory')}
-          />
-        ))}
+          <div className="fleet-atelier__intro-aside">
+            {fleetCount > 0 ? (
+              <p className="fleet-atelier__stat">
+                <span className="fleet-atelier__stat-value tabular-nums">{fleetCount}</span>
+                <span className="fleet-atelier__stat-label">{t('featured.fleetCountLabel')}</span>
+              </p>
+            ) : null}
+            <div className="fleet-atelier__rule" aria-hidden="true" />
+          </div>
+        </Motion.header>
+
+        <div className="relative mt-14 md:mt-20 space-y-16 md:space-y-24">
+          {sections.map((section, idx) => (
+            <CategorySection
+              key={section.category}
+              category={section.category}
+              count={section.total}
+              cars={section.cars}
+              index={idx + 1}
+              actionTo={`/cars?category=${encodeURIComponent(section.category)}`}
+              actionLabel={t('featured.viewCategory')}
+            />
+          ))}
+        </div>
+
+        <Motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.55, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+          className="fleet-atelier__footer"
+        >
+          <Link
+            to="/cars"
+            onClick={() => window.scrollTo(0, 0)}
+            className="fleet-atelier__cta"
+          >
+            <span>{t('featured.exploreAll')}</span>
+            <img
+              src={assets.arrow_icon}
+              alt=""
+              width={14}
+              height={14}
+              loading="lazy"
+              className="fleet-atelier__cta-icon"
+            />
+          </Link>
+          <Link
+            to={AIRPORT_LANDING_PATH}
+            onClick={() => window.scrollTo(0, 0)}
+            className="fleet-atelier__airport"
+          >
+            {t('featured.airportLink')}
+          </Link>
+        </Motion.div>
       </div>
-
-      <Motion.div
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.45, delay: 0.12 }}
-        className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-12 md:mt-14"
-      >
-        <Link
-          to="/cars"
-          onClick={() => window.scrollTo(0, 0)}
-          className="group inline-flex items-center gap-2 px-7 py-3 border border-ink/15 hover:border-primary hover:text-primary rounded-xl text-sm tracking-wide transition-all duration-300"
-        >
-          {t('featured.exploreAll')}
-          <img
-            src={assets.arrow_icon}
-            alt=""
-            width={14}
-            height={14}
-            loading="lazy"
-            className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1"
-          />
-        </Link>
-        <Link
-          to={AIRPORT_LANDING_PATH}
-          onClick={() => window.scrollTo(0, 0)}
-          className="text-xs sm:text-sm text-muted hover:text-primary underline-offset-4 hover:underline"
-        >
-          {t('featured.airportLink')}
-        </Link>
-      </Motion.div>
     </section>
   )
 }

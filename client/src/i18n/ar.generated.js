@@ -49,7 +49,8 @@ export const ar = {
     "subtitle": "تصفّح حسب الفئة، عاين المركبة، ثم احجز خلال دقائق — أسعار واضحة وبدون حساب.",
     "exploreAll": "استكشف الأسطول كاملاً",
     "viewCategory": "عرض الفئة",
-    "airportLink": "كراء سيارة مطار الدار البيضاء"
+    "airportLink": "كراء سيارة مطار الدار البيضاء",
+    "fleetCountLabel": "مركبات في الأسطول"
   },
   "banner": {
     "eyebrow": "Ready when you are",

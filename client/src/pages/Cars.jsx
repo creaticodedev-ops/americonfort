@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import Title from '../components/Title'
 import Seo from '../components/Seo'
 import { assets } from '../assets/assets'
 import CategorySection from '../components/CategorySection'
@@ -171,26 +170,23 @@ const Cars = () => {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="relative flex flex-col items-center py-16 sm:py-20 page-pad page-shell overflow-hidden"
-        style={{
-          background:
-            'linear-gradient(180deg, #EDE8E4 0%, #F8F6F5 55%, #F8F6F5 100%)',
-        }}
+        className="fleet-atelier relative flex flex-col items-center py-16 sm:py-22 page-pad page-shell overflow-hidden"
       >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              'radial-gradient(ellipse 70% 50% at 50% -10%, rgba(143,31,31,0.12), transparent 60%)',
-          }}
-        />
-        <Title title={t('cars.title')} subTitle={t('cars.subtitle')} />
+        <div className="fleet-atelier__atmosphere" aria-hidden="true" />
+        <div className="fleet-atelier__grain" aria-hidden="true" />
+        <div className="relative z-10 w-full max-w-3xl text-center">
+          <p className="fleet-atelier__eyebrow">{t('featured.eyebrow')}</p>
+          <h1 className="fleet-atelier__headline" style={{ fontSize: 'clamp(2.4rem, 5.5vw, 3.75rem)' }}>
+            {t('cars.title')}
+          </h1>
+          <p className="fleet-atelier__lede mx-auto mt-4">{t('cars.subtitle')}</p>
+        </div>
 
         <Motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, duration: 0.5 }}
-          className="relative z-10 flex items-center bg-white px-4 mt-6 max-w-xl w-full h-12 rounded-xl border border-borderColor shadow-sm"
+          className="relative z-10 flex items-center bg-white px-4 mt-8 max-w-xl w-full h-12 rounded-[0.15rem] border border-borderColor"
         >
           <img src={assets.search_icon} alt="" width={18} height={18} className="w-[1.125rem] h-[1.125rem] me-2 shrink-0" />
           <input
@@ -230,7 +226,7 @@ const Cars = () => {
           </nav>
         )}
         <p className="relative z-10 mt-6 text-center text-sm text-muted">
-          <Link to={AIRPORT_LANDING_PATH} className="text-primary hover:underline">
+          <Link to={AIRPORT_LANDING_PATH} className="fleet-atelier__airport">
             {t('cars.airportLink')}
           </Link>
         </p>
@@ -266,6 +262,7 @@ const Cars = () => {
                   category={section.category}
                   count={section.cars.length}
                   cars={section.cars}
+                  index={sIdx + 1}
                   animate={false}
                   actionTo={
                     activeCategory

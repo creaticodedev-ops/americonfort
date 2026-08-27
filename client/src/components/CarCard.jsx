@@ -26,10 +26,10 @@ const displayNames = (car) => {
 }
 
 /**
- * Premium public fleet card — used on home featured + /cars.
- * Visual treatment only; pricing, availability, and links stay data-driven.
+ * Premium public fleet plate — atelier showroom treatment.
+ * Visual only; pricing, availability, and links stay data-driven.
  */
-const CarCard = ({ car }) => {
+const CarCard = ({ car, featured = false }) => {
   const currency = import.meta.env.VITE_CURRENCY || 'MAD '
   const { t } = useI18n()
   const fallbackImage = assets.car_image1
@@ -48,76 +48,69 @@ const CarCard = ({ car }) => {
 
   return (
     <article
-      className={`fleet-card fleet-card--${tone}${available ? '' : ' is-unavailable'}`}
+      className={`fleet-plate fleet-plate--${tone}${available ? '' : ' is-unavailable'}${featured ? ' is-featured' : ''}`}
       data-tone={tone}
     >
       <Link
         to={`/car-details/${car._id}`}
         onClick={() => window.scrollTo(0, 0)}
-        className="fleet-card-link"
+        className="fleet-plate__link"
       >
-        <div className="fleet-card-media">
-          <div className="fleet-card-media-wash" aria-hidden />
-          <div className="fleet-card-media-spot" aria-hidden />
-          <div className="fleet-card-media-floor" aria-hidden />
+        <div className="fleet-plate__stage">
+          <div className="fleet-plate__wash" aria-hidden />
+          <div className="fleet-plate__glow" aria-hidden />
+          <div className="fleet-plate__floor" aria-hidden />
           {car.year ? (
-            <span className="fleet-card-watermark" aria-hidden>
+            <span className="fleet-plate__year-mark" aria-hidden>
               {car.year}
             </span>
           ) : null}
 
-          <span className={`fleet-card-badge${available ? ' is-on' : ' is-off'}`}>
-            <span className="fleet-card-badge-dot" aria-hidden />
-            <span className="fleet-card-badge-text">
-              {available ? t('carCard.available') : t('carCard.unavailable')}
-            </span>
-          </span>
-
-          <div className="fleet-card-stage">
+          <div className="fleet-plate__vehicle">
             <ResponsiveImage
               src={car.image || car.images?.[0] || fallbackImage}
               fallbackSrc={fallbackImage}
               alt={`${brand} ${model}`.trim()}
               widths={[400, 640, 960]}
-              sizes="(max-width: 767px) 92vw, (max-width: 1023px) 46vw, 360px"
+              sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 380px"
               width={640}
               height={400}
               loading="lazy"
               decoding="async"
-              className="fleet-card-img"
+              className="fleet-plate__img"
             />
-          </div>
-
-          <div className="fleet-card-price">
-            <span className="fleet-card-price-amount">
-              <span className="fleet-card-price-currency">{currency.trim()}</span>
-              <span className="fleet-card-price-value">{car.pricePerDay}</span>
-            </span>
-            <span className="fleet-card-price-unit">{t('carCard.perDay')}</span>
           </div>
         </div>
 
-        <div className="fleet-card-body">
-          <header className="fleet-card-identity">
-            {brand ? <p className="fleet-card-brand">{brand}</p> : null}
-            <h3 className="fleet-card-model">{model}</h3>
+        <div className="fleet-plate__body">
+          <div className="fleet-plate__top">
+            <span className={`fleet-plate__status${available ? ' is-on' : ' is-off'}`}>
+              <span className="fleet-plate__status-dot" aria-hidden />
+              {available ? t('carCard.available') : t('carCard.unavailable')}
+            </span>
+            <p className="fleet-plate__rate">
+              <span className="fleet-plate__currency">{currency.trim()}</span>
+              <span className="fleet-plate__amount tabular-nums">{car.pricePerDay}</span>
+              <span className="fleet-plate__unit">{t('carCard.perDay')}</span>
+            </p>
+          </div>
+
+          <header className="fleet-plate__identity">
+            {brand ? <p className="fleet-plate__brand">{brand}</p> : null}
+            <h3 className="fleet-plate__model">{model}</h3>
             {(car.category || car.year) && (
-              <p className="fleet-card-meta">
+              <p className="fleet-plate__meta">
                 {car.category ? <span>{car.category}</span> : null}
-                {car.category && car.year ? (
-                  <span className="fleet-card-meta-sep" aria-hidden>
-                    ·
-                  </span>
-                ) : null}
-                {car.year ? <span className="fleet-card-year">{car.year}</span> : null}
+                {car.category && car.year ? <span className="fleet-plate__dot" aria-hidden>·</span> : null}
+                {car.year ? <span className="tabular-nums">{car.year}</span> : null}
               </p>
             )}
           </header>
 
           {specItems.length > 0 && (
-            <dl className="fleet-card-specs">
+            <dl className="fleet-plate__specs">
               {specItems.map((item) => (
-                <div key={item.label} className="fleet-card-spec">
+                <div key={item.label} className="fleet-plate__spec">
                   <dt>{item.label}</dt>
                   <dd>{item.value}</dd>
                 </div>
@@ -125,15 +118,15 @@ const CarCard = ({ car }) => {
             </dl>
           )}
 
-          <div className="fleet-card-foot">
+          <div className="fleet-plate__foot">
             {locationLabel ? (
-              <p className="fleet-card-location">
+              <p className="fleet-plate__location">
                 <svg
                   viewBox="0 0 24 24"
-                  className="fleet-card-location-icon"
+                  className="fleet-plate__pin"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.7"
+                  strokeWidth="1.6"
                   aria-hidden="true"
                 >
                   <path d="M12 21s6.5-5.4 6.5-10.2A6.5 6.5 0 0 0 5.5 10.8C5.5 15.6 12 21 12 21z" />
@@ -144,9 +137,9 @@ const CarCard = ({ car }) => {
             ) : (
               <span />
             )}
-            <span className="fleet-card-cta">
-              <span>{t('carCard.viewDetails')}</span>
-              <span className="fleet-card-cta-arrow" aria-hidden="true">
+            <span className="fleet-plate__cta">
+              {t('carCard.viewDetails')}
+              <span className="fleet-plate__cta-arrow" aria-hidden="true">
                 →
               </span>
             </span>
