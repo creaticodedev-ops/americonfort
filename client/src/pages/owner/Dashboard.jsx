@@ -141,15 +141,16 @@ const Dashboard = () => {
   )
 
   const fleetKpis = fleetStats?.kpis
-  const periodRevenue = canAccounting
-    ? (accounting?.kpis?.grossRevenue ?? fleetKpis?.totalRevenue ?? dash?.monthlyRevenue)
-    : (fleetKpis?.totalRevenue ?? dash?.monthlyRevenue)
+  // Period revenue KPIs always come from vehicle-stats (overlap-prorated) so they match
+  // the fleet ranking below. Accounting gross uses createdAt + full price and must not
+  // override the hero when a period filter is selected.
+  const periodRevenue = fleetKpis?.totalRevenue ?? dash?.monthlyRevenue
   const netResult = accounting?.kpis?.netResult
   const onRent = fleetKpis?.rented ?? dash?.rentedVehicles ?? 0
   const fleetSize = fleetKpis?.vehicles ?? dash?.totalCars ?? 0
   const util = fleetKpis?.fleetUtilization
   const avgRental = fleetKpis?.avgRentalValue
-  const rentals = fleetKpis?.totalRentals
+  const rentals = fleetKpis?.revenueRentals ?? fleetKpis?.totalRentals
   const vehicleLimit = expandedFleet ? 10 : 5
   const shareBars = useMemo(() => {
     const list = [...(fleetStats?.vehicles || [])]

@@ -68,7 +68,8 @@ export const getOpsDashboard = async (req, res) => {
     const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
     const operationalStatuses = ['pending', 'confirmed', 'ready_for_pickup', 'active'];
     const returnStatuses = ['confirmed', 'ready_for_pickup', 'active'];
-    const onRentStatuses = ['ready_for_pickup', 'active'];
+    // Align with vehicle-stats: confirmed + pickup reached counts as currently out
+    const onRentStatuses = ['confirmed', 'ready_for_pickup', 'active'];
     const listFields = 'reservationId customerName pickupDate returnDate status channel price createdAt car';
     const now = new Date();
 

@@ -127,7 +127,18 @@ const VehicleStatsDrawer = ({
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <StatCard compact label={t('admin.vehicleStats.revenue')} value={money(overview.totalRevenue, currency)} />
+            <StatCard
+              compact
+              label={t('admin.vehicleStats.revenue')}
+              value={money(overview.totalRevenue, currency)}
+              hint={
+                overview.bookingValue != null && overview.bookingValue !== overview.totalRevenue
+                  ? t('admin.vehicleStats.periodRevenueHint', {
+                      booking: money(overview.bookingValue, currency),
+                    })
+                  : undefined
+              }
+            />
             <StatCard compact label={t('admin.vehicleStats.rentals')} value={overview.totalBookings ?? 0} />
             <StatCard compact label={t('admin.vehicleStats.rentalDays')} value={overview.rentalDays ?? 0} />
             <StatCard compact label={t('admin.vehicleStats.utilization')} value={overview.utilizationRate || '0%'} />
@@ -156,7 +167,16 @@ const VehicleStatsDrawer = ({
                 { key: 'pickup', label: t('admin.vehicleStats.colPickup'), render: (row) => formatDay(row.pickupDate) },
                 { key: 'return', label: t('admin.vehicleStats.colReturn'), render: (row) => formatDay(row.returnDate) },
                 { key: 'duration', label: t('admin.vehicleStats.colDuration'), render: (row) => row.duration || 0 },
-                { key: 'revenue', label: t('admin.vehicleStats.revenue'), render: (row) => money(row.revenue, currency) },
+                {
+                  key: 'periodRevenue',
+                  label: t('admin.vehicleStats.colPeriodRevenue'),
+                  render: (row) => money(row.periodRevenue ?? row.revenue, currency),
+                },
+                {
+                  key: 'revenue',
+                  label: t('admin.vehicleStats.colBookingValue'),
+                  render: (row) => money(row.revenue, currency),
+                },
                 { key: 'status', label: t('admin.vehicleStats.colStatus'), render: (row) => <StatusBadge status={row.status} /> },
               ]}
               data={history}

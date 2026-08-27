@@ -10,6 +10,8 @@ import MaintenanceRecord from '../models/MaintenanceRecord.js';
 export const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'ready_for_pickup', 'active'];
 export const REVENUE_BOOKING_STATUSES = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
 export const UPCOMING_BOOKING_STATUSES = ['pending', 'confirmed', 'ready_for_pickup'];
+/** Operationally out once confirmed (or later) and pickup time has been reached. */
+export const ON_RENT_BOOKING_STATUSES = ['confirmed', 'ready_for_pickup', 'active'];
 
 const MS_DAY = 86400000;
 
@@ -130,10 +132,23 @@ export const bookingCalendarDays = (booking) => {
   return inclusiveUtcDays(span.start, span.end);
 };
 
+/**
+ * Vehicle is currently out on rental: confirmed+ statuses with pickup reached.
+ * Overdue returns stay "on rent" until the booking is completed/cancelled.
+ */
+export const isBookingCurrentlyOnRent = (booking, now = new Date()) => {
+  if (!booking || !ON_RENT_BOOKING_STATUSES.includes(booking.status)) return false;
+  const span = bookingSpan(booking);
+  if (!span) return false;
+  return span.start <= now;
+};
+
 const roundMoney = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
+const addUtcDays = (date, days) => new Date(date.getTime() + days * MS_DAY);
 
-const proratedRevenue = (booking, range) => {
+/** Period-attributed revenue: prorate booking price by overlap days / billed days. */
+export const proratedRevenue = (booking, range) => {
   if (!REVENUE_BOOKING_STATUSES.includes(booking.status)) return 0;
   const span = bookingSpan(booking);
   if (!span) return 0;
@@ -142,6 +157,33 @@ const proratedRevenue = (booking, range) => {
   if (overlap <= 0) return 0;
   const fraction = Math.min(1, overlap / fullDays);
   return roundMoney((Number(booking.price) || 0) * fraction);
+};
+
+const eachUtcDayIso = (from, to) => {
+  const days = [];
+  let cursor = toUtcStart(from);
+  const last = toUtcStart(to);
+  if (!cursor || !last || last < cursor) return days;
+  while (cursor <= last) {
+    days.push(toIsoDate(cursor));
+    cursor = addUtcDays(cursor, 1);
+  }
+  return days;
+};
+
+/** Unique calendar days rented in range (consecutive/overlapping bookings do not double-count). */
+export const uniqueRentalDaysInRange = (bookings, range) => {
+  const set = new Set();
+  for (const booking of bookings) {
+    if (!booking || booking.status === 'cancelled') continue;
+    const span = bookingSpan(booking);
+    if (!span) continue;
+    const start = span.start > range.from ? span.start : range.from;
+    const end = span.end < range.to ? span.end : range.to;
+    if (start > end) continue;
+    for (const iso of eachUtcDayIso(start, end)) set.add(iso);
+  }
+  return set.size;
 };
 
 const maintenanceSpan = (record) => {
@@ -160,8 +202,6 @@ export const suggestedTrendGrain = (periodDays) => {
   if (days <= 92) return 'weekly';
   return 'monthly';
 };
-
-const addUtcDays = (date, days) => new Date(date.getTime() + days * MS_DAY);
 
 const startOfUtcIsoWeek = (date) => {
   const start = toUtcStart(date);
@@ -262,25 +302,18 @@ export const computeVehiclePeriodMetrics = ({
   const upcoming = overlapping.filter(
     (booking) => UPCOMING_BOOKING_STATUSES.includes(booking.status) && new Date(booking.pickupDate) >= now,
   );
-  const activeInPeriod = overlapping.filter((booking) => ACTIVE_BOOKING_STATUSES.includes(booking.status));
-
-  const rentalDays = nonCancelled.reduce((sum, booking) => {
-    const span = bookingSpan(booking);
-    if (!span) return sum;
-    return sum + overlapUtcDays(span.start, span.end, range.from, range.to);
-  }, 0);
-
-  const revenue = nonCancelled.reduce((sum, booking) => sum + proratedRevenue(booking, range), 0);
+  const openInPeriod = overlapping.filter((booking) => ACTIVE_BOOKING_STATUSES.includes(booking.status));
   const revenueBookings = overlapping.filter((booking) => REVENUE_BOOKING_STATUSES.includes(booking.status));
+
+  const rentalDays = uniqueRentalDaysInRange(nonCancelled, range);
+  const revenue = revenueBookings.reduce((sum, booking) => sum + proratedRevenue(booking, range), 0);
+  const bookingValue = roundMoney(
+    revenueBookings.reduce((sum, booking) => sum + (Number(booking.price) || 0), 0),
+  );
   const durationSum = nonCancelled.reduce((sum, booking) => sum + bookingCalendarDays(booking), 0);
 
-  const currentlyRented = bookings.some((booking) => {
-    // Align with ops fleet snapshot: vehicle is out once pickup started and rental isn't closed
-    if (!['ready_for_pickup', 'active'].includes(booking.status)) return false;
-    const span = bookingSpan(booking);
-    if (!span) return false;
-    return span.start <= now;
-  });
+  const currentlyRented = bookings.some((booking) => isBookingCurrentlyOnRent(booking, now));
+  const activeNowCount = bookings.filter((booking) => isBookingCurrentlyOnRent(booking, now)).length;
 
   const lastInPeriod = [...nonCancelled]
     .sort((a, b) => new Date(b.returnDate || b.pickupDate) - new Date(a.returnDate || a.pickupDate))[0];
@@ -315,10 +348,15 @@ export const computeVehiclePeriodMetrics = ({
   return {
     completedRentals: completed.length,
     upcomingRentals: upcoming.length,
-    activeRentals: activeInPeriod.length,
+    /** Bookings currently out on this vehicle (confirmed+ with pickup reached). */
+    activeRentals: activeNowCount,
+    /** Open pipeline bookings overlapping the period (pending → active). */
+    openRentals: openInPeriod.length,
     cancellations: cancelled.length,
     totalRentals: nonCancelled.length,
+    revenueRentals: revenueBookings.length,
     revenue: roundMoney(revenue),
+    bookingValue,
     avgRentalRevenue: revenueBookings.length ? roundMoney(revenue / revenueBookings.length) : 0,
     rentalDays,
     avgDuration: nonCancelled.length ? round1(durationSum / nonCancelled.length) : 0,
@@ -399,15 +437,19 @@ export const buildFleetVehicleStats = async ({ ownerId, period = 'month', from, 
 
   const periodDays = Math.max(1, range.periodDays);
   const totalRevenue = roundMoney(rows.reduce((sum, row) => sum + row.revenue, 0));
+  const bookingValue = roundMoney(rows.reduce((sum, row) => sum + (row.bookingValue || 0), 0));
   const totalRentals = rows.reduce((sum, row) => sum + row.totalRentals, 0);
+  const revenueRentals = rows.reduce((sum, row) => sum + (row.revenueRentals || 0), 0);
   const rentalDays = rows.reduce((sum, row) => sum + row.rentalDays, 0);
   const fleetUtilization = cars.length ? round1((rentalDays / (cars.length * periodDays)) * 100) : 0;
   const kpis = {
     totalRevenue,
+    bookingValue,
     totalRentals,
+    revenueRentals,
     rentalDays,
     fleetUtilization,
-    avgRentalValue: totalRentals ? roundMoney(totalRevenue / totalRentals) : 0,
+    avgRentalValue: revenueRentals ? roundMoney(totalRevenue / revenueRentals) : 0,
     available: rows.filter((row) => row.availability === 'available').length,
     rented: rows.filter((row) => row.availability === 'rented').length,
     maintenance: rows.filter((row) => row.availability === 'maintenance').length,
@@ -519,7 +561,10 @@ export const buildVehicleDetailStats = async ({ ownerId, car, period = 'month', 
       cancelledBookings: metrics.cancellations,
       activeBookings: metrics.activeRentals,
       upcomingBookings: metrics.upcomingRentals,
+      openBookings: metrics.openRentals,
+      revenueRentals: metrics.revenueRentals,
       totalRevenue: metrics.revenue,
+      bookingValue: metrics.bookingValue,
       rentalDays: metrics.rentalDays,
       utilizationRate: `${metrics.utilization}%`,
       utilization: metrics.utilization,
@@ -530,6 +575,8 @@ export const buildVehicleDetailStats = async ({ ownerId, car, period = 'month', 
       unavailableDays: metrics.unavailableDays,
       lastRentalAt: metrics.lastRentalAt,
       nextReservationAt: metrics.nextReservationAt,
+      currentlyRented: metrics.currentlyRented,
+      availability: metrics.availability,
     },
     rentalHistory: history,
     trend,
@@ -543,4 +590,8 @@ export default {
   buildVehicleDetailStats,
   computeVehiclePeriodMetrics,
   bookingOverlapsRange,
+  proratedRevenue,
+  isBookingCurrentlyOnRent,
+  uniqueRentalDaysInRange,
+  ON_RENT_BOOKING_STATUSES,
 };
