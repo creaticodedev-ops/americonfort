@@ -6,7 +6,7 @@ import ReservationDateTimes from './ReservationDateTimes'
 import { WhatsAppButton } from '../forms/PremiumFormUI'
 
 const inputShell =
-  'flex h-11 w-full items-center gap-2.5 rounded-xl border border-gray-200/90 bg-gray-50/50 px-3 text-sm text-ink transition focus-within:border-primary/40 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10'
+  'flex h-11 w-full items-center gap-2.5 rounded-[var(--ac-radius)] border border-borderColor bg-sand/30 px-3 text-sm text-ink transition focus-within:border-primary/40 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10'
 
 const fieldInput =
   'min-w-0 flex-1 border-0 bg-transparent py-2 text-sm text-ink placeholder:text-gray-400 focus:outline-none focus:ring-0'
@@ -59,20 +59,23 @@ function BookingSummary({ breakdown, currency, t, car, pickupLabel, returnLabel,
   const ready = breakdown?.ready
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-gradient-to-b from-gray-50/90 to-white p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
+    <div className="ac-reserve__summary">
+      <div className="ac-reserve__summary-top">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('carDetails.summaryTitle')}</p>
-          <p className="mt-1 font-display text-lg font-medium text-gray-900 truncate">
+          <p className="ac-eyebrow" style={{ marginBottom: 0 }}>
+            {t('carDetails.summaryTitle')}
+          </p>
+          <p className="mt-1 font-display text-lg font-medium text-ink truncate">
             {car.brand} {car.model}
           </p>
-          {ready && daysLabel ? <p className="mt-0.5 text-xs text-gray-500">{daysLabel}</p> : null}
+          {ready && daysLabel ? <p className="mt-0.5 text-xs text-muted">{daysLabel}</p> : null}
         </div>
         <div className="text-right shrink-0">
-          <p className="text-[11px] text-gray-400">{t('carDetails.rateLabel')}</p>
-          <p className="text-sm font-semibold text-gray-800">
-            {currency}{car.pricePerDay}
-            <span className="text-xs font-normal text-gray-400">{t('carDetails.perDay')}</span>
+          <p className="text-[11px] text-muted">{t('carDetails.rateLabel')}</p>
+          <p className="text-sm font-semibold text-ink">
+            {currency}
+            {car.pricePerDay}
+            <span className="text-xs font-normal text-muted">{t('carDetails.perDay')}</span>
           </p>
         </div>
       </div>
@@ -175,23 +178,35 @@ export default function ReservationPanel({
   const returnShort = returnLoc ? formatFeeLabel(returnLoc) : ''
 
   return (
-    <Motion.div initial="hidden" animate="show" className="lg:sticky lg:top-24 lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto lg:overscroll-contain">
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_12px_48px_-16px_rgba(22,18,16,0.14)]">
-        <div className="border-b border-gray-100 px-5 py-5 sm:px-6 sm:py-6">
+    <Motion.div
+      initial="hidden"
+      animate="show"
+      className="lg:sticky lg:top-24 lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto lg:overscroll-contain"
+    >
+      <div className="ac-surface ac-reserve overflow-hidden">
+        <div className="ac-reserve__head">
           <Motion.div variants={fade} custom={0}>
-            <p className="text-xs font-semibold tracking-wide text-primary">{t('carDetails.bookingTitle')}</p>
-            <h2 className="mt-1.5 font-display text-xl font-medium text-gray-900 sm:text-2xl">{t('carDetails.bookingHeadline')}</h2>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-500">{t('carDetails.bookingSubtitle')}</p>
+            <p className="ac-eyebrow">{t('carDetails.bookingTitle')}</p>
+            <h2 className="ac-reserve__title">{t('carDetails.bookingHeadline')}</h2>
+            <p className="ac-lede" style={{ marginTop: '0.65rem' }}>
+              {t('carDetails.bookingSubtitle')}
+            </p>
           </Motion.div>
-          <Motion.ul variants={fade} custom={1} className="mt-4 flex flex-wrap gap-2">
-            {[t('carDetails.trustNoCard'), t('carDetails.trustInstant'), t('carDetails.trustSupport')].map((item) => (
-              <li key={item} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 ring-1 ring-gray-100">
-                <svg className="h-3 w-3 text-emerald-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                </svg>
-                {item}
-              </li>
-            ))}
+          <Motion.ul variants={fade} custom={1} className="ac-reserve__trust">
+            {[t('carDetails.trustNoCard'), t('carDetails.trustInstant'), t('carDetails.trustSupport')].map(
+              (item) => (
+                <li key={item}>
+                  <svg className="h-3 w-3 text-emerald-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                    <path
+                      fillRule="evenodd"
+                      d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  {item}
+                </li>
+              ),
+            )}
           </Motion.ul>
         </div>
 
@@ -200,7 +215,7 @@ export default function ReservationPanel({
             e.preventDefault()
             onWhatsAppSubmit(e)
           }}
-          className="space-y-7 px-5 py-6 sm:px-6"
+          className="ac-reserve__form"
         >
           <Motion.section variants={fade} custom={2}>
             <h3 className="mb-3 text-sm font-semibold text-gray-900">{t('carDetails.tripDetails')}</h3>

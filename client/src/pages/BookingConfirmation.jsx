@@ -16,37 +16,37 @@ const BreakdownRows = ({ breakdown, currency, t }) => {
   if (!breakdown) return null
 
   return (
-    <div className="rounded-xl bg-white border border-borderColor px-4 py-3 space-y-2 mt-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t('confirmation.priceBreakdown')}</p>
-      <div className="flex justify-between text-sm gap-3">
+    <div className="ac-confirm__breakdown">
+      <p className="ac-eyebrow">{t('confirmation.priceBreakdown')}</p>
+      <div className="ac-confirm__row">
         <span>{t('confirmation.rentalPrice')}</span>
-        <span className="font-medium">{currency}{breakdown.rentalPrice ?? 0}</span>
+        <span>{currency}{breakdown.rentalPrice ?? 0}</span>
       </div>
-      <div className="flex justify-between text-sm gap-3">
+      <div className="ac-confirm__row">
         <span>{t('confirmation.pickupDeliveryFee')}</span>
-        <span className="font-medium">
+        <span>
           {(breakdown.pickupDeliveryFee || 0) <= 0
             ? t('confirmation.free')
             : `${currency}${breakdown.pickupDeliveryFee}`}
         </span>
       </div>
-      <div className="flex justify-between text-sm gap-3">
+      <div className="ac-confirm__row">
         <span>{t('confirmation.dropoffDeliveryFee')}</span>
-        <span className="font-medium">
+        <span>
           {(breakdown.dropoffDeliveryFee || 0) <= 0
             ? t('confirmation.free')
             : `${currency}${breakdown.dropoffDeliveryFee}`}
         </span>
       </div>
       {(breakdown.discountTotal || 0) > 0 && (
-        <div className="flex justify-between text-sm gap-3 text-green-700">
+        <div className="ac-confirm__row ac-confirm__row--credit">
           <span>{t('confirmation.discounts')}</span>
-          <span className="font-medium">−{currency}{breakdown.discountTotal}</span>
+          <span>−{currency}{breakdown.discountTotal}</span>
         </div>
       )}
-      <div className="flex justify-between text-sm gap-3 border-t border-borderColor pt-2 font-semibold text-gray-900">
+      <div className="ac-confirm__row ac-confirm__row--total">
         <span>{t('confirmation.total')}</span>
-        <span className="text-primary">{currency}{breakdown.total ?? 0}</span>
+        <span>{currency}{breakdown.total ?? 0}</span>
       </div>
     </div>
   )
@@ -71,74 +71,73 @@ const BookingConfirmation = () => {
     return <Navigate to="/cars" replace />
   }
 
+  const rows = [
+    [t('confirmation.vehicle'), state.carName],
+    [t('confirmation.name'), state.customerName],
+    [t('confirmation.emailLabel'), state.email],
+    [t('confirmation.phoneLabel'), state.phone],
+    [t('confirmation.pickup'), state.pickupLocation],
+    [t('confirmation.dropoff'), state.returnLocation],
+    [t('confirmation.from'), state.pickupDate ? formatDisplay(state.pickupDate) : null],
+    [t('confirmation.until'), state.returnDate ? formatDisplay(state.returnDate) : null],
+  ]
+
   return (
-    <Motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="page-pad mt-10 sm:mt-16 mb-16 sm:mb-24"
-    >
-      <Seo title={t('confirmation.title')} path="/booking-confirmation" noindex />
-      <div className="max-w-3xl mx-auto">
-      <div className="rounded-2xl border border-borderColor bg-white p-6 sm:p-8 shadow-sm text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600 text-2xl font-bold">
-          ✓
-        </div>
-        <h1 className="text-3xl font-semibold text-gray-800">{t('confirmation.title')}</h1>
-        <p className="mt-2 text-gray-500">{t('confirmation.subtitle')}</p>
+    <div className="ac-home">
+      <Motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="page-pad page-shell ac-section"
+      >
+        <Seo title={t('confirmation.title')} path="/booking-confirmation" noindex />
+        <div className="ac-confirm ac-surface">
+          <div className="ac-confirm__mark" aria-hidden>
+            ✓
+          </div>
+          <header className="ac-head ac-head--center">
+            <h1 className="ac-title" style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
+              {t('confirmation.title')}
+            </h1>
+            <p className="ac-lede">{t('confirmation.subtitle')}</p>
+          </header>
 
-        <div className="mt-8 rounded-xl bg-light px-6 py-5">
-          <p className="text-sm uppercase tracking-wide text-gray-500">{t('confirmation.reference')}</p>
-          <p className="mt-1 text-2xl font-bold text-primary tracking-wider">{state.reservationId}</p>
-        </div>
-
-        <p className="mt-4 text-sm text-gray-500">{t('confirmation.saveNote')}</p>
-
-        <div className="mt-8 text-left text-sm text-gray-600 border-t border-borderColor pt-6">
-          <div className="grid gap-y-3 gap-x-4 sm:grid-cols-[8rem_1fr]">
-            <div className="text-gray-500">{t('confirmation.vehicle')}:</div>
-            <div className="font-medium text-gray-800">{state.carName || '-'}</div>
-
-            <div className="text-gray-500">{t('confirmation.name')}:</div>
-            <div className="font-medium text-gray-800">{state.customerName || '-'}</div>
-
-            <div className="text-gray-500">{t('confirmation.emailLabel')}:</div>
-            <div className="font-medium text-gray-800">{state.email || '-'}</div>
-
-            <div className="text-gray-500">{t('confirmation.phoneLabel')}:</div>
-            <div className="font-medium text-gray-800">{state.phone || '-'}</div>
-
-            <div className="text-gray-500">{t('confirmation.pickup')}:</div>
-            <div className="font-medium text-gray-800">{state.pickupLocation || '-'}</div>
-
-            <div className="text-gray-500">{t('confirmation.dropoff')}:</div>
-            <div className="font-medium text-gray-800">{state.returnLocation || '-'}</div>
-
-            <div className="text-gray-500">{t('confirmation.from')}:</div>
-            <div className="font-medium text-gray-800">{state.pickupDate ? formatDisplay(state.pickupDate) : '-'}</div>
-
-            <div className="text-gray-500">{t('confirmation.until')}:</div>
-            <div className="font-medium text-gray-800">{state.returnDate ? formatDisplay(state.returnDate) : '-'}</div>
+          <div className="ac-confirm__ref">
+            <p className="ac-eyebrow">{t('confirmation.reference')}</p>
+            <p className="ac-confirm__ref-id">{state.reservationId}</p>
           </div>
 
-          {state.priceBreakdown ? (
-            <div className="mt-6"><BreakdownRows breakdown={state.priceBreakdown} currency={currency} t={t} /></div>
-          ) : state.price != null ? (
-            <p className="mt-6"><span className="font-medium text-gray-800">{t('confirmation.total')}:</span> {currency}{state.price}</p>
-          ) : null}
-        </div>
+          <p className="ac-confirm__note">{t('confirmation.saveNote')}</p>
 
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/cars" className="px-6 py-2.5 rounded-lg bg-primary text-white hover:bg-primary-dull transition-all">
-            {t('confirmation.browseMore')}
-          </Link>
-          <Link to="/" className="px-6 py-2.5 rounded-lg border border-borderColor text-gray-700 hover:bg-gray-50 transition-all">
-            {t('confirmation.backHome')}
-          </Link>
+          <dl className="ac-confirm__grid">
+            {rows.map(([label, value]) => (
+              <React.Fragment key={label}>
+                <dt>{label}</dt>
+                <dd>{value || '-'}</dd>
+              </React.Fragment>
+            ))}
+          </dl>
+
+          {state.priceBreakdown ? (
+            <BreakdownRows breakdown={state.priceBreakdown} currency={currency} t={t} />
+          ) : state.price != null ? (
+            <p className="ac-confirm__total-line">
+              <span>{t('confirmation.total')}:</span> {currency}
+              {state.price}
+            </p>
+          ) : null}
+
+          <div className="ac-confirm__actions">
+            <Link to="/cars" className="ac-btn">
+              {t('confirmation.browseMore')}
+            </Link>
+            <Link to="/" className="ac-btn ac-btn--ghost">
+              {t('confirmation.backHome')}
+            </Link>
+          </div>
         </div>
-      </div>
-      </div>
-    </Motion.div>
+      </Motion.div>
+    </div>
   )
 }
 

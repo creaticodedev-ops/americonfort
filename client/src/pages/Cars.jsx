@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Seo from '../components/Seo'
 import { assets } from '../assets/assets'
-import CategorySection from '../components/CategorySection'
+import CarCard from '../components/CarCard'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
@@ -14,6 +14,10 @@ import { AIRPORT_LANDING_PATH } from '../constants/site'
 import { buildBreadcrumbList, buildOrganization } from '../seo/structuredData'
 import { trackSearchCars, trackViewItemList } from '../utils/ga'
 
+/**
+ * Fleet catalog — same Atelier language as the homepage.
+ * Fixed card geometry always; categories never change card size.
+ */
 const Cars = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const pickupLocation = searchParams.get('pickupLocation')
@@ -43,12 +47,13 @@ const Cars = () => {
     let list = cars
     if (input.trim()) {
       const q = input.toLowerCase()
-      list = list.filter((car) =>
-        car.brand.toLowerCase().includes(q) ||
-        car.model.toLowerCase().includes(q) ||
-        car.category.toLowerCase().includes(q) ||
-        car.transmission.toLowerCase().includes(q) ||
-        getCarLocations(car).some((loc) => loc.toLowerCase().includes(q))
+      list = list.filter(
+        (car) =>
+          car.brand.toLowerCase().includes(q) ||
+          car.model.toLowerCase().includes(q) ||
+          car.category.toLowerCase().includes(q) ||
+          car.transmission.toLowerCase().includes(q) ||
+          getCarLocations(car).some((loc) => loc.toLowerCase().includes(q)),
       )
     }
     setFilteredCars(list)
@@ -97,7 +102,6 @@ const Cars = () => {
   const lastListKey = useRef('')
   useEffect(() => {
     if (!filteredCars.length) return
-    // Avoid spamming GA while the user types in the search box
     if (input.trim()) return
     const listId = isSearchData ? 'search_results' : 'fleet'
     const key = `${listId}:${filteredCars.map((c) => c._id).join(',')}`
@@ -126,16 +130,18 @@ const Cars = () => {
     let list = filteredCars
     if (activeCategory) {
       list = list.filter(
-        (c) => String(c.category || '').toLowerCase() === activeCategory.toLowerCase()
+        (c) => String(c.category || '').toLowerCase() === activeCategory.toLowerCase(),
       )
     }
     return groupCarsByCategory(list)
   }, [filteredCars, activeCategory])
 
+  const flatList = useMemo(() => sections.flatMap((s) => s.cars), [sections])
+
   const availableCategories = useMemo(() => {
     const present = new Set(filteredCars.map((c) => c.category).filter(Boolean))
     return VEHICLE_CATEGORIES.filter((c) => present.has(c)).concat(
-      [...present].filter((c) => !VEHICLE_CATEGORIES.includes(c))
+      [...present].filter((c) => !VEHICLE_CATEGORIES.includes(c)),
     )
   }, [filteredCars])
 
@@ -158,127 +164,151 @@ const Cars = () => {
     [],
   )
 
+  const showGrouped = !activeCategory && !input.trim() && sections.length > 1
+  const loading = (carsLoading || searchLoading) && !filteredCars.length
+
   return (
-    <div className="pb-20 sm:pb-28">
+    <div className="ac-home pb-16 sm:pb-24">
       <Seo
         title={t('cars.seoTitle')}
         description={t('cars.seoDescription')}
         path="/cars"
         jsonLd={jsonLd}
       />
-      <Motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="fleet-atelier relative flex flex-col items-center py-16 sm:py-22 page-pad page-shell overflow-hidden"
-      >
-        <div className="fleet-atelier__atmosphere" aria-hidden="true" />
-        <div className="fleet-atelier__grain" aria-hidden="true" />
-        <div className="relative z-10 w-full max-w-3xl text-center">
-          <header className="ac-head ac-head--center">
-            <p className="ac-eyebrow">{t('featured.eyebrow')}</p>
-            <h1 className="ac-title" style={{ fontSize: 'clamp(2.4rem, 5.5vw, 3.75rem)' }}>
-              {t('cars.title')}
-            </h1>
-            <p className="ac-lede">{t('cars.subtitle')}</p>
-          </header>
-        </div>
 
-        <Motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.5 }}
-          className="relative z-10 flex items-center bg-white px-4 mt-8 max-w-xl w-full h-12 rounded-[var(--ac-radius)] border border-borderColor shadow-[var(--ac-shadow)]"
-        >
-          <img src={assets.search_icon} alt="" width={18} height={18} className="w-[1.125rem] h-[1.125rem] me-2 shrink-0" />
-          <input
-            onChange={(e) => setInput(e.target.value)}
-            value={input}
-            type="search"
-            placeholder={t('cars.searchPlaceholder')}
-            aria-label={t('cars.searchPlaceholder')}
-            className="w-full min-w-0 h-full outline-none text-muted text-sm sm:text-base"
-          />
-        </Motion.div>
-
-        {availableCategories.length > 0 && (
-          <nav
-            className="ac-tabs relative z-10 mt-8 w-full max-w-4xl justify-center"
-            aria-label={t('cars.categoryLabel')}
+      <section className="ac-section">
+        <div className="page-pad page-shell">
+          <Motion.header
+            className="ac-head ac-head--center"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <Link
-              to="/cars"
-              onClick={() => selectCategory('')}
-              className={`ac-tab${!activeCategory ? ' is-on' : ''}`}
-            >
-              {t('cars.allCategories')}
-            </Link>
-            {availableCategories.map((cat) => (
+            <p className="ac-eyebrow">{t('featured.eyebrow')}</p>
+            <h1 className="ac-title">{t('cars.title')}</h1>
+            <p className="ac-lede">{t('cars.subtitle')}</p>
+          </Motion.header>
+
+          <Motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12, duration: 0.45 }}
+            className="ac-search"
+          >
+            <img
+              src={assets.search_icon}
+              alt=""
+              width={18}
+              height={18}
+              className="ac-search__icon"
+            />
+            <input
+              onChange={(e) => setInput(e.target.value)}
+              value={input}
+              type="search"
+              placeholder={t('cars.searchPlaceholder')}
+              aria-label={t('cars.searchPlaceholder')}
+              className="ac-search__input"
+            />
+          </Motion.div>
+
+          {availableCategories.length > 0 ? (
+            <nav className="ac-tabs ac-tabs--center mt-7" aria-label={t('cars.categoryLabel')}>
               <Link
-                key={cat}
-                to={`/cars?category=${encodeURIComponent(cat)}`}
-                onClick={() => selectCategory(cat)}
-                className={`ac-tab${
-                  activeCategory.toLowerCase() === cat.toLowerCase() ? ' is-on' : ''
-                }`}
+                to="/cars"
+                onClick={() => selectCategory('')}
+                className={`ac-tab${!activeCategory ? ' is-on' : ''}`}
               >
-                {cat}
+                {t('cars.allCategories')}
               </Link>
-            ))}
-          </nav>
-        )}
-        <p className="relative z-10 mt-6 text-center text-sm text-muted">
-          <Link to={AIRPORT_LANDING_PATH} className="ac-text-link">
-            {t('cars.airportLink')}
-          </Link>
-        </p>
-      </Motion.div>
+              {availableCategories.map((cat) => (
+                <Link
+                  key={cat}
+                  to={`/cars?category=${encodeURIComponent(cat)}`}
+                  onClick={() => selectCategory(cat)}
+                  className={`ac-tab${
+                    activeCategory.toLowerCase() === cat.toLowerCase() ? ' is-on' : ''
+                  }`}
+                >
+                  {cat}
+                </Link>
+              ))}
+            </nav>
+          ) : null}
 
-      <div className="page-pad page-shell mt-4 sm:mt-6">
-        <p className="text-muted text-sm sm:text-base mb-6">
-          {carsLoading || searchLoading
-            ? t('common.loading')
-            : t('cars.showing', { count: sections.reduce((n, s) => n + s.cars.length, 0) })}
-        </p>
+          <p className="mt-5 text-center">
+            <Link to={AIRPORT_LANDING_PATH} className="ac-text-link">
+              {t('cars.airportLink')}
+            </Link>
+          </p>
+        </div>
+      </section>
 
-        {(carsLoading || searchLoading) && !filteredCars.length ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-72 rounded-2xl bg-sand/70 animate-pulse" />
-            ))}
-          </div>
-        ) : sections.length === 0 ? (
-          <p className="text-center text-muted py-16">{t('cars.noCars')}</p>
-        ) : (
-          <div className="space-y-12 md:space-y-16">
-            {sections.map((section, sIdx) => (
-              <Motion.div
-                key={section.category}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.12 }}
-                transition={{ duration: 0.45, delay: Math.min(sIdx * 0.04, 0.16) }}
-              >
-                <CategorySection
-                  id={`category-${section.category.toLowerCase()}`}
-                  category={section.category}
-                  count={section.cars.length}
-                  cars={section.cars}
-                  animate={false}
-                  actionTo={
-                    activeCategory
-                      ? '/cars'
-                      : `/cars?category=${encodeURIComponent(section.category)}`
-                  }
-                  actionLabel={
-                    activeCategory ? t('cars.allCategories') : t('featured.viewCategory')
-                  }
-                />
-              </Motion.div>
-            ))}
-          </div>
-        )}
-      </div>
+      <section className="ac-section ac-section--tight">
+        <div className="page-pad page-shell">
+          <p className="ac-fleet-meta">
+            {loading
+              ? t('common.loading')
+              : t('cars.showing', { count: flatList.length })}
+          </p>
+
+          {loading ? (
+            <div className="ac-fleet-grid">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="ac-skeleton-card" aria-hidden />
+              ))}
+            </div>
+          ) : flatList.length === 0 ? (
+            <p className="ac-empty">{t('cars.noCars')}</p>
+          ) : showGrouped ? (
+            <div className="ac-fleet-groups">
+              {sections.map((section, sIdx) => (
+                <Motion.div
+                  key={section.category}
+                  id={`category-${String(section.category).toLowerCase()}`}
+                  className="ac-fleet-group"
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.08 }}
+                  transition={{ duration: 0.45, delay: Math.min(sIdx * 0.04, 0.16) }}
+                >
+                  <div className="ac-fleet-group__head">
+                    <div className="ac-fleet-group__title-row">
+                      <h2 className="ac-fleet-group__title">{section.category}</h2>
+                      <span className="ac-fleet-group__count">{section.cars.length}</span>
+                    </div>
+                    <Link
+                      to={`/cars?category=${encodeURIComponent(section.category)}`}
+                      onClick={() => selectCategory(section.category)}
+                      className="ac-text-link"
+                    >
+                      {t('featured.viewCategory')} →
+                    </Link>
+                  </div>
+                  <div className="ac-fleet-grid">
+                    {section.cars.map((car) => (
+                      <CarCard key={car._id} car={car} />
+                    ))}
+                  </div>
+                </Motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="ac-fleet-grid">
+              {flatList.map((car, i) => (
+                <Motion.div
+                  key={car._id}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.03, 0.24), duration: 0.4 }}
+                >
+                  <CarCard car={car} showCategory={!activeCategory} />
+                </Motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

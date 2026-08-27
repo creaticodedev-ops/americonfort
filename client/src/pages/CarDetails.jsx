@@ -302,17 +302,21 @@ const CarDetails = () => {
 
   if (notFound) {
     return (
-      <div className="page-pad page-shell mt-10 sm:mt-16 text-center pb-16">
-        <Seo
-          title="Vehicle not found"
-          description="This vehicle is unavailable or not listed on the Americonfort website."
-          path={`/car-details/${id}`}
-          noindex
-        />
-        <h1 className="text-2xl font-semibold text-gray-800">Vehicle not found</h1>
-        <Link to="/cars" className="mt-4 inline-block text-primary hover:underline">
-          {t('carDetails.back')}
-        </Link>
+      <div className="ac-home">
+        <div className="page-pad page-shell ac-section text-center">
+          <Seo
+            title="Vehicle not found"
+            description="This vehicle is unavailable or not listed on the Americonfort website."
+            path={`/car-details/${id}`}
+            noindex
+          />
+          <h1 className="ac-title" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.25rem)' }}>
+            Vehicle not found
+          </h1>
+          <Link to="/cars" className="ac-btn mt-6 inline-flex">
+            {t('carDetails.back')}
+          </Link>
+        </div>
       </div>
     )
   }
@@ -332,106 +336,118 @@ const CarDetails = () => {
     `Rent the ${car.brand} ${car.model}${car.category ? ` (${car.category})` : ''} with Americonfort in Morocco. Daily rate from ${currency}${car.pricePerDay}. Reserve online.`
 
   return (
-    <div className="page-pad page-shell mt-6 sm:mt-10 md:mt-12 pb-16 sm:pb-20 bg-gradient-to-b from-white to-sand/30 min-h-screen">
-      <Seo
-        title={seoTitle}
-        description={seoDescription}
-        path={`/car-details/${car._id}`}
-        type="product"
-        image={car.image || car.images?.[0]}
-        jsonLd={carJsonLd}
-      />
-      <Link
-        to="/cars"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-muted transition hover:text-ink"
-      >
-        <img src={assets.arrow_icon} alt="" width={16} height={16} className="w-4 h-4 rotate-180 opacity-60" />
-        {t('carDetails.back')}
-      </Link>
+    <div className="ac-home">
+      <div className="page-pad page-shell ac-section">
+        <Seo
+          title={seoTitle}
+          description={seoDescription}
+          path={`/car-details/${car._id}`}
+          type="product"
+          image={car.image || car.images?.[0]}
+          jsonLd={carJsonLd}
+        />
+        <Link to="/cars" className="ac-text-link ac-back">
+          <span aria-hidden>←</span>
+          {t('carDetails.back')}
+        </Link>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10 xl:gap-14">
-        <div className="order-2 lg:order-1 lg:col-span-7 xl:col-span-8 min-w-0">
-          <Motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-            <div className="overflow-hidden rounded-2xl bg-gray-100 shadow-sm ring-1 ring-gray-200/60">
-              <ResponsiveImage
-                src={car.image || car.images?.[0] || fallbackImage}
-                fallbackSrc={fallbackImage}
-                alt={`${car.brand} ${car.model}`}
-                widths={[640, 960, 1280, 1600]}
-                sizes="(max-width: 1024px) 100vw, 720px"
-                width={1280}
-                height={720}
-                fetchPriority="high"
-                decoding="async"
-                className="aspect-[16/10] w-full h-auto object-cover sm:aspect-[16/9]"
+        <div className="ac-detail">
+          <div className="ac-detail__main">
+            <Motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+              <div className="ac-detail__media">
+                <div className="ac-detail__studio" aria-hidden />
+                <ResponsiveImage
+                  src={car.image || car.images?.[0] || fallbackImage}
+                  fallbackSrc={fallbackImage}
+                  alt={`${car.brand} ${car.model}`}
+                  widths={[640, 960, 1280, 1600]}
+                  sizes="(max-width: 1024px) 100vw, 720px"
+                  width={1280}
+                  height={720}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="ac-detail__img"
+                />
+              </div>
+
+              <div className="ac-detail__identity">
+                {car.category ? <p className="ac-eyebrow">{car.category}</p> : null}
+                <h1 className="ac-detail__title">
+                  {car.brand} {car.model}
+                </h1>
+                {car.year ? <p className="ac-detail__year">{car.year}</p> : null}
+                <p className="ac-detail__rate">
+                  <span className="ac-detail__cur">{currency.trim()}</span>
+                  <span className="ac-detail__amt">{car.pricePerDay}</span>
+                  <span className="ac-detail__per">{t('carDetails.perDay')}</span>
+                </p>
+              </div>
+
+              <div className="ac-detail__specs">
+                {specs.map(({ icon, text }) => (
+                  <span key={text} className="ac-detail__spec">
+                    <img src={icon} alt="" width={16} height={16} className="h-4 w-4 opacity-70" loading="lazy" />
+                    {text}
+                  </span>
+                ))}
+              </div>
+
+              <div className="ac-detail__copy">
+                <section>
+                  <h2 className="ac-detail__h">{t('carDetails.description')}</h2>
+                  <p className="ac-detail__p">{car.description}</p>
+                </section>
+                <section>
+                  <h2 className="ac-detail__h">{t('carDetails.features')}</h2>
+                  <ul className="ac-detail__features">
+                    {(car.features?.length
+                      ? car.features
+                      : ['360 Camera', 'Bluetooth', 'GPS', 'Heated Seats']
+                    ).map((item) => (
+                      <li key={item}>
+                        <img
+                          src={assets.check_icon}
+                          className="h-4 w-4 shrink-0"
+                          alt=""
+                          width={16}
+                          height={16}
+                          loading="lazy"
+                        />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </div>
+            </Motion.div>
+          </div>
+
+          <div className="ac-detail__aside">
+            <Suspense fallback={<Loader />}>
+              <ReservationPanel
+                car={car}
+                form={form}
+                setForm={setForm}
+                pickupDate={pickupDate}
+                setPickupDate={setPickupDate}
+                returnDate={returnDate}
+                setReturnDate={setReturnDate}
+                bookableLocations={bookableLocations}
+                pickupLoc={pickupLoc}
+                returnLoc={returnLoc}
+                priceBreakdown={priceBreakdown}
+                currency={currency}
+                submitting={submitting}
+                onWhatsAppSubmit={() => submitReservation({ channel: 'whatsapp' })}
+                t={t}
+                formatFeeLabel={(loc) => formatFeeLabel(loc, currency, t('carDetails.free'))}
+                minDate={minDate}
+                maxDate={maxDate}
+                openingTime={openingTime}
+                closingTime={closingTime}
               />
-            </div>
-
-            <div className="mt-6 sm:mt-8">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted">{car.category}</p>
-              <h1 className="font-display mt-1 text-2xl font-medium text-gray-900 sm:text-3xl lg:text-4xl">
-                {car.brand} {car.model}
-              </h1>
-              <p className="mt-1 text-sm text-muted">{car.year}</p>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              {specs.map(({ icon, text }) => (
-                <span
-                  key={text}
-                  className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white px-3.5 py-2 text-xs font-medium text-gray-700 shadow-sm"
-                >
-                  <img src={icon} alt="" width={16} height={16} className="h-4 w-4 opacity-70" loading="lazy" />
-                  {text}
-                </span>
-              ))}
-            </div>
-
-            <div className="mt-10 grid gap-10 sm:grid-cols-2">
-              <section>
-                <h2 className="text-sm font-semibold text-gray-900">{t('carDetails.description')}</h2>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600">{car.description}</p>
-              </section>
-              <section>
-                <h2 className="text-sm font-semibold text-gray-900">{t('carDetails.features')}</h2>
-                <ul className="mt-3 space-y-2">
-                  {(car.features?.length ? car.features : ['360 Camera', 'Bluetooth', 'GPS', 'Heated Seats']).map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                      <img src={assets.check_icon} className="h-4 w-4 shrink-0" alt="" width={16} height={16} loading="lazy" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </div>
-          </Motion.div>
-        </div>
-
-        <div className="order-1 lg:order-2 lg:col-span-5 xl:col-span-4 min-w-0">
-          <Suspense fallback={<Loader />}>
-            <ReservationPanel
-              car={car}
-              form={form}
-              setForm={setForm}
-              pickupDate={pickupDate}
-              setPickupDate={setPickupDate}
-              returnDate={returnDate}
-              setReturnDate={setReturnDate}
-              bookableLocations={bookableLocations}
-              pickupLoc={pickupLoc}
-              returnLoc={returnLoc}
-              priceBreakdown={priceBreakdown}
-              currency={currency}
-              submitting={submitting}
-              onWhatsAppSubmit={() => submitReservation({ channel: 'whatsapp' })}
-              t={t}
-              formatFeeLabel={(loc) => formatFeeLabel(loc, currency, t('carDetails.free'))}
-              minDate={minDate}
-              maxDate={maxDate}
-              openingTime={openingTime}
-              closingTime={closingTime}
-            />
-          </Suspense>
+            </Suspense>
+          </div>
         </div>
       </div>
     </div>
