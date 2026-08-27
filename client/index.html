@@ -88,7 +88,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Classic (non-module) boot: third-party analytics must never gate React. -->
+    <!-- Boot guard: never clear reload keys on ?_= (prevents infinite refresh). Asset CDN TTL is finite so deploy-race 404s cannot stick forever. -->
     <script data-cfasync="false">
       (function () {
         var THIRD_PARTY = /cloudflareinsights\.com|googletagmanager\.com|google-analytics\.com|googletagservices\.com|doubleclick\.net/i;
@@ -127,11 +127,13 @@
         function hardRecover() {
           if (recovering) return;
           recovering = true;
+          try {
+            // Allow a fresh attempt after a poisoned CDN 404 / stuck Recover screen.
+            sessionStorage.removeItem(RELOAD_KEY);
+            sessionStorage.removeItem(RELOAD_COUNT_KEY);
+            sessionStorage.removeItem('americonfort:lazy-retry');
+          } catch (e) { /* private mode */ }
           clearServiceWorkerAndCaches().finally(function () {
-            try {
-              sessionStorage.setItem(RELOAD_KEY, 'done');
-              sessionStorage.setItem(RELOAD_COUNT_KEY, '1');
-            } catch (e) { /* private mode */ }
             var next = new URL(window.location.origin + '/');
             next.searchParams.set('_recover', String(Date.now()));
             window.location.replace(next.toString());
