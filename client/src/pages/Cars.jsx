@@ -262,7 +262,6 @@ const Cars = () => {
                   category={section.category}
                   count={section.cars.length}
                   cars={section.cars}
-                  index={sIdx + 1}
                   animate={false}
                   actionTo={
                     activeCategory

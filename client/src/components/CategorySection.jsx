@@ -5,7 +5,7 @@ import CarCard from './CarCard'
 import { useI18n } from '../i18n/I18nContext'
 
 /**
- * Kinetic category rail for public fleet (home featured + /cars).
+ * Category rail for /cars — clean header + responsive showroom grid/scroll.
  */
 const CategorySection = ({
   category,
@@ -15,33 +15,18 @@ const CategorySection = ({
   actionLabel,
   id,
   animate = true,
-  index,
-  kinetic = false,
 }) => {
   const { t } = useI18n()
   const total = typeof count === 'number' ? count : cars.length
-  const ordinal = typeof index === 'number' ? String(index).padStart(2, '0') : null
 
   return (
-    <Motion.section
-      id={id}
-      className={`fleet-rail min-w-0${kinetic ? ' fleet-rail--kinetic' : ''}`}
-      initial={kinetic ? { opacity: 0, y: 28 } : false}
-      whileInView={kinetic ? { opacity: 1, y: 0 } : undefined}
-      viewport={{ once: true, amount: 0.12 }}
-      transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-    >
+    <section id={id} className="fleet-rail">
       <header className="fleet-rail__header">
         <div className="fleet-rail__heading">
-          {ordinal ? (
-            <span className="fleet-rail__index" aria-hidden="true">
-              {ordinal}
-            </span>
-          ) : null}
           <div className="min-w-0">
             <p className="fleet-rail__kicker">{t('cars.categoryLabel')}</p>
             <div className="fleet-rail__title-row">
-              <h3 className="fleet-rail__title">{category}</h3>
+              <h2 className="fleet-rail__title">{category}</h2>
               <span
                 className="fleet-rail__count"
                 aria-label={t('cars.categoryCount', { count: total })}
@@ -76,12 +61,12 @@ const CategorySection = ({
             <Motion.div
               key={car._id}
               className="fleet-rail__item"
-              initial={{ opacity: 0, y: 28, scale: 0.97 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.12 }}
               transition={{
-                duration: 0.6,
-                delay: Math.min(i * 0.09, 0.32),
+                duration: 0.5,
+                delay: Math.min(i * 0.06, 0.24),
                 ease: [0.16, 1, 0.3, 1],
               }}
             >
@@ -90,7 +75,7 @@ const CategorySection = ({
           )
         })}
       </div>
-    </Motion.section>
+    </section>
   )
 }
 

@@ -45,7 +45,8 @@ export const en = {
   featured: {
     eyebrow: 'The fleet',
     title: 'Featured vehicles',
-    subtitle: 'Browse by category, preview the car, then reserve in minutes — clear rates, no account required.',
+    subtitle: 'Choose a category, open a vehicle, reserve in minutes — clear daily rates, no account required.',
+    allVehicles: 'All vehicles',
     exploreAll: 'Explore the full fleet',
     viewCategory: 'View category',
     airportLink: 'Casablanca airport car rental',
@@ -369,7 +370,8 @@ export const fr = {
   featured: {
     eyebrow: 'La flotte',
     title: 'Véhicules en vedette',
-    subtitle: 'Parcourez par catégorie, prévisualisez la voiture, puis réservez en quelques minutes — tarifs clairs, sans compte.',
+    subtitle: 'Choisissez une catégorie, ouvrez un véhicule, réservez en quelques minutes — tarifs journaliers clairs, sans compte.',
+    allVehicles: 'Tous les véhicules',
     exploreAll: 'Voir toute la flotte',
     viewCategory: 'Voir la catégorie',
     airportLink: 'Location voiture aéroport Casablanca',
@@ -692,7 +694,8 @@ export const es = {
   featured: {
     eyebrow: 'La flota',
     title: 'Vehículos destacados',
-    subtitle: 'Explora por categoría, previsualiza el vehículo y reserva en minutos — tarifas claras, sin cuenta.',
+    subtitle: 'Elige una categoría, abre un vehículo y reserva en minutos — tarifas diarias claras, sin cuenta.',
+    allVehicles: 'Todos los vehículos',
     exploreAll: 'Ver toda la flota',
     viewCategory: 'Ver categoría',
     airportLink: 'Alquiler aeropuerto Casablanca',

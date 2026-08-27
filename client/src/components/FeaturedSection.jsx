@@ -1,228 +1,180 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { assets } from '../assets/assets'
-import CategorySection from './CategorySection'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { motion as Motion, useMotionValue, useSpring, useTransform } from 'motion/react'
+import { motion as Motion, AnimatePresence } from 'motion/react'
 import { useI18n } from '../i18n/I18nContext'
 import { groupCarsByCategory } from '../utils/vehicleCategories'
 import { AIRPORT_LANDING_PATH } from '../constants/site'
-import ResponsiveImage from './ResponsiveImage'
-import { formatLocationsDisplay } from '../utils/carLocations'
+import CarCard from './CarCard'
 
-const displayNames = (car) => {
-  let brand = String(car.brand || '').replace(/\s*[-–—|/]+\s*$/g, '').trim()
-  let model = String(car.model || '').replace(/^\s*[-–—|/]+\s*/g, '').trim()
-  if (brand && model) {
-    const brandRe = new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–—]?\\s*`, 'i')
-    model = model.replace(brandRe, '').trim() || model
-  }
-  return { brand, model: model || String(car.model || '').trim() }
-}
-
-/** Hero vehicle panel — car fills the frame; copy is secondary. */
-const SpotlightStage = ({ car, currency, t }) => {
-  const stageRef = useRef(null)
-  const mx = useMotionValue(0)
-  const my = useMotionValue(0)
-  const sx = useSpring(mx, { stiffness: 70, damping: 20 })
-  const sy = useSpring(my, { stiffness: 70, damping: 20 })
-  const carX = useTransform(sx, [-0.5, 0.5], [-10, 10])
-  const carY = useTransform(sy, [-0.5, 0.5], [-6, 6])
-  const { brand, model } = useMemo(() => displayNames(car), [car.brand, car.model])
-  const available = Boolean(car.isAvaliable)
-  const locationLabel = formatLocationsDisplay(car)
-
-  const onMove = (e) => {
-    const el = stageRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    mx.set((e.clientX - r.left) / r.width - 0.5)
-    my.set((e.clientY - r.top) / r.height - 0.5)
-  }
-
-  return (
-    <Motion.div
-      ref={stageRef}
-      className="fleet-hero"
-      onMouseMove={onMove}
-      onMouseLeave={() => {
-        mx.set(0)
-        my.set(0)
-      }}
-      initial={{ opacity: 0, y: 28 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <Link
-        to={`/car-details/${car._id}`}
-        onClick={() => window.scrollTo(0, 0)}
-        className="fleet-hero__visual"
-        aria-label={`${brand} ${model}`.trim()}
-      >
-        <div className="fleet-hero__studio" aria-hidden />
-        <div className="fleet-hero__bloom" aria-hidden />
-        <div className="fleet-hero__ground" aria-hidden />
-        <Motion.div className="fleet-hero__car" style={{ x: carX, y: carY }}>
-          <ResponsiveImage
-            src={car.image || car.images?.[0] || assets.car_image1}
-            fallbackSrc={assets.car_image1}
-            alt={`${brand} ${model}`.trim()}
-            widths={[640, 960, 1280, 1600]}
-            sizes="(max-width: 767px) 100vw, (max-width: 1100px) 100vw, 72vw"
-            width={1280}
-            height={720}
-            loading="eager"
-            decoding="async"
-            className="fleet-hero__img"
-          />
-        </Motion.div>
-      </Link>
-
-      <div className="fleet-hero__panel">
-        <p className="fleet-hero__status">
-          <span className={`fleet-hero__dot${available ? ' is-on' : ''}`} aria-hidden />
-          {available ? t('carCard.available') : t('carCard.unavailable')}
-        </p>
-        {brand ? <p className="fleet-hero__brand">{brand}</p> : null}
-        <h3 className="fleet-hero__model">{model}</h3>
-        <p className="fleet-hero__meta">
-          {[car.category, car.year, car.transmission].filter(Boolean).join(' · ')}
-        </p>
-
-        <div className="fleet-hero__price">
-          <span className="fleet-hero__currency">{currency.trim()}</span>
-          <span className="fleet-hero__amount tabular-nums">{car.pricePerDay}</span>
-          <span className="fleet-hero__unit">{t('carCard.perDay')}</span>
-        </div>
-
-        {locationLabel ? <p className="fleet-hero__loc">{locationLabel}</p> : null}
-
-        <Link
-          to={`/car-details/${car._id}`}
-          onClick={() => window.scrollTo(0, 0)}
-          className="fleet-hero__cta"
-        >
-          {t('carCard.viewDetails')}
-          <span aria-hidden>→</span>
-        </Link>
-      </div>
-    </Motion.div>
-  )
-}
-
+/**
+ * Homepage fleet discovery — one job: browse & choose a car.
+ * No second hero. Filters drive a single canvas; categories become rails.
+ */
 const FeaturedSection = () => {
   const { cars } = useAppContext()
   const { t } = useI18n()
-  const currency = import.meta.env.VITE_CURRENCY || 'MAD '
-  const [activeCat, setActiveCat] = useState(null)
+  const [activeCat, setActiveCat] = useState('')
 
-  const sections = useMemo(() => {
-    const grouped = groupCarsByCategory(cars)
-    return grouped.slice(0, 3).map((s) => ({
-      category: s.category,
-      total: s.cars.length,
-      cars: s.cars.slice(0, 3),
-    }))
-  }, [cars])
+  const sections = useMemo(() => groupCarsByCategory(cars), [cars])
 
-  const spotlight = useMemo(() => {
-    const available = cars.find((c) => c.isAvaliable)
-    return available || cars[0] || null
-  }, [cars])
+  const filterCats = useMemo(
+    () => sections.slice(0, 5).map((s) => s.category),
+    [sections],
+  )
 
-  const visibleSections = activeCat
-    ? sections.filter((s) => s.category === activeCat)
-    : sections
+  const filtered = useMemo(() => {
+    if (!activeCat) return null
+    const match = sections.find(
+      (s) => String(s.category).toLowerCase() === activeCat.toLowerCase(),
+    )
+    return match ? match.cars.slice(0, 6) : []
+  }, [sections, activeCat])
+
+  const rails = useMemo(
+    () =>
+      sections.slice(0, 3).map((s) => ({
+        category: s.category,
+        total: s.cars.length,
+        cars: s.cars.slice(0, 4),
+      })),
+    [sections],
+  )
 
   return (
-    <section className="fleet-live relative overflow-hidden">
-      <div className="fleet-live__mesh" aria-hidden />
-      <div className="fleet-live__grain" aria-hidden />
+    <section className="fleet-disc">
+      <div className="fleet-disc__bg" aria-hidden />
 
-      <div className="relative page-pad page-shell py-16 md:py-22 lg:py-28">
-        <Motion.header
-          className="fleet-live__intro fleet-live__intro--solo"
-          initial={{ opacity: 0, y: 20 }}
+      <div className="relative page-pad page-shell py-14 md:py-20 lg:py-24">
+        <Motion.div
+          className="fleet-disc__head"
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         >
-          <p className="fleet-live__eyebrow">{t('featured.eyebrow')}</p>
-          <h2 className="fleet-live__headline">{t('featured.title')}</h2>
-          <p className="fleet-live__lede">{t('featured.subtitle')}</p>
-        </Motion.header>
+          <div className="fleet-disc__head-copy">
+            <p className="fleet-disc__eyebrow">{t('featured.eyebrow')}</p>
+            <h2 className="fleet-disc__title">{t('featured.title')}</h2>
+          </div>
+          <p className="fleet-disc__lede">{t('featured.subtitle')}</p>
+        </Motion.div>
 
-        {spotlight ? (
-          <div className="mt-10 md:mt-12">
-            <SpotlightStage car={spotlight} currency={currency} t={t} />
+        {filterCats.length > 0 ? (
+          <div className="fleet-disc__toolbar" role="tablist" aria-label={t('cars.categoryLabel')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!activeCat}
+              className={`fleet-disc__tab${!activeCat ? ' is-on' : ''}`}
+              onClick={() => setActiveCat('')}
+            >
+              {t('featured.allVehicles')}
+            </button>
+            {filterCats.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                role="tab"
+                aria-selected={activeCat === cat}
+                className={`fleet-disc__tab${activeCat === cat ? ' is-on' : ''}`}
+                onClick={() => setActiveCat(cat)}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         ) : null}
 
-        {sections.length > 1 ? (
-          <nav className="fleet-live__filters" aria-label={t('cars.categoryLabel')}>
-            <button
-              type="button"
-              className={`fleet-live__chip${!activeCat ? ' is-active' : ''}`}
-              onClick={() => setActiveCat(null)}
+        <AnimatePresence mode="wait">
+          {activeCat && filtered ? (
+            <Motion.div
+              key={`grid-${activeCat}`}
+              className="fleet-disc__grid"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             >
-              {t('cars.allCategories')}
-            </button>
-            {sections.map((s) => (
-              <button
-                key={s.category}
-                type="button"
-                className={`fleet-live__chip${activeCat === s.category ? ' is-active' : ''}`}
-                onClick={() => setActiveCat(s.category)}
-              >
-                {s.category}
-              </button>
-            ))}
-          </nav>
-        ) : null}
+              {filtered.length === 0 ? (
+                <p className="fleet-disc__empty">{t('cars.noCars')}</p>
+              ) : (
+                filtered.map((car, i) => (
+                  <Motion.div
+                    key={car._id}
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.05, 0.25), duration: 0.45 }}
+                  >
+                    <CarCard car={car} />
+                  </Motion.div>
+                ))
+              )}
+            </Motion.div>
+          ) : (
+            <Motion.div
+              key="rails"
+              className="fleet-disc__rails"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {rails.map((rail, rIdx) => (
+                <Motion.div
+                  key={rail.category}
+                  className="fleet-disc__rail"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ delay: Math.min(rIdx * 0.06, 0.18), duration: 0.5 }}
+                >
+                  <div className="fleet-disc__rail-head">
+                    <h3 className="fleet-disc__rail-title">{rail.category}</h3>
+                    <Link
+                      to={`/cars?category=${encodeURIComponent(rail.category)}`}
+                      onClick={() => window.scrollTo(0, 0)}
+                      className="fleet-disc__rail-link"
+                    >
+                      {t('featured.viewCategory')}
+                      <span aria-hidden>→</span>
+                    </Link>
+                  </div>
 
-        <div className="relative mt-10 md:mt-14 space-y-12 md:space-y-16">
-          {visibleSections.map((section, idx) => (
-            <CategorySection
-              key={section.category}
-              category={section.category}
-              count={section.total}
-              cars={section.cars}
-              index={idx + 1}
-              kinetic
-              actionTo={`/cars?category=${encodeURIComponent(section.category)}`}
-              actionLabel={t('featured.viewCategory')}
-            />
-          ))}
-        </div>
+                  <div className="fleet-disc__scroller">
+                    {rail.cars.map((car) => (
+                      <div key={car._id} className="fleet-disc__slide">
+                        <CarCard car={car} />
+                      </div>
+                    ))}
+                  </div>
+                </Motion.div>
+              ))}
+            </Motion.div>
+          )}
+        </AnimatePresence>
 
-        <Motion.div
-          className="fleet-live__footer"
-          initial={{ opacity: 0, y: 14 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <Link to="/cars" onClick={() => window.scrollTo(0, 0)} className="fleet-live__cta">
-            <span>{t('featured.exploreAll')}</span>
+        <div className="fleet-disc__foot">
+          <Link to="/cars" onClick={() => window.scrollTo(0, 0)} className="fleet-disc__cta">
+            {t('featured.exploreAll')}
             <img
               src={assets.arrow_icon}
               alt=""
               width={14}
               height={14}
               loading="lazy"
-              className="fleet-live__cta-icon"
+              className="fleet-disc__cta-icon"
             />
           </Link>
           <Link
             to={AIRPORT_LANDING_PATH}
             onClick={() => window.scrollTo(0, 0)}
-            className="fleet-live__airport"
+            className="fleet-disc__airport"
           >
             {t('featured.airportLink')}
           </Link>
-        </Motion.div>
+        </div>
       </div>
     </section>
   )
