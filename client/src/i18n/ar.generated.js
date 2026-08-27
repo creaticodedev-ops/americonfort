@@ -50,7 +50,8 @@ export const ar = {
     "exploreAll": "استكشف الأسطول كاملاً",
     "viewCategory": "عرض الفئة",
     "airportLink": "كراء سيارة مطار الدار البيضاء",
-    "fleetCountLabel": "مركبات في الأسطول"
+    "fleetCountLabel": "مركبات في الأسطول",
+    "spotlightLabel": "مميز"
   },
   "banner": {
     "eyebrow": "Ready when you are",

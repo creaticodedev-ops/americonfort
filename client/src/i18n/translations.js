@@ -50,6 +50,7 @@ export const en = {
     viewCategory: 'View category',
     airportLink: 'Casablanca airport car rental',
     fleetCountLabel: 'Vehicles in fleet',
+    spotlightLabel: 'Spotlight',
   },
   banner: {
     eyebrow: 'Ready when you are',
@@ -373,6 +374,7 @@ export const fr = {
     viewCategory: 'Voir la catégorie',
     airportLink: 'Location voiture aéroport Casablanca',
     fleetCountLabel: 'Véhicules en flotte',
+    spotlightLabel: 'À la une',
   },
   banner: {
     eyebrow: 'Prêt quand vous l\'êtes',
@@ -695,6 +697,7 @@ export const es = {
     viewCategory: 'Ver categoría',
     airportLink: 'Alquiler aeropuerto Casablanca',
     fleetCountLabel: 'Vehículos en flota',
+    spotlightLabel: 'Destacado',
   },
   banner: {
     eyebrow: 'Listo cuando tú lo estés',

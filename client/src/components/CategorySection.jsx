@@ -5,7 +5,7 @@ import CarCard from './CarCard'
 import { useI18n } from '../i18n/I18nContext'
 
 /**
- * Editorial category rail for public fleet (home featured + /cars).
+ * Kinetic category rail for public fleet (home featured + /cars).
  */
 const CategorySection = ({
   category,
@@ -16,13 +16,21 @@ const CategorySection = ({
   id,
   animate = true,
   index,
+  kinetic = false,
 }) => {
   const { t } = useI18n()
   const total = typeof count === 'number' ? count : cars.length
   const ordinal = typeof index === 'number' ? String(index).padStart(2, '0') : null
 
   return (
-    <section id={id} className="fleet-rail min-w-0">
+    <Motion.section
+      id={id}
+      className={`fleet-rail min-w-0${kinetic ? ' fleet-rail--kinetic' : ''}`}
+      initial={kinetic ? { opacity: 0, y: 28 } : false}
+      whileInView={kinetic ? { opacity: 1, y: 0 } : undefined}
+      viewport={{ once: true, amount: 0.12 }}
+      transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+    >
       <header className="fleet-rail__header">
         <div className="fleet-rail__heading">
           {ordinal ? (
@@ -68,13 +76,13 @@ const CategorySection = ({
             <Motion.div
               key={car._id}
               className="fleet-rail__item"
-              initial={{ opacity: 0, y: 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.15 }}
+              initial={{ opacity: 0, y: 28, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, amount: 0.12 }}
               transition={{
-                duration: 0.55,
-                delay: Math.min(i * 0.07, 0.28),
-                ease: [0.22, 1, 0.36, 1],
+                duration: 0.6,
+                delay: Math.min(i * 0.09, 0.32),
+                ease: [0.16, 1, 0.3, 1],
               }}
             >
               {card}
@@ -82,7 +90,7 @@ const CategorySection = ({
           )
         })}
       </div>
-    </section>
+    </Motion.section>
   )
 }
 
