@@ -32,15 +32,33 @@ const emptyFilters = {
 }
 
 const fleetStatus = (car) => {
-  if (car.status === 'maintenance') return 'maintenance'
-  if (car.isAvaliable) return 'active'
-  return 'inactive'
+  const op = car.operationalStatus
+    || (car.status === 'maintenance'
+      ? 'maintenance'
+      : car.currentlyRented
+        ? 'rented'
+        : car.isAvaliable
+          ? 'available'
+          : 'offline')
+  if (op === 'maintenance') return 'maintenance'
+  if (op === 'rented') return 'active'
+  if (op === 'offline') return 'inactive'
+  return 'confirmed'
 }
 
 const statusLabel = (car, t) => {
-  if (car.status === 'maintenance') return t('admin.fleet.statusMaintenance')
-  if (car.isAvaliable) return t('admin.fleet.statusAvailable')
-  return t('admin.fleet.statusOffline')
+  const op = car.operationalStatus
+    || (car.status === 'maintenance'
+      ? 'maintenance'
+      : car.currentlyRented
+        ? 'rented'
+        : car.isAvaliable
+          ? 'available'
+          : 'offline')
+  if (op === 'maintenance') return t('admin.fleet.statusMaintenance')
+  if (op === 'rented') return t('admin.fleetUi.onRent')
+  if (op === 'offline') return t('admin.fleet.statusOffline')
+  return t('admin.fleet.statusAvailable')
 }
 
 const isVisibleOnWebsite = (car) => car.visibleOnWebsite !== false
@@ -80,7 +98,10 @@ const FleetRowActions = ({
   onDelete,
 }) => (
   <div className="flex items-center justify-end gap-1.5">
-    <button type="button" className="admin-btn admin-btn--secondary admin-btn--sm" onClick={onEdit}>
+    <button type="button" className="admin-btn admin-btn--secondary admin-btn--sm" onClick={onStats}>
+      {t('admin.fleetUi.viewStats')}
+    </button>
+    <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={onEdit}>
       {t('admin.common.edit')}
     </button>
     <BookingActionsMenu
@@ -88,7 +109,6 @@ const FleetRowActions = ({
       showView={false}
       size="sm"
       items={[
-        { key: 'stats', label: t('admin.leftover.stats'), onClick: onStats },
         { key: 'toggle', label: t('admin.fleet.toggle'), onClick: onToggle },
         {
           key: 'website',
@@ -111,6 +131,7 @@ const ManageCars = () => {
   const fallbackImage = assets.car_image1
 
   const [cars, setCars] = useState([])
+  const [fleetSnapshot, setFleetSnapshot] = useState(null)
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [togglingVisibilityId, setTogglingVisibilityId] = useState('')
@@ -135,6 +156,7 @@ const ManageCars = () => {
       if (data.success) {
         setCars(data.cars)
         setBranches(data.branches || [])
+        setFleetSnapshot(data.snapshot || null)
       } else toast.error(data.message)
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -206,12 +228,14 @@ const ManageCars = () => {
   }, [isOwner, query])
 
   const snapshot = useMemo(() => {
+    if (fleetSnapshot) return fleetSnapshot
     const total = cars.length
-    const available = cars.filter((c) => c.isAvaliable && c.status !== 'maintenance').length
-    const maintenance = cars.filter((c) => c.status === 'maintenance').length
-    const offline = cars.filter((c) => !c.isAvaliable && c.status !== 'maintenance').length
-    return { total, available, maintenance, offline }
-  }, [cars])
+    const available = cars.filter((c) => (c.operationalStatus || (c.isAvaliable && c.status !== 'maintenance' ? 'available' : '')) === 'available').length
+    const rented = cars.filter((c) => c.operationalStatus === 'rented' || c.currentlyRented).length
+    const maintenance = cars.filter((c) => (c.operationalStatus || c.status) === 'maintenance').length
+    const offline = cars.filter((c) => c.operationalStatus === 'offline' || (!c.isAvaliable && c.status !== 'maintenance' && !c.currentlyRented)).length
+    return { total, available, rented, maintenance, offline }
+  }, [cars, fleetSnapshot])
 
   const extraFilterCount = countExtraFilters(applied)
   const patch = (key) => (e) => setFilters((prev) => ({ ...prev, [key]: e.target.value }))
@@ -277,10 +301,11 @@ const ManageCars = () => {
         }
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-5">
         <StatCard compact label={t('admin.fleetUi.totalCars')} value={snapshot.total} />
         <StatCard compact label={t('admin.fleetUi.available')} value={snapshot.available} tone="success" />
-        <StatCard compact label={t('admin.fleetUi.offline')} value={snapshot.offline} tone="info" />
+        <StatCard compact label={t('admin.fleetUi.onRent')} value={snapshot.rented ?? 0} tone="info" />
+        <StatCard compact label={t('admin.fleetUi.offlineOnly')} value={snapshot.offline} />
         <StatCard compact label={t('admin.fleetUi.maintenance')} value={snapshot.maintenance} tone="warning" to="/owner/maintenance" />
       </div>
 

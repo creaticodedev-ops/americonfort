@@ -19,6 +19,13 @@ const formatDay = (value) => {
   return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+const availabilityLabel = (availability, t) => {
+  if (availability === 'rented') return t('admin.vehicleStats.statusRented')
+  if (availability === 'maintenance') return t('admin.vehicleStats.statusMaintenance')
+  if (availability === 'offline') return t('admin.vehicleStats.statusOffline')
+  return t('admin.vehicleStats.statusAvailable')
+}
+
 const VehicleStatsDrawer = ({
   vehicle,
   open,
@@ -80,6 +87,7 @@ const VehicleStatsDrawer = ({
   const trend = stats?.trend || []
   const maintenance = stats?.maintenanceHistory || []
   const name = `${vehicle?.brand || stats?.vehicle?.brand || ''} ${vehicle?.model || stats?.vehicle?.model || ''}`.trim()
+  const availability = overview.availability || stats?.vehicle?.availability || 'available'
 
   const grainOptions = useMemo(
     () => [
@@ -118,12 +126,16 @@ const VehicleStatsDrawer = ({
               alt={name}
               className="h-14 w-14 rounded-[var(--admin-radius)] object-cover"
             />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-[var(--admin-fg)]">{name}</p>
               <p className="text-sm text-[var(--admin-fg-secondary)]">
                 {t('admin.vehicleStats.periodHint', { days: stats.period?.days || 0 })}
               </p>
             </div>
+            <StatusBadge
+              status={availability === 'rented' ? 'active' : availability === 'maintenance' ? 'maintenance' : availability === 'offline' ? 'inactive' : 'confirmed'}
+              label={availabilityLabel(availability, t)}
+            />
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -136,7 +148,7 @@ const VehicleStatsDrawer = ({
                   ? t('admin.vehicleStats.periodRevenueHint', {
                       booking: money(overview.bookingValue, currency),
                     })
-                  : undefined
+                  : t('admin.vehicleStats.kpiRevenueHint')
               }
             />
             <StatCard compact label={t('admin.vehicleStats.rentals')} value={overview.totalBookings ?? 0} />
@@ -144,6 +156,45 @@ const VehicleStatsDrawer = ({
             <StatCard compact label={t('admin.vehicleStats.utilization')} value={overview.utilizationRate || '0%'} />
             <StatCard compact label={t('admin.vehicleStats.averageRental')} value={overview.averageRentalDuration || '0 days'} />
           </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <StatCard compact label={t('admin.vehicleStats.completed')} value={overview.completedBookings ?? 0} />
+            <StatCard compact label={t('admin.vehicleStats.activeNow')} value={overview.activeBookings ?? 0} />
+            <StatCard compact label={t('admin.vehicleStats.upcoming')} value={overview.upcomingBookings ?? 0} />
+            <StatCard compact label={t('admin.vehicleStats.cancelled')} value={overview.cancelledBookings ?? 0} />
+          </div>
+
+          <section className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] p-4">
+            <h3 className="admin-panel-title mb-3">{t('admin.vehicleStats.activityTitle')}</h3>
+            <dl className="grid gap-3 sm:grid-cols-3 text-sm">
+              <div>
+                <dt className="text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.currentRental')}</dt>
+                <dd className="mt-0.5 font-medium text-[var(--admin-fg)]">
+                  {overview.currentlyRented
+                    ? `${overview.currentCustomer || '—'} · ${formatDay(overview.currentPickupAt)} → ${formatDay(overview.currentReturnAt)}`
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.nextReservation')}</dt>
+                <dd className="mt-0.5 font-medium text-[var(--admin-fg)]">
+                  {overview.nextReservationAt
+                    ? `${overview.nextCustomer || '—'} · ${formatDay(overview.nextReservationAt)}`
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.lastRental')}</dt>
+                <dd className="mt-0.5 font-medium text-[var(--admin-fg)]">{formatDay(overview.lastRentalAt)}</dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-xs text-[var(--admin-fg-muted)]">
+              {t('admin.vehicleStats.availabilityDays', {
+                available: overview.availableDays ?? 0,
+                unavailable: overview.unavailableDays ?? 0,
+              })}
+            </p>
+          </section>
 
           <ChartCard
             title={t('admin.vehicleStats.revenueTrend')}

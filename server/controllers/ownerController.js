@@ -25,6 +25,7 @@ import {
 import {
   buildFleetVehicleStats,
   buildVehicleDetailStats,
+  resolveFleetOperationalMap,
 } from "../services/vehicleStatsService.js";
 
 const uploadToImageKit = async (imageFile, folder, width = '1280') => {
@@ -236,10 +237,28 @@ export const getOwnerCars = async (req, res) => {
       ];
     }
 
-    const cars = await Car.find(filter).sort({ fleetId: 1, createdAt: -1 });
+    const cars = await Car.find(filter).sort({ fleetId: 1, createdAt: -1 }).lean();
     const branches = await Car.distinct('branch', { owner: _id, branch: { $nin: ['', null] } });
+    const { operationalStatusFor } = await resolveFleetOperationalMap(_id);
 
-    res.json({ success: true, cars, branches });
+    const enriched = cars.map((car) => {
+      const operationalStatus = operationalStatusFor(car);
+      return {
+        ...car,
+        operationalStatus,
+        currentlyRented: operationalStatus === 'rented',
+      };
+    });
+
+    const snapshot = {
+      total: enriched.length,
+      available: enriched.filter((c) => c.operationalStatus === 'available').length,
+      rented: enriched.filter((c) => c.operationalStatus === 'rented').length,
+      offline: enriched.filter((c) => c.operationalStatus === 'offline').length,
+      maintenance: enriched.filter((c) => c.operationalStatus === 'maintenance').length,
+    };
+
+    res.json({ success: true, cars: enriched, branches, snapshot });
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ success: false, message: 'Failed to fetch cars' });

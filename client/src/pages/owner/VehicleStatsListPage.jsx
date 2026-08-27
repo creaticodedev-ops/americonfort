@@ -199,6 +199,11 @@ const VehicleStatsListPage = ({ selectedVehicleId = '' }) => {
         />
         <StatCard
           compact
+          label={t('admin.vehicleStats.kpiAvgDuration')}
+          value={loading ? '—' : `${kpis.avgDuration ?? 0}`}
+        />
+        <StatCard
+          compact
           tone="success"
           label={t('admin.vehicleStats.kpiAvailable')}
           value={loading ? '—' : kpis.available ?? 0}
@@ -208,6 +213,11 @@ const VehicleStatsListPage = ({ selectedVehicleId = '' }) => {
           tone="info"
           label={t('admin.vehicleStats.kpiRented')}
           value={loading ? '—' : kpis.rented ?? 0}
+        />
+        <StatCard
+          compact
+          label={t('admin.vehicleStats.kpiOffline')}
+          value={loading ? '—' : kpis.offline ?? 0}
         />
         <StatCard
           compact
