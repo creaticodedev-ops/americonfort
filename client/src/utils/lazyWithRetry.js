@@ -23,9 +23,8 @@ export const isChunkLoadError = (error) => {
 /** Full navigation that bypasses stale HTML/module graphs after a deploy. */
 export const hardRecoverFromStaleChunks = (path = '/') => {
   try {
-    sessionStorage.removeItem(CHUNK_RELOAD_KEY)
-    sessionStorage.removeItem(CHUNK_RELOAD_COUNT_KEY)
     sessionStorage.removeItem(LAZY_RETRY_KEY)
+    // Keep CHUNK_RELOAD_* guards — clearing them caused reload loops.
   } catch {
     /* private mode */
   }
@@ -34,6 +33,12 @@ export const hardRecoverFromStaleChunks = (path = '/') => {
     if (typeof window.__acHardRecover === 'function' && (path === '/' || !path)) {
       window.__acHardRecover()
       return
+    }
+    try {
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, 'done')
+      sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, '1')
+    } catch {
+      /* private mode */
     }
     const next = new URL(path || '/', window.location.origin)
     next.searchParams.set('_recover', String(Date.now()))
@@ -74,14 +79,19 @@ export const lazyWithRetry = (importer) =>
     } catch (err) {
       if (!isChunkLoadError(err)) throw err
       try {
-        if (!sessionStorage.getItem(LAZY_RETRY_KEY)) {
+        const already = sessionStorage.getItem(LAZY_RETRY_KEY)
+        const reloadDone = sessionStorage.getItem(CHUNK_RELOAD_KEY) === 'done'
+        const reloadCount = parseInt(sessionStorage.getItem(CHUNK_RELOAD_COUNT_KEY) || '0', 10) || 0
+        if (!already && !reloadDone && reloadCount < 1) {
           sessionStorage.setItem(LAZY_RETRY_KEY, '1')
-          sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+          sessionStorage.setItem(CHUNK_RELOAD_KEY, 'pending')
+          sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, String(reloadCount + 1))
           const next = new URL(window.location.href)
           next.searchParams.set('_', String(Date.now()))
           window.location.replace(next.toString())
           return new Promise(() => {})
         }
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, 'done')
         sessionStorage.removeItem(LAZY_RETRY_KEY)
       } catch {
         /* private mode */

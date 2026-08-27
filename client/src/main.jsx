@@ -13,11 +13,25 @@ preloadCriticalFonts()
 loadExtendedLatinFonts()
 
 const CHUNK_RELOAD_KEY = 'americonfort:chunk-reload'
+const CHUNK_RELOAD_COUNT_KEY = 'americonfort:chunk-reload-count'
+const LAZY_RETRY_KEY = 'americonfort:lazy-retry'
 
+/**
+ * At most ONE automatic full reload per tab session for stale hashed chunks.
+ * Never clear this guard on a timer — that caused infinite reload loops when
+ * the same missing chunk kept failing after each reload.
+ */
 const reloadOnceForStaleChunks = (reason) => {
+  let count = 0
   try {
-    if (sessionStorage.getItem(CHUNK_RELOAD_KEY)) return false
-    sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+    if (sessionStorage.getItem(CHUNK_RELOAD_KEY) === 'done') return false
+    count = parseInt(sessionStorage.getItem(CHUNK_RELOAD_COUNT_KEY) || '0', 10) || 0
+    if (count >= 1) {
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, 'done')
+      return false
+    }
+    sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, String(count + 1))
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, 'pending')
   } catch {
     if (window.location.search.includes('chunk_reload=1')) return false
     const url = new URL(window.location.href)
@@ -26,6 +40,7 @@ const reloadOnceForStaleChunks = (reason) => {
     window.location.replace(url.toString())
     return true
   }
+
   console.warn('[boot] Reloading once after stale/missing JS chunk:', reason)
   const next = new URL(window.location.href)
   next.searchParams.set('_', String(Date.now()))
@@ -39,24 +54,15 @@ window.addEventListener('vite:preloadError', (event) => {
 })
 
 window.addEventListener('unhandledrejection', (event) => {
-  if (isChunkLoadError(event.reason)) {
-    if (reloadOnceForStaleChunks(event.reason)) {
-      event.preventDefault()
-    }
+  if (!isChunkLoadError(event.reason)) return
+  if (reloadOnceForStaleChunks(event.reason)) {
+    event.preventDefault()
   }
 })
 
-window.setTimeout(() => {
-  try {
-    sessionStorage.removeItem(CHUNK_RELOAD_KEY)
-    sessionStorage.removeItem('americonfort:chunk-reload-count')
-    sessionStorage.removeItem('americonfort:lazy-retry')
-  } catch {
-    /* ignore */
-  }
-}, 15_000)
+const rootEl = document.getElementById('root')
 
-createRoot(document.getElementById('root')).render(
+createRoot(rootEl).render(
   <BrowserRouter>
     <I18nProvider>
       <AppProvider>
@@ -67,3 +73,17 @@ createRoot(document.getElementById('root')).render(
     </I18nProvider>
   </BrowserRouter>,
 )
+
+/** Clear reload guards only after the app has actually painted. */
+window.requestAnimationFrame(() => {
+  window.setTimeout(() => {
+    if (!rootEl || rootEl.childElementCount === 0) return
+    try {
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+      sessionStorage.removeItem(CHUNK_RELOAD_COUNT_KEY)
+      sessionStorage.removeItem(LAZY_RETRY_KEY)
+    } catch {
+      /* ignore */
+    }
+  }, 2500)
+})

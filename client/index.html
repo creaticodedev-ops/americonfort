@@ -96,11 +96,7 @@
         var RELOAD_COUNT_KEY = 'americonfort:chunk-reload-count';
         var recovering = false;
 
-        function clearClientCaches() {
-          try {
-            sessionStorage.removeItem(RELOAD_KEY);
-            sessionStorage.removeItem(RELOAD_COUNT_KEY);
-          } catch (e) { /* private mode */ }
+        function clearServiceWorkerAndCaches() {
           var jobs = [];
           try {
             if (navigator.serviceWorker) {
@@ -123,10 +119,19 @@
           return Promise.all(jobs).catch(function () { /* ignore */ });
         }
 
+        /**
+         * Manual recover only. Do NOT clear reload guards here — wiping them
+         * on every ?_=/_recover navigation caused an infinite reload loop with
+         * main.jsx's vite:preloadError handler.
+         */
         function hardRecover() {
           if (recovering) return;
           recovering = true;
-          clearClientCaches().finally(function () {
+          clearServiceWorkerAndCaches().finally(function () {
+            try {
+              sessionStorage.setItem(RELOAD_KEY, 'done');
+              sessionStorage.setItem(RELOAD_COUNT_KEY, '1');
+            } catch (e) { /* private mode */ }
             var next = new URL(window.location.origin + '/');
             next.searchParams.set('_recover', String(Date.now()));
             window.location.replace(next.toString());
@@ -135,14 +140,13 @@
 
         window.__acHardRecover = hardRecover;
 
-        // After a successful recover navigation, drop the bust param from the URL.
+        // Cosmetic: strip bust params from the address bar. Keep session guards intact.
         try {
           var u = new URL(window.location.href);
-          if (u.searchParams.has('_recover') || u.searchParams.has('_')) {
-            sessionStorage.removeItem(RELOAD_KEY);
-            sessionStorage.removeItem(RELOAD_COUNT_KEY);
+          if (u.searchParams.has('_recover') || u.searchParams.has('_') || u.searchParams.has('chunk_reload')) {
             u.searchParams.delete('_recover');
             u.searchParams.delete('_');
+            u.searchParams.delete('chunk_reload');
             window.history.replaceState({}, '', u.pathname + u.search + u.hash);
           }
         } catch (e) { /* ignore */ }
@@ -155,6 +159,7 @@
           event.preventDefault();
           event.stopPropagation();
         }, true);
+
         window.addEventListener('unhandledrejection', function (event) {
           var reason = event.reason;
           var msg = String((reason && reason.message) || reason || '');
@@ -163,36 +168,7 @@
           event.preventDefault();
         });
 
-        function sleep(ms) {
-          return new Promise(function (resolve) { setTimeout(resolve, ms); });
-        }
-
-        /** Mid-deploy race: HTML can arrive before hashed assets. Poll briefly. */
-        function waitForAsset(url, attempts, gapMs) {
-          var left = attempts;
-          function tick() {
-            return fetch(url, { method: 'HEAD', cache: 'no-store', credentials: 'omit' })
-              .then(function (res) {
-                if (res && res.ok) return true;
-                left -= 1;
-                if (left <= 0) return false;
-                return sleep(gapMs).then(tick);
-              })
-              .catch(function () {
-                left -= 1;
-                if (left <= 0) return false;
-                return sleep(gapMs).then(tick);
-              });
-          }
-          return tick();
-        }
-
         function showRecoverUi(root) {
-          try {
-            sessionStorage.removeItem(RELOAD_KEY);
-            sessionStorage.removeItem(RELOAD_COUNT_KEY);
-          } catch (e) { /* private mode */ }
-
           root.innerHTML =
             '<div style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;text-align:center;color:#0f172a">' +
             '<p style="font-size:1.125rem;font-weight:600">Unable to load Americonfort</p>' +
@@ -207,36 +183,31 @@
           }
         }
 
+        // Only for the main entry script tag (not lazy chunks — those are handled in main.jsx).
         window.addEventListener('error', function (event) {
           var el = event.target;
           if (!el || el.tagName !== 'SCRIPT') return;
           var url = el.src || '';
-          if (url.indexOf('/assets/') === -1) return;
+          if (url.indexOf('/assets/index-') === -1) return;
           var root = document.getElementById('root');
           if (!root || root.childElementCount > 0 || recovering) return;
 
-          recovering = true;
           var count = 0;
           try {
             count = parseInt(sessionStorage.getItem(RELOAD_COUNT_KEY) || '0', 10) || 0;
-          } catch (e) { /* private mode */ }
-
-          // Wait for the missing bundle (deploy race), then hard-reload once or twice.
-          waitForAsset(url, 6, 1200).then(function (ready) {
-            if (ready && count < 3) {
-              try {
-                sessionStorage.setItem(RELOAD_KEY, '1');
-                sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1));
-              } catch (e) { /* private mode */ }
-              clearClientCaches().finally(function () {
-                var next = new URL(window.location.href);
-                next.searchParams.set('_', String(Date.now()));
-                window.location.replace(next.toString());
-              });
+            if (sessionStorage.getItem(RELOAD_KEY) === 'done' || count >= 1) {
+              showRecoverUi(root);
               return;
             }
-            recovering = false;
-            showRecoverUi(root);
+            sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1));
+            sessionStorage.setItem(RELOAD_KEY, 'pending');
+          } catch (e) { /* private mode */ }
+
+          recovering = true;
+          clearServiceWorkerAndCaches().finally(function () {
+            var next = new URL(window.location.origin + '/');
+            next.searchParams.set('_', String(Date.now()));
+            window.location.replace(next.toString());
           });
         }, true);
       })();

@@ -22,21 +22,29 @@ class ErrorBoundary extends React.Component {
     if (!isChunkLoadError(error)) return
 
     let count = 0
+    let done = false
     try {
+      done = sessionStorage.getItem(CHUNK_RELOAD_KEY) === 'done'
       count = parseInt(sessionStorage.getItem(CHUNK_RELOAD_COUNT_KEY) || '0', 10) || 0
     } catch {
       /* private mode */
     }
 
-    // Auto-recover up to 2 times with a full cache-bust navigation.
-    if (count < 2) {
+    // At most one automatic recover — never loop.
+    if (!done && count < 1) {
       try {
-        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
-        sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, String(count + 1))
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, 'pending')
+        sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, '1')
       } catch {
         /* private mode */
       }
       hardRecoverFromStaleChunks(window.location.pathname || '/')
+    } else {
+      try {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, 'done')
+      } catch {
+        /* private mode */
+      }
     }
   }
 
