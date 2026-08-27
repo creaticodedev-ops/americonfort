@@ -14,6 +14,7 @@ export {
 } from './AdminForm'
 export { SegmentedControl, FilterBar, SearchInput, ChartCard } from './FilterBar'
 export { PeriodRangeFilter, rangeForPeriod, isoDateFromValue } from './PeriodRangeFilter'
+export { AnalyticsPeriodBar, formatAnalyticsDate } from './AnalyticsPeriodBar'
 export { DirectorySearchSelect } from './DirectorySearchSelect'
 export { AdminSearchSelect } from './AdminSearchSelect'
 export { Icon, navIconForPath } from './adminIcons'

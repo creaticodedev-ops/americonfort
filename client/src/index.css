@@ -5109,6 +5109,313 @@ html[dir='rtl'] .admin-detail-section-chevron.is-open,
   min-width: 0;
 }
 
+/* ── Premium analytics period bar ── */
+.admin-analytics-period {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: calc(var(--admin-radius) + 2px);
+  border: 1px solid var(--admin-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--admin-accent) 4%, var(--admin-surface)) 0%,
+      var(--admin-surface) 48%
+    );
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.admin-analytics-period.is-custom {
+  border-color: color-mix(in srgb, var(--admin-accent) 28%, var(--admin-border));
+}
+
+.admin-analytics-period__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.admin-analytics-period__preset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 9.5rem;
+}
+
+.admin-analytics-period__eyebrow {
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-fg-muted);
+}
+
+.admin-analytics-period__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.35rem;
+  padding: 0 0.75rem 0 0.85rem;
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-fg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-analytics-period__trigger:hover,
+.admin-analytics-period__trigger.is-open {
+  border-color: color-mix(in srgb, var(--admin-accent) 40%, var(--admin-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 12%, transparent);
+}
+
+.admin-analytics-period__trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus);
+}
+
+.admin-analytics-period__trigger-label {
+  white-space: nowrap;
+}
+
+.admin-analytics-period__chevron {
+  transform: rotate(90deg);
+  opacity: 0.55;
+  transition: transform 0.15s ease;
+}
+
+.admin-analytics-period__trigger.is-open .admin-analytics-period__chevron {
+  transform: rotate(-90deg);
+}
+
+.admin-analytics-period__range {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.admin-analytics-period__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--admin-fg) 4%, var(--admin-surface-2));
+  color: var(--admin-fg-secondary);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-analytics-period__summary:hover {
+  color: var(--admin-fg);
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.admin-analytics-period__summary-sep {
+  margin: 0 0.35rem;
+  opacity: 0.45;
+}
+
+.admin-analytics-period__sep {
+  color: var(--admin-fg-muted);
+  font-size: 0.85rem;
+  padding: 0 0.1rem;
+}
+
+.admin-analytics-date {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 8.75rem;
+  min-height: 2.35rem;
+  padding: 0.28rem 2rem 0.28rem 0.7rem;
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-fg);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-analytics-date.is-active {
+  border-color: color-mix(in srgb, var(--admin-accent) 45%, var(--admin-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 10%, transparent);
+}
+
+.admin-analytics-date.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-analytics-date:hover:not(.is-disabled),
+.admin-analytics-date:focus-visible {
+  border-color: color-mix(in srgb, var(--admin-accent) 40%, var(--admin-border));
+}
+
+.admin-analytics-date:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus);
+}
+
+.admin-analytics-date__label {
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--admin-fg-muted);
+  line-height: 1;
+}
+
+.admin-analytics-date__value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.admin-analytics-date__icon {
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--admin-fg-muted);
+  pointer-events: none;
+}
+
+.admin-analytics-date__native {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: 0;
+}
+
+.admin-analytics-period__menu {
+  position: fixed;
+  z-index: 80;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border-radius: calc(var(--admin-radius) + 2px);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg, 0 12px 32px rgb(0 0 0 / 12%));
+  max-height: min(70vh, 22rem);
+  overflow: auto;
+}
+
+.admin-analytics-period__option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-radius: calc(var(--admin-radius) - 2px);
+  background: transparent;
+  color: var(--admin-fg-secondary);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  text-align: start;
+}
+
+.admin-analytics-period__option:hover {
+  background: color-mix(in srgb, var(--admin-fg) 5%, transparent);
+  color: var(--admin-fg);
+}
+
+.admin-analytics-period__option.is-active {
+  background: color-mix(in srgb, var(--admin-accent) 12%, transparent);
+  color: var(--admin-accent);
+  font-weight: 650;
+}
+
+.admin-analytics-period__check {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.admin-vehicle-analytics__live-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-accent) 12%, transparent);
+  color: var(--admin-accent);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.admin-vehicle-analytics__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.admin-vehicle-analytics__meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--admin-fg-muted);
+}
+
+@media (max-width: 640px) {
+  .admin-analytics-period__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-analytics-period__preset {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-analytics-period__trigger {
+    width: 100%;
+  }
+
+  .admin-analytics-period__range {
+    width: 100%;
+  }
+
+  .admin-analytics-period__summary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-analytics-date {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .admin-btn--danger-text {
   color: var(--admin-danger);
 }

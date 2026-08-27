@@ -363,6 +363,11 @@ const VehicleStatsListPage = ({ selectedVehicleId = '' }) => {
         period={period}
         from={from}
         to={to}
+        onPeriodChange={({ period: nextPeriod, from: nextFrom, to: nextTo }) => {
+          setPeriod(nextPeriod)
+          setFrom(nextFrom)
+          setTo(nextTo)
+        }}
       />
     </AdminPage>
   )
