@@ -6,6 +6,7 @@ import {
   markCompletionPayment,
   refreshCompletionFlags,
   saveSignatureAndMaybeFinalize,
+  saveWalkInSignatures,
   tryFinalizeBookingCompletion,
   ensureWalkInContractPreview,
 } from "../services/bookingCompletionService.js";
@@ -620,6 +621,41 @@ export const submitCompletionSignature = async (req, res) => {
   }
 };
 
+export const saveOwnerWalkInSignatures = async (req, res) => {
+  try {
+    const booking = await Booking.findOne({
+      _id: req.params.bookingId,
+      owner: req.user._id,
+    });
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Reservation not found' });
+    }
+
+    const result = await saveWalkInSignatures(booking, {
+      signatureDataUrl: req.body.signatureDataUrl,
+      secondDriverSignatureDataUrl: req.body.secondDriverSignatureDataUrl,
+    });
+    const flags = result?.flags || booking.completion || {};
+    const clientSignatureSaved = Boolean(booking.completion?.signatureUrl);
+    const secondDriverSignatureSaved = Boolean(booking.completion?.secondDriverSignatureUrl);
+
+    return res.json({
+      success: true,
+      message: result?.finalized ? 'Signatures saved and contract finalized' : 'Signature saved',
+      finalized: Boolean(result?.finalized),
+      signatureComplete: Boolean(flags.signatureComplete),
+      clientSignatureSaved,
+      secondDriverSignatureSaved,
+    });
+  } catch (error) {
+    console.error(error.message);
+    const status = error.code === 'VALIDATION' ? 400
+      : error.code === 'ALREADY_SIGNED' || error.code === 'TOKEN_CANCELLED' ? 409
+        : 500;
+    return res.status(status).json({ success: false, message: error.message || 'Signature failed' });
+  }
+};
+
 /** Owner: ensure a valid completion link exists (no WhatsApp / Meta API). */
 export const ensureCompletionLink = async (req, res) => {
   try {
@@ -724,6 +760,7 @@ export default {
   confirmDemoPayment,
   confirmStripePayment,
   submitCompletionSignature,
+  saveOwnerWalkInSignatures,
   resendCompletionLink,
   ensureCompletionLink,
   emailDiagnostics,

@@ -108,6 +108,7 @@ const WalkInBooking = () => {
   const [created, setCreated] = useState(null)
   const [docFiles, setDocFiles] = useState({ combined: null })
   const [clientSignature, setClientSignature] = useState('')
+  const [secondDriverSignature, setSecondDriverSignature] = useState('')
   const [uploadingDoc, setUploadingDoc] = useState('')
   const [existingClientDoc, setExistingClientDoc] = useState(null)
   const [useExistingDoc, setUseExistingDoc] = useState(false)
@@ -413,14 +414,11 @@ const WalkInBooking = () => {
     setDocFiles({ combined: null })
   }
 
-  const saveOptionalClientSignature = async (completionUrl, signatureDataUrl) => {
-    if (!completionUrl || !signatureDataUrl) return null
-    const token = String(completionUrl).split('/complete-booking/')[1]?.split(/[/?#]/)[0]
-    if (!token) return null
-
-    const { data } = await axios.post(`/api/booking-completion/${token}/signature`, {
-      signatureDataUrl,
-      agreed: true,
+  const saveOptionalWalkInSignatures = async (bookingId, signatureDataUrl, secondDriverSignatureDataUrl) => {
+    if (!bookingId || (!signatureDataUrl && !secondDriverSignatureDataUrl)) return null
+    const { data } = await axios.post(`/api/bookings/owner/${bookingId}/signatures`, {
+      signatureDataUrl: signatureDataUrl || undefined,
+      secondDriverSignatureDataUrl: secondDriverSignatureDataUrl || undefined,
     })
     return data
   }
@@ -482,33 +480,28 @@ const WalkInBooking = () => {
             /* share screen still shows reservation details */
           }
         }
-        if (clientSignature && !form.secondDriver.enabled) {
+        if (clientSignature || secondDriverSignature) {
           try {
-            const signatureResult = await saveOptionalClientSignature(
-              createdPayload.completion?.completionUrl,
+            const signatureResult = await saveOptionalWalkInSignatures(
+              data.booking?._id,
               clientSignature,
+              secondDriverSignature,
             )
             if (signatureResult?.success) {
               createdPayload = {
                 ...createdPayload,
-                booking: createdPayload.booking
-                  ? {
-                      ...createdPayload.booking,
-                      completion: signatureResult.booking?.completion || createdPayload.booking.completion,
-                    }
-                  : createdPayload.booking,
                 completion: {
                   ...createdPayload.completion,
-                  signatureComplete: true,
-                  contractReady: signatureResult.finalized !== false,
+                  signatureComplete: Boolean(signatureResult.signatureComplete),
+                  contractReady: signatureResult.finalized === true,
                 },
               }
-              toast.success(t('admin.walkIn.clientSignatureSaved'))
+              toast.success(t('admin.walkIn.signaturesSaved'))
             } else if (signatureResult) {
-              toast.error(signatureResult.message || t('admin.walkIn.clientSignatureSaveFailed'))
+              toast.error(signatureResult.message || t('admin.walkIn.signaturesSaveFailed'))
             }
           } catch (error) {
-            toast.error(getErrorMessage(error, t('admin.walkIn.clientSignatureSaveFailed')))
+            toast.error(getErrorMessage(error, t('admin.walkIn.signaturesSaveFailed')))
           }
         }
         setCreated(createdPayload)
@@ -518,6 +511,7 @@ const WalkInBooking = () => {
         setUseExistingDoc(false)
         setDocFiles({ combined: null })
         setClientSignature('')
+        setSecondDriverSignature('')
       } else toast.error(data.message)
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -548,6 +542,7 @@ const WalkInBooking = () => {
             setCreated(null)
             setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
             setClientSignature('')
+            setSecondDriverSignature('')
           }}
         />
       ) : (
@@ -633,7 +628,11 @@ const WalkInBooking = () => {
                 type="checkbox"
                 className="h-4 w-4 rounded border-borderColor text-primary"
                 checked={form.secondDriver.enabled}
-                onChange={(e) => setSecondDriver('enabled', e.target.checked)}
+                onChange={(e) => {
+                  const enabled = e.target.checked
+                  setSecondDriver('enabled', enabled)
+                  if (!enabled) setSecondDriverSignature('')
+                }}
               />
               {t('admin.walkIn.secondDriverEnable')}
             </label>
@@ -659,6 +658,13 @@ const WalkInBooking = () => {
                 </Field>
                 <Field label={t('admin.walkIn.secondDriverPassport')}>
                   <input className={input} value={form.secondDriver.passportNumber} onChange={(e) => setSecondDriver('passportNumber', e.target.value)} />
+                </Field>
+                <Field
+                  label={t('admin.walkIn.secondDriverSignature')}
+                  hint={t('admin.walkIn.secondDriverSignatureHint')}
+                  className="sm:col-span-2"
+                >
+                  <SignaturePad onChange={setSecondDriverSignature} disabled={saving} />
                 </Field>
               </div>
             )}

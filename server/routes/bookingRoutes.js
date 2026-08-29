@@ -25,7 +25,10 @@ import {
   uploadInspectionPhoto,
   completeBookingInspection,
 } from "../controllers/deskOpsController.js";
-import { ensureCompletionLink } from "../controllers/bookingCompletionController.js";
+import {
+  ensureCompletionLink,
+  saveOwnerWalkInSignatures,
+} from "../controllers/bookingCompletionController.js";
 import { protect } from "../middleware/auth.js";
 import { requireOwner } from "../middleware/ownerAuth.js";
 import { requirePermission } from "../middleware/requirePermission.js";
@@ -54,6 +57,7 @@ bookingRouter.get('/owner', ...bookingsGate, getOwnerBookings);
 bookingRouter.get('/owner/export', ...bookingsGate, exportOwnerBookings);
 bookingRouter.get('/owner/calendar', ...calendarGate, getCalendarBookings);
 bookingRouter.post('/owner/completion/ensure-link', ...bookingsGate, ensureCompletionLink);
+bookingRouter.post('/owner/:bookingId/signatures', ...bookingsGate, saveOwnerWalkInSignatures);
 bookingRouter.post('/change-status', ...bookingsGate, changeBookingStatus);
 bookingRouter.post('/change-payment-status', ...bookingsGate, changePaymentStatus);
 bookingRouter.post('/update', ...bookingsGate, updateBooking);

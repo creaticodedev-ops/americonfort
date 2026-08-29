@@ -526,6 +526,75 @@ export const markCompletionPayment = async (booking, { paymentType, amount, stri
   return tryFinalizeBookingCompletion(booking._id);
 };
 
+/**
+ * Save signatures collected by staff at the walk-in desk.
+ * Either signature may be provided independently; the existing public
+ * completion flow still requires all applicable signatures to finalize.
+ */
+export const saveWalkInSignatures = async (
+  booking,
+  { signatureDataUrl, secondDriverSignatureDataUrl } = {}
+) => {
+  if (!isWalkInChannel(booking.channel)) {
+    const err = new Error('Direct signatures are only available for walk-in reservations');
+    err.code = 'VALIDATION';
+    throw err;
+  }
+
+  const hasSignature = String(signatureDataUrl || '').startsWith('data:image');
+  const hasSecondDriverSignature = String(secondDriverSignatureDataUrl || '').startsWith('data:image');
+  if (!hasSignature && !hasSecondDriverSignature) {
+    const err = new Error('Please provide at least one signature');
+    err.code = 'VALIDATION';
+    throw err;
+  }
+  if (hasSecondDriverSignature && !booking.secondDriver?.enabled) {
+    const err = new Error('This reservation has no second driver');
+    err.code = 'VALIDATION';
+    throw err;
+  }
+  if (booking.completion?.signatureRequestStatus === 'cancelled') {
+    const err = new Error('This signature request was cancelled');
+    err.code = 'TOKEN_CANCELLED';
+    throw err;
+  }
+  if (booking.completion?.signatureComplete || booking.completion?.signatureRequestStatus === 'signed') {
+    const err = new Error('This contract has already been signed');
+    err.code = 'ALREADY_SIGNED';
+    throw err;
+  }
+
+  booking.completion = booking.completion || {};
+  if (hasSignature) {
+    booking.completion.signatureUrl = await storeDataUrlImage(
+      signatureDataUrl,
+      `signature-${booking.reservationId}.png`
+    );
+    booking.completion.signatureSignedAt = new Date();
+  }
+  if (hasSecondDriverSignature) {
+    booking.completion.secondDriverSignatureUrl = await storeDataUrlImage(
+      secondDriverSignatureDataUrl,
+      `signature-2nd-${booking.reservationId}.png`
+    );
+    booking.completion.secondDriverSignatureSignedAt = new Date();
+  }
+
+  refreshCompletionFlags(booking);
+  if (!booking.completion.signatureComplete) {
+    booking.completion.signatureRequestStatus = 'pending';
+  }
+  booking.markModified('completion');
+  await booking.save();
+
+  return tryFinalizeBookingCompletion(booking._id, {
+    inlineSignatures: {
+      signatureDataUrl: hasSignature ? signatureDataUrl : undefined,
+      secondDriverSignatureDataUrl: hasSecondDriverSignature ? secondDriverSignatureDataUrl : undefined,
+    },
+  });
+};
+
 export const saveSignatureAndMaybeFinalize = async (
   booking,
   { signatureDataUrl, secondDriverSignatureDataUrl } = {}
