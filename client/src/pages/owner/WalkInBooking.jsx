@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { getCarLocations } from '../../utils/carLocations'
 import PhoneInput from '../../components/PhoneInput'
+import SignaturePad from '../../components/SignaturePad'
 import { DateField } from '../../components/date/DateField'
 import { DateTimeField } from '../../components/date/DateTimeField'
 import { isPhoneValid } from '../../utils/phoneValidation'
@@ -106,6 +107,7 @@ const WalkInBooking = () => {
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState(null)
   const [docFiles, setDocFiles] = useState({ combined: null })
+  const [clientSignature, setClientSignature] = useState('')
   const [uploadingDoc, setUploadingDoc] = useState('')
   const [existingClientDoc, setExistingClientDoc] = useState(null)
   const [useExistingDoc, setUseExistingDoc] = useState(false)
@@ -411,6 +413,18 @@ const WalkInBooking = () => {
     setDocFiles({ combined: null })
   }
 
+  const saveOptionalClientSignature = async (completionUrl, signatureDataUrl) => {
+    if (!completionUrl || !signatureDataUrl) return null
+    const token = String(completionUrl).split('/complete-booking/')[1]?.split(/[/?#]/)[0]
+    if (!token) return null
+
+    const { data } = await axios.post(`/api/booking-completion/${token}/signature`, {
+      signatureDataUrl,
+      agreed: true,
+    })
+    return data
+  }
+
   const onSubmit = async (e) => {
     e.preventDefault()
     if (!form.car || !form.fullName || !form.phone || !form.pickupDate || !form.returnDate) {
@@ -468,12 +482,42 @@ const WalkInBooking = () => {
             /* share screen still shows reservation details */
           }
         }
+        if (clientSignature && !form.secondDriver.enabled) {
+          try {
+            const signatureResult = await saveOptionalClientSignature(
+              createdPayload.completion?.completionUrl,
+              clientSignature,
+            )
+            if (signatureResult?.success) {
+              createdPayload = {
+                ...createdPayload,
+                booking: createdPayload.booking
+                  ? {
+                      ...createdPayload.booking,
+                      completion: signatureResult.booking?.completion || createdPayload.booking.completion,
+                    }
+                  : createdPayload.booking,
+                completion: {
+                  ...createdPayload.completion,
+                  signatureComplete: true,
+                  contractReady: signatureResult.finalized !== false,
+                },
+              }
+              toast.success(t('admin.walkIn.clientSignatureSaved'))
+            } else if (signatureResult) {
+              toast.error(signatureResult.message || t('admin.walkIn.clientSignatureSaveFailed'))
+            }
+          } catch (error) {
+            toast.error(getErrorMessage(error, t('admin.walkIn.clientSignatureSaveFailed')))
+          }
+        }
         setCreated(createdPayload)
         setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
         setQuote(null)
         setExistingClientDoc(null)
         setUseExistingDoc(false)
         setDocFiles({ combined: null })
+        setClientSignature('')
       } else toast.error(data.message)
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -503,6 +547,7 @@ const WalkInBooking = () => {
           onCreateAnother={() => {
             setCreated(null)
             setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
+            setClientSignature('')
           }}
         />
       ) : (
@@ -576,6 +621,10 @@ const WalkInBooking = () => {
                 )}
               </div>
             )}
+          </Section>
+
+          <Section title={t('admin.walkIn.clientSignature')} subtitle={t('admin.walkIn.clientSignatureHint')}>
+            <SignaturePad onChange={setClientSignature} disabled={saving} />
           </Section>
 
           <Section title={t('admin.walkIn.secondDriverSection')} subtitle={t('admin.walkIn.secondDriverHint')}>
