@@ -9,7 +9,7 @@ import {
 import { useI18n } from '../../i18n/I18nContext'
 import './datePicker.css'
 
-const TimeInput = ({ value, min, max, disabled, label, onCommit }) => {
+const TimeInput = ({ value, min, max, disabled, label, compositePart = 'hour', inputRef, nextRef, onCommit, onComposite, onEnter }) => {
   const [draft, setDraft] = useState(value)
   const [focused, setFocused] = useState(false)
 
@@ -38,13 +38,25 @@ const TimeInput = ({ value, min, max, disabled, label, onCommit }) => {
     commit(String(next))
   }
 
+  const handleComposite = (raw) => {
+    const [hourPart, minutePart] = raw.split(':')
+    if (!/^\d{1,2}$/.test(hourPart) || !/^\d{1,2}$/.test(minutePart)) return false
+    const hourValue = Number(hourPart)
+    const minuteValue = Number(minutePart)
+    if (hourValue < 0 || hourValue > 23 || minuteValue < 0 || minuteValue > 59) return false
+    onComposite?.(String(hourValue).padStart(2, '0'), String(minuteValue).padStart(2, '0'))
+    setDraft((compositePart === 'minute' ? minuteValue : hourValue).toString().padStart(2, '0'))
+    return true
+  }
+
   return (
     <input
+      ref={inputRef}
       className="hdn-cal__time-input"
       type="text"
       inputMode="numeric"
       pattern="[0-9]*"
-      maxLength={2}
+      maxLength={5}
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -54,7 +66,20 @@ const TimeInput = ({ value, min, max, disabled, label, onCommit }) => {
         e.currentTarget.select()
       }}
       onChange={(e) => {
-        const next = e.target.value.replace(/\D/g, '').slice(0, 2)
+        const raw = e.target.value
+        if (raw.includes(':') && handleComposite(raw)) {
+          nextRef?.current?.focus()
+          return
+        }
+        if (raw.endsWith(':')) {
+          const hourPart = raw.slice(0, -1)
+          if (isValid(hourPart)) {
+            commit(hourPart)
+            nextRef?.current?.focus()
+            return
+          }
+        }
+        const next = raw.replace(/\D/g, '').slice(0, 2)
         setDraft(next)
         if (next.length === 2) commit(next)
       }}
@@ -68,7 +93,7 @@ const TimeInput = ({ value, min, max, disabled, label, onCommit }) => {
           adjust(e.key === 'ArrowUp' ? 1 : -1)
         } else if (e.key === 'Enter') {
           e.preventDefault()
-          commit(draft)
+          if (commit(draft)) onEnter?.()
         }
       }}
     />
@@ -105,6 +130,8 @@ export const DateTimeField = ({
   const { date, time } = useMemo(() => splitDateTimeValue(value), [value])
   const hour = time.slice(0, 2)
   const minute = time.slice(3, 5)
+  const hourRef = useRef(null)
+  const minuteRef = useRef(null)
 
   const emit = (nextDate, nextTime) => {
     if (!onChange) return
@@ -136,24 +163,33 @@ export const DateTimeField = ({
         <label className="hdn-cal__time-select-wrap">
           <span className="sr-only">{t('admin.datePicker.hour') || 'Hour'}</span>
           <TimeInput
+            inputRef={hourRef}
+            nextRef={minuteRef}
             value={hour}
             min={0}
             max={23}
+            compositePart="hour"
             disabled={!date}
             label={t('admin.datePicker.hour') || 'Hour'}
             onCommit={(next) => emit(date || splitDateTimeValue(value).date, `${next}:${minute}`)}
+            onComposite={(nextHour, nextMinute) => emit(date || splitDateTimeValue(value).date, `${nextHour}:${nextMinute}`)}
+            onEnter={() => setOpen(false)}
           />
         </label>
         <span className="hdn-cal__time-sep" aria-hidden>:</span>
         <label className="hdn-cal__time-select-wrap">
           <span className="sr-only">{t('admin.datePicker.minute') || 'Minute'}</span>
           <TimeInput
+            inputRef={minuteRef}
             value={minute}
             min={0}
             max={59}
+            compositePart="minute"
             disabled={!date}
             label={t('admin.datePicker.minute') || 'Minute'}
             onCommit={(next) => emit(date || splitDateTimeValue(value).date, `${hour}:${next}`)}
+            onComposite={(nextHour, nextMinute) => emit(date || splitDateTimeValue(value).date, `${nextHour}:${nextMinute}`)}
+            onEnter={() => setOpen(false)}
           />
         </label>
       </div>

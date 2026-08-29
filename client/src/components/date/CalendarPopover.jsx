@@ -4,7 +4,7 @@ import {
   WEEKDAYS,
   MONTHS,
   addMonths,
-  formatDisplayDate,
+  formatInputDate,
   isAfterDay,
   isBeforeDay,
   parseDateInput,
@@ -130,7 +130,7 @@ export const CalendarMonthGrid = ({
                 onFocus={() => !disabled && onHover?.(date)}
                 aria-label={iso}
                 aria-pressed={isSelected}
-                tabIndex={disabled ? -1 : 0}
+                tabIndex={-1}
               >
                 {date.getDate()}
               </button>
@@ -205,9 +205,9 @@ export const CalendarPopover = ({
     if (rangeFocus === 'start' || rangeFocus === 'end') setActiveField(rangeFocus)
     else setActiveField(start && !end ? 'end' : 'start')
     setDateDrafts({
-      single: value ? formatDisplayDate(value, language) : '',
-      start: startDate ? formatDisplayDate(startDate, language) : '',
-      end: endDate ? formatDisplayDate(endDate, language) : '',
+      single: value ? formatInputDate(value) : '',
+      start: startDate ? formatInputDate(startDate) : '',
+      end: endDate ? formatInputDate(endDate) : '',
     })
     setDateError('')
     setHover(null)
@@ -310,7 +310,7 @@ export const CalendarPopover = ({
 
     const iso = toISODate(parsed)
     setViewMonth(new Date(parsed.getFullYear(), parsed.getMonth(), 1))
-    setDateDrafts((drafts) => ({ ...drafts, [field]: formatDisplayDate(iso, language) }))
+    setDateDrafts((drafts) => ({ ...drafts, [field]: formatInputDate(iso) }))
     setDateError('')
 
     if (mode === 'single') {
@@ -342,13 +342,13 @@ export const CalendarPopover = ({
     setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1))
     const iso = toISODate(date)
     if (mode === 'single') {
-      setDraftForField('single', formatDisplayDate(iso, language))
+      setDraftForField('single', formatInputDate(iso))
       onSelect?.(iso)
       if (closeOnSelect) onClose?.()
       return
     }
     if (activeField === 'start' || !start || (start && end)) {
-      setDraftForField('start', formatDisplayDate(iso, language))
+      setDraftForField('start', formatInputDate(iso))
       setDraftForField('end', '')
       onRangeChange?.({ startDate: iso, endDate: '' })
       setActiveField('end')
@@ -356,13 +356,13 @@ export const CalendarPopover = ({
       return
     }
     if (isBeforeDay(date, start)) {
-      setDraftForField('start', formatDisplayDate(iso, language))
+      setDraftForField('start', formatInputDate(iso))
       setDraftForField('end', '')
       onRangeChange?.({ startDate: iso, endDate: '' })
       setActiveField('end')
       return
     }
-    setDraftForField('end', formatDisplayDate(iso, language))
+    setDraftForField('end', formatInputDate(iso))
     onRangeChange?.({ startDate: toISODate(start), endDate: iso })
     setHover(null)
     setTimeout(() => onClose?.(), 140)
@@ -384,7 +384,7 @@ export const CalendarPopover = ({
     setViewMonth(t)
     if (mode === 'single') {
       onSelect?.(todayISO())
-      setDraftForField('single', formatDisplayDate(todayISO(), language))
+      setDraftForField('single', formatInputDate(todayISO()))
       if (closeOnSelect) onClose?.()
     }
   }

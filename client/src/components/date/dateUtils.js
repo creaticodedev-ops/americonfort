@@ -51,6 +51,12 @@ export const formatDisplayDate = (iso, language = 'en') => {
   return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+export const formatInputDate = (iso) => {
+  const d = parseISODate(iso)
+  if (!d) return ''
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`
+}
+
 const normalizeMonthName = (value) =>
   String(value || '')
     .trim()
