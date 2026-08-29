@@ -1,4 +1,5 @@
 export { DateField } from './DateField'
 export { DateTimeField } from './DateTimeField'
+export { TimeField } from './TimeField'
 export { CalendarPopover, CalendarMonthGrid } from './CalendarPopover'
 export * from './dateUtils'

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useAppContext } from '../../../context/AppContext'
 import { getErrorMessage } from '../../../utils/apiError'
+import { TimeField } from '../../../components/date/TimeField'
 import {
   AccordionSection,
   Check,
@@ -357,12 +358,18 @@ const BookingSettings = () => {
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={label('admin.settings.openingTime', 'Opening time')}>
-              <input type="time" className={settingsNumClass} value={booking.pickupReturn.openingTime}
-                onChange={(e) => setBookingPath('pickupReturn.openingTime', e.target.value)} />
+              <TimeField
+                value={booking.pickupReturn.openingTime}
+                showLabel={false}
+                onChange={(e) => setBookingPath('pickupReturn.openingTime', e.target.value)}
+              />
             </Field>
             <Field label={label('admin.settings.closingTime', 'Closing time')}>
-              <input type="time" className={settingsNumClass} value={booking.pickupReturn.closingTime}
-                onChange={(e) => setBookingPath('pickupReturn.closingTime', e.target.value)} />
+              <TimeField
+                value={booking.pickupReturn.closingTime}
+                showLabel={false}
+                onChange={(e) => setBookingPath('pickupReturn.closingTime', e.target.value)}
+              />
             </Field>
             <Field label={label('admin.settings.afterHoursFee', 'After-hours fee')}>
               <input type="number" min={0} className={settingsNumClass} value={booking.pickupReturn.afterHoursFee}

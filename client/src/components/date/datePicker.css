@@ -577,7 +577,20 @@
 }
 
 .hdn-cal__time-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
   margin: 0;
+}
+
+.hdn-cal__time-segment-label {
+  color: #9a9088;
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .hdn-cal__time-select,
@@ -628,7 +641,21 @@
   box-shadow: 0 0 0 3px rgb(181 71 71 / 11%);
 }
 
+.admin-app[data-theme='dark'] .hdn-time-field .hdn-cal__time-input,
+.admin-app.theme-dark .hdn-time-field .hdn-cal__time-input {
+  background: var(--admin-surface-2, #24211f);
+  border-color: var(--admin-border, #3f3a36);
+  color: var(--admin-fg, #f5f0eb);
+}
+
+.admin-app[data-theme='dark'] .hdn-time-field .hdn-cal__time-segment-label,
+.admin-app.theme-dark .hdn-time-field .hdn-cal__time-segment-label {
+  color: var(--admin-fg-muted, #a9a09a);
+}
+
 .hdn-cal__time-sep {
+  align-self: flex-end;
+  margin-bottom: 0.55rem;
   font-size: 1rem;
   font-weight: 700;
   color: #8a8078;
