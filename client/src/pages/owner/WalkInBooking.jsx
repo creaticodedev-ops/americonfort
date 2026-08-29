@@ -574,6 +574,53 @@ const WalkInBooking = () => {
             </div>
           </Section>
 
+          <Section title={t('admin.walkIn.identitySection')} subtitle={t('admin.walkIn.identityHint')}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('admin.walkIn.identityDocument')} hint={t('admin.walkIn.identityDocumentHint')}>
+                <input
+                  className={input}
+                  value={form.identityDocumentNumber}
+                  onChange={(e) => setField('identityDocumentNumber', e.target.value)}
+                />
+              </Field>
+              <Field label={t('admin.walkIn.identityIssuedOn')}>
+                <DateField
+                  variant="admin"
+                  value={form.identityIssuedOn}
+                  onChange={(e) => setField('identityIssuedOn', e.target.value)}
+                />
+              </Field>
+              <Field label={t('admin.walkIn.passport')}>
+                <input
+                  className={input}
+                  value={form.passportNumber}
+                  onChange={(e) => setField('passportNumber', e.target.value)}
+                />
+              </Field>
+              <Field label={t('admin.walkIn.license')}>
+                <input
+                  className={input}
+                  value={form.driverLicenseNumber}
+                  onChange={(e) => setField('driverLicenseNumber', e.target.value)}
+                />
+              </Field>
+              <Field label={t('admin.walkIn.licenseIssuedOn')}>
+                <DateField
+                  variant="admin"
+                  value={form.driverLicenseIssuedOn}
+                  onChange={(e) => setField('driverLicenseIssuedOn', e.target.value)}
+                />
+              </Field>
+              <Field label={t('admin.walkIn.licenseExpiry')}>
+                <DateField
+                  variant="admin"
+                  value={form.driverLicenseExpiry}
+                  onChange={(e) => setField('driverLicenseExpiry', e.target.value)}
+                />
+              </Field>
+            </div>
+          </Section>
+
           <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHintCombined')}>
             {lookupBusy && (
               <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.walkIn.lookupClient')}</p>

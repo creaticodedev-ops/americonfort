@@ -57,6 +57,22 @@ const StepRail = ({ steps, current, labels, doneFlags }) => (
   </ol>
 )
 
+const fetchContractPreviewBlob = async (api, token) => {
+  const pdfRes = await api.get(`/api/booking-completion/${token}/contract-preview`, {
+    params: { format: 'pdf' },
+    responseType: 'blob',
+    headers: { Accept: 'application/pdf' },
+  })
+  if (!(pdfRes.data instanceof Blob) || pdfRes.data.size <= 0) {
+    throw new Error('Empty contract preview response')
+  }
+  const type = String(pdfRes.data.type || pdfRes.headers?.['content-type'] || '')
+  if (type && !type.includes('pdf') && !type.includes('octet-stream')) {
+    throw new Error('Unexpected contract preview response')
+  }
+  return pdfRes.data
+}
+
 const CompleteBooking = () => {
   const { token: rawToken } = useParams()
   const token = String(rawToken || '').trim()
@@ -165,17 +181,9 @@ const CompleteBooking = () => {
         // and API CSP blocks cross-origin iframes.
         if (signatureOnlyMode && token) {
           try {
-            const pdfRes = await api.get(`/api/booking-completion/${token}/contract-preview`, {
-              params: { format: 'pdf' },
-              responseType: 'blob',
-              headers: { Accept: 'application/pdf' },
-            })
-            if (!cancelled && pdfRes.data instanceof Blob && pdfRes.data.size > 0) {
-              const type = String(pdfRes.data.type || pdfRes.headers?.['content-type'] || '')
-              if (type && !type.includes('pdf') && !type.includes('octet-stream')) {
-                throw new Error('Unexpected contract preview response')
-              }
-              const objectUrl = URL.createObjectURL(pdfRes.data)
+            const pdfBlob = await fetchContractPreviewBlob(api, token)
+            if (!cancelled) {
+              const objectUrl = URL.createObjectURL(pdfBlob)
               setContractBlobUrl((prev) => {
                 if (prev) URL.revokeObjectURL(prev)
                 return objectUrl
@@ -351,6 +359,20 @@ const CompleteBooking = () => {
 
     setBooking(outcome.data.booking)
     if (outcome.data.message) toast.success(outcome.data.message)
+    try {
+      const signedPdfBlob = await fetchContractPreviewBlob(api, token)
+      const signedObjectUrl = URL.createObjectURL(signedPdfBlob)
+      setContractBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return signedObjectUrl
+      })
+    } catch {
+      // Do not leave a stale unsigned PDF visible when the signed refresh fails.
+      setContractBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return ''
+      })
+    }
     // Transition only after the real generation request succeeds
     window.setTimeout(() => {
       setStep('done')
