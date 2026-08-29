@@ -534,27 +534,48 @@ const WalkInBooking = () => {
             </div>
           </Section>
 
-          <Section title={t('admin.walkIn.identitySection')} subtitle={t('admin.walkIn.identityHint')}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t('admin.walkIn.identityDocument')} hint={t('admin.walkIn.identityDocumentHint')}>
-                <input className={input} value={form.identityDocumentNumber} onChange={(e) => setField('identityDocumentNumber', e.target.value)} />
-              </Field>
-              <Field label={t('admin.walkIn.identityIssuedOn')}>
-                <DateField variant="admin" value={form.identityIssuedOn} onChange={(e) => setField('identityIssuedOn', e.target.value)} />
-              </Field>
-              <Field label={t('admin.walkIn.passport')}>
-                <input className={input} value={form.passportNumber} onChange={(e) => setField('passportNumber', e.target.value)} />
-              </Field>
-              <Field label={t('admin.walkIn.license')}>
-                <input className={input} value={form.driverLicenseNumber} onChange={(e) => setField('driverLicenseNumber', e.target.value)} />
-              </Field>
-              <Field label={t('admin.walkIn.licenseIssuedOn')}>
-                <DateField variant="admin" value={form.driverLicenseIssuedOn} onChange={(e) => setField('driverLicenseIssuedOn', e.target.value)} />
-              </Field>
-              <Field label={t('admin.walkIn.licenseExpiry')}>
-                <DateField variant="admin" value={form.driverLicenseExpiry} onChange={(e) => setField('driverLicenseExpiry', e.target.value)} />
-              </Field>
-            </div>
+          <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHintCombined')}>
+            {lookupBusy && (
+              <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.walkIn.lookupClient')}</p>
+            )}
+            {existingClientDoc && (
+              <div className="rounded-xl border border-[color-mix(in_srgb,var(--admin-success)_35%,var(--admin-border))] bg-[var(--admin-success-soft)] p-3 text-sm">
+                <p className="font-medium text-[var(--admin-success)]">{t('admin.walkIn.existingDocsTitle')}</p>
+                <p className="mt-1 text-xs text-[var(--admin-fg-muted)]">
+                  {existingClientDoc.customerName} · {existingClientDoc.customerPhone}
+                  {' · '}
+                  {t('admin.walkIn.existingDocsCount', { count: existingClientDoc.reservationCount || 0 })}
+                </p>
+                <label className="mt-2 flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useExistingDoc}
+                    onChange={(e) => {
+                      setUseExistingDoc(e.target.checked)
+                      if (e.target.checked) setDocFiles({ combined: null })
+                    }}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs">{t('admin.walkIn.useExistingDocs')}</span>
+                </label>
+              </div>
+            )}
+            {!useExistingDoc && (
+              <div className="rounded-xl border border-dashed border-borderColor bg-sand/20 p-4">
+                <label className="text-sm font-medium text-gray-700">{t('admin.walkIn.uploadCombined')}</label>
+                <p className="mt-1 text-xs text-muted">{t('admin.walkIn.uploadCombinedHint')}</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={Boolean(uploadingDoc)}
+                  className="mt-3 block w-full text-sm"
+                  onChange={(e) => setDocFiles({ combined: e.target.files?.[0] || null })}
+                />
+                {docFiles.combined && (
+                  <p className="mt-2 truncate text-xs text-emerald-700">{docFiles.combined.name}</p>
+                )}
+              </div>
+            )}
           </Section>
 
           <Section title={t('admin.walkIn.secondDriverSection')} subtitle={t('admin.walkIn.secondDriverHint')}>
@@ -716,49 +737,6 @@ const WalkInBooking = () => {
             </div>
           </Section>
 
-          <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHintCombined')}>
-            {lookupBusy && (
-              <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.walkIn.lookupClient')}</p>
-            )}
-            {existingClientDoc && (
-              <div className="rounded-xl border border-[color-mix(in_srgb,var(--admin-success)_35%,var(--admin-border))] bg-[var(--admin-success-soft)] p-3 text-sm">
-                <p className="font-medium text-[var(--admin-success)]">{t('admin.walkIn.existingDocsTitle')}</p>
-                <p className="mt-1 text-xs text-[var(--admin-fg-muted)]">
-                  {existingClientDoc.customerName} · {existingClientDoc.customerPhone}
-                  {' · '}
-                  {t('admin.walkIn.existingDocsCount', { count: existingClientDoc.reservationCount || 0 })}
-                </p>
-                <label className="mt-2 flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useExistingDoc}
-                    onChange={(e) => {
-                      setUseExistingDoc(e.target.checked)
-                      if (e.target.checked) setDocFiles({ combined: null })
-                    }}
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs">{t('admin.walkIn.useExistingDocs')}</span>
-                </label>
-              </div>
-            )}
-            {!useExistingDoc && (
-              <div className="rounded-xl border border-dashed border-borderColor bg-sand/20 p-4">
-                <label className="text-sm font-medium text-gray-700">{t('admin.walkIn.uploadCombined')}</label>
-                <p className="mt-1 text-xs text-muted">{t('admin.walkIn.uploadCombinedHint')}</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={Boolean(uploadingDoc)}
-                  className="mt-3 block w-full text-sm"
-                  onChange={(e) => setDocFiles({ combined: e.target.files?.[0] || null })}
-                />
-                {docFiles.combined && (
-                  <p className="mt-2 truncate text-xs text-emerald-700">{docFiles.combined.name}</p>
-                )}
-              </div>
-            )}
-          </Section>
         </div>
 
         <aside className="lg:col-span-4 space-y-4 lg:sticky lg:top-24 self-start">

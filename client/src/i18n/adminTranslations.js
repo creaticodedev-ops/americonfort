@@ -802,7 +802,7 @@ export const adminEn = {
     },
     uploadDocuments: 'Upload customer documents',
     uploadDocumentsHintCombined: 'One photo of all customer documents (ID, licence, passport, etc.) — stored as a single file.',
-    uploadCombined: 'Customer documents',
+    uploadCombined: 'Customer document',
     uploadCombinedHint: 'Take one clear photo containing all required identification documents.',
     brokerReferrer: 'Broker / Referrer',
     brokerReferrerPlaceholder: 'Search and select existing broker…',
