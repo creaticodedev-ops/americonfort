@@ -6,6 +6,8 @@ import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
 import { buildCustomerSignatureWaUrl } from '../../utils/whatsapp'
 import { isSyntheticWalkInEmail } from '../../utils/contractFieldsClient'
+import { resolveApiBaseUrl } from '../../utils/apiBase'
+import { AdminModal } from './ui/OwnerDialog'
 
 const formatWhen = (value) => {
   if (!value) return '—'
@@ -42,6 +44,15 @@ export default function WalkInShareContract({
     created?.completion?.completionUrl
     || booking?.completion?.shareableCompletionUrl
     || ''
+  const signatureComplete =
+    created?.completion?.signatureComplete === true
+    || booking?.completion?.signatureComplete === true
+    || booking?.completion?.signatureRequestStatus === 'signed'
+  const [contractOpen, setContractOpen] = useState(signatureComplete)
+  const completionToken = String(completionUrl).split('/complete-booking/')[1]?.split(/[/?#]/)[0] || ''
+  const contractPreviewUrl = completionToken
+    ? `${resolveApiBaseUrl()}/api/booking-completion/${completionToken}/contract-preview?format=pdf`
+    : ''
 
   const vehicle = useMemo(() => {
     if (!booking?.car) return '—'
@@ -139,8 +150,12 @@ export default function WalkInShareContract({
           <span className="admin-walkin-share__badge-dot" aria-hidden />
           {t('admin.walkIn.share.statusReady')}
         </div>
-        <h2 className="admin-walkin-share__title">{t('admin.walkIn.share.title')}</h2>
-        <p className="admin-walkin-share__subtitle">{t('admin.walkIn.share.subtitle')}</p>
+        <h2 className="admin-walkin-share__title">
+          {signatureComplete ? t('admin.walkIn.share.signedTitle') : t('admin.walkIn.share.title')}
+        </h2>
+        <p className="admin-walkin-share__subtitle">
+          {signatureComplete ? t('admin.walkIn.share.signedSubtitle') : t('admin.walkIn.share.subtitle')}
+        </p>
       </div>
 
       <div className="admin-walkin-share__grid">
@@ -169,19 +184,21 @@ export default function WalkInShareContract({
           </dl>
 
           <div className="admin-walkin-share__status-row">
-            <div className="admin-walkin-share__pill admin-walkin-share__pill--pending">
-              {t('admin.walkIn.share.signaturePending')}
+            <div className={`admin-walkin-share__pill ${signatureComplete ? 'admin-walkin-share__pill--ok' : 'admin-walkin-share__pill--pending'}`}>
+              {signatureComplete ? t('admin.walkIn.share.signatureSigned') : t('admin.walkIn.share.signatureInProgress')}
             </div>
             <div
               className={`admin-walkin-share__pill ${
-                contractReady
+                signatureComplete && contractReady
                   ? 'admin-walkin-share__pill--ok'
                   : 'admin-walkin-share__pill--warn'
               }`}
             >
-              {contractReady
-                ? t('admin.walkIn.share.contractReady')
-                : t('admin.walkIn.share.contractPending')}
+              {signatureComplete
+                ? (contractReady
+                  ? t('admin.walkIn.share.contractReady')
+                  : t('admin.walkIn.share.contractPending'))
+                : t('admin.walkIn.share.signatureInProgress')}
             </div>
           </div>
 
@@ -193,14 +210,25 @@ export default function WalkInShareContract({
           </div>
 
           <div className="admin-walkin-share__actions">
-            <button
-              type="button"
-              className="admin-btn admin-btn--primary admin-walkin-share__primary"
-              onClick={shareWhatsApp}
-              disabled={!completionUrl}
-            >
-              {t('admin.walkIn.share.whatsapp')}
-            </button>
+            {signatureComplete ? (
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary admin-walkin-share__primary"
+                onClick={() => setContractOpen(true)}
+                disabled={!contractPreviewUrl}
+              >
+                {t('admin.walkIn.share.openContract')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary admin-walkin-share__primary"
+                onClick={shareWhatsApp}
+                disabled={!completionUrl}
+              >
+                {t('admin.walkIn.share.sendSignatureLink')}
+              </button>
+            )}
             <button
               type="button"
               className="admin-btn admin-btn--secondary"
@@ -257,6 +285,49 @@ export default function WalkInShareContract({
           </div>
         </aside>
       </div>
+
+      <AdminModal
+        open={contractOpen}
+        onClose={() => setContractOpen(false)}
+        title={t('admin.walkIn.share.contractActions')}
+        description={reservationId}
+        size="xl"
+        variant="center"
+        footer={
+          <>
+            {contractPreviewUrl ? (
+              <a
+                href={contractPreviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="admin-btn admin-btn--secondary admin-modal-action"
+              >
+                {t('completion.downloadContract')}
+              </a>
+            ) : null}
+            {booking?._id ? (
+              <Link
+                to={`/owner/contracts?bookingId=${booking._id}`}
+                className="admin-btn admin-btn--primary admin-modal-action"
+              >
+                {t('admin.walkIn.share.modifyContract')}
+              </Link>
+            ) : null}
+          </>
+        }
+      >
+        {contractPreviewUrl ? (
+          <iframe
+            title={t('completion.contractPreview')}
+            src={contractPreviewUrl}
+            className="h-[min(70vh,720px)] w-full rounded-xl border border-[var(--admin-border)] bg-white"
+          />
+        ) : (
+          <p className="text-sm text-[var(--admin-fg-muted)]">
+            {t('admin.walkIn.share.contractUnavailable')}
+          </p>
+        )}
+      </AdminModal>
     </div>
   )
 }
