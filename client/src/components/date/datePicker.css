@@ -42,6 +42,7 @@
 .hdn-cal__panel {
   width: 100%;
   min-width: 0;
+  overscroll-behavior-x: contain;
   background: #fff;
   border: 1px solid #e8e2dc;
   box-shadow: 0 22px 50px -18px rgb(22 18 16 / 32%);
