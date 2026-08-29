@@ -75,6 +75,8 @@ const BookingRowActions = ({
   onDownloadLicense,
   onDownloadId,
   onDownloadPassport,
+  onDownloadCombined,
+  isWalkIn = false,
   onWhatsApp,
   onPrint,
   onDelete,
@@ -143,12 +145,17 @@ const BookingRowActions = ({
     fn?.()
   }
 
+  const documentItems = isWalkIn
+    ? [{ key: 'combined', label: t('admin.walkIn.uploadCombined'), icon: Icons.id, onClick: onDownloadCombined }]
+    : [
+        { key: 'license', label: t('admin.bookings.downloadLicense'), icon: Icons.license, onClick: onDownloadLicense },
+        { key: 'id', label: t('admin.bookings.downloadId'), icon: Icons.id, onClick: onDownloadId },
+        { key: 'passport', label: t('admin.bookings.downloadPassport'), icon: Icons.passport, onClick: onDownloadPassport },
+      ]
   const menuItems = [
     { key: 'edit', label: t('admin.bookings.edit'), icon: Icons.pencil, onClick: onEdit },
     { key: 'sep-docs', separator: true, label: t('admin.bookings.docs') },
-    { key: 'license', label: t('admin.bookings.downloadLicense'), icon: Icons.license, onClick: onDownloadLicense },
-    { key: 'id', label: t('admin.bookings.downloadId'), icon: Icons.id, onClick: onDownloadId },
-    { key: 'passport', label: t('admin.bookings.downloadPassport'), icon: Icons.passport, onClick: onDownloadPassport },
+    ...documentItems,
     { key: 'sep-comm', separator: true },
     { key: 'print', label: t('admin.bookings.print'), icon: Icons.print, onClick: onPrint },
     {

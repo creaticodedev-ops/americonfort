@@ -59,6 +59,7 @@ const BookingInspector = ({
   const { t } = useI18n()
   const { hasPermission } = useAppContext()
   const id = resId(booking)
+  const isWalkIn = booking.channel === 'walk_in' || booking.channel === 'walk-in'
   const moreItems = useMemo(() => buildMoreItems?.(booking) || [], [booking, buildMoreItems])
   const { contractMissing, sigStatus } = getBookingAttention(booking)
   const [sigOpen, setSigOpen] = useState(false)
@@ -284,45 +285,71 @@ const BookingInspector = ({
         </DetailSection>
 
         <DetailSection title={t('admin.details.documents')} collapsible defaultOpen={false}>
-          <div className="admin-booking-signature-actions mb-1">
-            <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('driving_license')}>
-              ↓ {t('admin.bookings.downloadLicense')}
-            </button>
-            <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('identity')}>
-              ↓ {t('admin.bookings.downloadId')}
-            </button>
-            <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('passport')}>
-              ↓ {t('admin.bookings.downloadPassport')}
-            </button>
-          </div>
-          <label className={labelClass}>{t('admin.bookings.uploadLicense')}</label>
-          <input
-            type="file"
-            accept="image/*"
-            disabled={uploadingDoc === 'driving_license'}
-            onChange={(e) => {
-              onUploadDoc(e.target.files?.[0], 'driving_license')
-              e.target.value = ''
-            }}
-            className="admin-booking-file-input"
-          />
-          <div className="mt-2">
-            <select className={inputClass} value={identityType} onChange={(e) => onIdentityTypeChange(e.target.value)}>
-              <option value="national_id">{t('admin.bookings.nationalId')}</option>
-              <option value="passport">{t('admin.bookings.passport')}</option>
-            </select>
-          </div>
-          <label className={`${labelClass} mt-2`}>{t('admin.bookings.uploadIdentity')}</label>
-          <input
-            type="file"
-            accept="image/*"
-            disabled={uploadingDoc === 'identity'}
-            onChange={(e) => {
-              onUploadDoc(e.target.files?.[0], 'identity')
-              e.target.value = ''
-            }}
-            className="admin-booking-file-input"
-          />
+          {isWalkIn ? (
+            <>
+              <div className="admin-booking-signature-actions mb-1">
+                <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('combined')}>
+                  ↓ {t('admin.walkIn.uploadCombined')}
+                </button>
+              </div>
+              <label className={labelClass}>{t('admin.walkIn.uploadCombined')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploadingDoc === 'combined'}
+                onChange={(e) => {
+                  onUploadDoc(e.target.files?.[0], 'combined')
+                  e.target.value = ''
+                }}
+                className="admin-booking-file-input"
+              />
+              <p className="mt-1 text-[11px] text-[var(--admin-fg-muted)]">
+                {t('admin.walkIn.uploadCombinedHint')}
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="admin-booking-signature-actions mb-1">
+                <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('driving_license')}>
+                  ↓ {t('admin.bookings.downloadLicense')}
+                </button>
+                <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('identity')}>
+                  ↓ {t('admin.bookings.downloadId')}
+                </button>
+                <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('passport')}>
+                  ↓ {t('admin.bookings.downloadPassport')}
+                </button>
+              </div>
+              <label className={labelClass}>{t('admin.bookings.uploadLicense')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploadingDoc === 'driving_license'}
+                onChange={(e) => {
+                  onUploadDoc(e.target.files?.[0], 'driving_license')
+                  e.target.value = ''
+                }}
+                className="admin-booking-file-input"
+              />
+              <div className="mt-2">
+                <select className={inputClass} value={identityType} onChange={(e) => onIdentityTypeChange(e.target.value)}>
+                  <option value="national_id">{t('admin.bookings.nationalId')}</option>
+                  <option value="passport">{t('admin.bookings.passport')}</option>
+                </select>
+              </div>
+              <label className={`${labelClass} mt-2`}>{t('admin.bookings.uploadIdentity')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploadingDoc === 'identity'}
+                onChange={(e) => {
+                  onUploadDoc(e.target.files?.[0], 'identity')
+                  e.target.value = ''
+                }}
+                className="admin-booking-file-input"
+              />
+            </>
+          )}
         </DetailSection>
 
         <DetailSection title={t('admin.details.notes')} collapsible defaultOpen={false}>

@@ -658,21 +658,29 @@ const ManageBookings = () => {
   }, [selectedBooking])
 
   const buildMoreItems = useCallback(
-    (booking) => [
-      { key: 'edit', label: t('admin.bookings.edit'), onClick: () => startEdit(booking) },
-      { key: 'sep-docs', separator: true, label: t('admin.bookings.docs') },
-      { key: 'license', label: t('admin.bookings.downloadLicense'), onClick: () => downloadDocument(booking._id, 'driving_license') },
-      { key: 'id', label: t('admin.bookings.downloadId'), onClick: () => downloadDocument(booking._id, 'identity') },
-      { key: 'passport', label: t('admin.bookings.downloadPassport'), onClick: () => downloadDocument(booking._id, 'passport') },
-      { key: 'sep-comm', separator: true },
-      { key: 'print', label: t('admin.bookings.print'), onClick: () => printBooking(booking) },
-      { key: 'whatsapp', label: t('admin.bookings.whatsapp'), tone: 'whatsapp', onClick: () => openWhatsApp(booking) },
-      { key: 'sep-ops', separator: true },
-      { key: 'confirm', label: t('admin.bookings.confirm'), onClick: () => changeBookingStatus(booking._id, 'confirmed'), hidden: booking.status === 'confirmed' },
-      { key: 'complete', label: t('admin.bookings.complete'), onClick: () => changeBookingStatus(booking._id, 'completed'), hidden: booking.status === 'completed' },
-      { key: 'cancel', label: t('admin.bookings.cancel'), tone: 'danger', onClick: () => requestCancel(booking._id), hidden: booking.status === 'cancelled' },
-      { key: 'delete', label: t('admin.bookings.delete'), tone: 'danger', onClick: () => deleteBooking(booking._id) },
-    ],
+    (booking) => {
+      const isWalkIn = booking.channel === 'walk_in' || booking.channel === 'walk-in'
+      const documentItems = isWalkIn
+        ? [{ key: 'combined', label: t('admin.walkIn.uploadCombined'), onClick: () => downloadDocument(booking._id, 'combined') }]
+        : [
+            { key: 'license', label: t('admin.bookings.downloadLicense'), onClick: () => downloadDocument(booking._id, 'driving_license') },
+            { key: 'id', label: t('admin.bookings.downloadId'), onClick: () => downloadDocument(booking._id, 'identity') },
+            { key: 'passport', label: t('admin.bookings.downloadPassport'), onClick: () => downloadDocument(booking._id, 'passport') },
+          ]
+      return [
+        { key: 'edit', label: t('admin.bookings.edit'), onClick: () => startEdit(booking) },
+        { key: 'sep-docs', separator: true, label: t('admin.bookings.docs') },
+        ...documentItems,
+        { key: 'sep-comm', separator: true },
+        { key: 'print', label: t('admin.bookings.print'), onClick: () => printBooking(booking) },
+        { key: 'whatsapp', label: t('admin.bookings.whatsapp'), tone: 'whatsapp', onClick: () => openWhatsApp(booking) },
+        { key: 'sep-ops', separator: true },
+        { key: 'confirm', label: t('admin.bookings.confirm'), onClick: () => changeBookingStatus(booking._id, 'confirmed'), hidden: booking.status === 'confirmed' },
+        { key: 'complete', label: t('admin.bookings.complete'), onClick: () => changeBookingStatus(booking._id, 'completed'), hidden: booking.status === 'completed' },
+        { key: 'cancel', label: t('admin.bookings.cancel'), tone: 'danger', onClick: () => requestCancel(booking._id), hidden: booking.status === 'cancelled' },
+        { key: 'delete', label: t('admin.bookings.delete'), tone: 'danger', onClick: () => deleteBooking(booking._id) },
+      ]
+    },
     [t],
   )
 
