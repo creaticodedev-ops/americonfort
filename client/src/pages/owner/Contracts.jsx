@@ -11,7 +11,7 @@ import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
-import { buildContractPatch, initContractForm, toDateInput } from '../../utils/documentFormUtils'
+import { buildContractPatch, initContractForm, toDateInput, toDateTimeLocal } from '../../utils/documentFormUtils'
 import { DateField } from '../../components/date/DateField'
 import { DateTimeField } from '../../components/date/DateTimeField'
 
@@ -42,11 +42,31 @@ const Contracts = () => {
     bookingId: '',
     templateId: '',
     includeCompanyStamp: true,
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
+    customerAddress: '',
     dateOfBirth: '',
+    placeOfBirth: '',
     nationality: '',
+    identityDocumentNumber: '',
+    identityIssuedOn: '',
     driverLicenseNumber: '',
+    driverLicenseIssuedOn: '',
     driverLicenseExpiry: '',
     passportNumber: '',
+    pickupDate: '',
+    returnDate: '',
+    pickupLocation: '',
+    returnLocation: '',
+    deliveredBy: '',
+    receivedBy: '',
+    fuelLevelStart: '',
+    kmDepart: '',
+    kmRetour: '',
+    franchiseAmount: '',
+    paymentStatus: '',
+    notes: '',
     secondDriverEnabled: false,
     secondDriverFullName: '',
     secondDriverDob: '',
@@ -323,11 +343,31 @@ const Contracts = () => {
       bookingId: '',
       templateId: '',
       includeCompanyStamp: stampDefault,
+      customerName: '',
+      customerEmail: '',
+      customerPhone: '',
+      customerAddress: '',
       dateOfBirth: '',
+      placeOfBirth: '',
       nationality: '',
+      identityDocumentNumber: '',
+      identityIssuedOn: '',
       driverLicenseNumber: '',
+      driverLicenseIssuedOn: '',
       driverLicenseExpiry: '',
       passportNumber: '',
+      pickupDate: '',
+      returnDate: '',
+      pickupLocation: '',
+      returnLocation: '',
+      deliveredBy: '',
+      receivedBy: '',
+      fuelLevelStart: '',
+      kmDepart: '',
+      kmRetour: '',
+      franchiseAmount: '',
+      paymentStatus: '',
+      notes: '',
       secondDriverEnabled: false,
       secondDriverFullName: '',
       secondDriverDob: '',
@@ -349,11 +389,31 @@ const Contracts = () => {
       ...f,
       bookingId,
       // Normalize ISO timestamps to yyyy-MM-dd so controlled <input type="date"> stays editable.
+      customerName: booking.customerName || '',
+      customerEmail: booking.customerEmail || '',
+      customerPhone: booking.customerPhone || '',
+      customerAddress: booking.customerAddress || '',
       dateOfBirth: toDateInput(booking.dateOfBirth),
+      placeOfBirth: booking.placeOfBirth || '',
       nationality: booking.nationality || '',
+      identityDocumentNumber: booking.identityDocumentNumber || '',
+      identityIssuedOn: toDateInput(booking.identityIssuedOn),
       driverLicenseNumber: booking.driverLicenseNumber || '',
+      driverLicenseIssuedOn: toDateInput(booking.driverLicenseIssuedOn),
       driverLicenseExpiry: toDateInput(booking.driverLicenseExpiry),
       passportNumber: booking.passportNumber || '',
+      pickupDate: toDateTimeLocal(booking.pickupDate),
+      returnDate: toDateTimeLocal(booking.returnDate),
+      pickupLocation: booking.pickupLocation || '',
+      returnLocation: booking.returnLocation || '',
+      deliveredBy: booking.deliveredBy || '',
+      receivedBy: booking.receivedBy || '',
+      fuelLevelStart: booking.fuelLevelStart || '',
+      kmDepart: booking.kmDepart || '',
+      kmRetour: booking.kmRetour || '',
+      franchiseAmount: booking.franchiseAmount ?? '',
+      paymentStatus: booking.paymentStatus || '',
+      notes: booking.notes || '',
       secondDriverEnabled: Boolean(sd.enabled),
       secondDriverFullName: sd.fullName || '',
       secondDriverDob: toDateInput(sd.dateOfBirth),
@@ -369,11 +429,31 @@ const Contracts = () => {
     if (!generateForm.bookingId) return false
     const { data } = await axios.post('/api/bookings/update', {
       bookingId: generateForm.bookingId,
+      customerName: generateForm.customerName,
+      customerEmail: generateForm.customerEmail,
+      customerPhone: generateForm.customerPhone,
+      customerAddress: generateForm.customerAddress,
+      pickupDate: generateForm.pickupDate,
+      returnDate: generateForm.returnDate,
+      pickupLocation: generateForm.pickupLocation,
+      returnLocation: generateForm.returnLocation,
+      notes: generateForm.notes,
+      paymentStatus: generateForm.paymentStatus,
       dateOfBirth: generateForm.dateOfBirth,
+      placeOfBirth: generateForm.placeOfBirth,
       nationality: generateForm.nationality,
+      identityDocumentNumber: generateForm.identityDocumentNumber,
+      identityIssuedOn: generateForm.identityIssuedOn,
       driverLicenseNumber: generateForm.driverLicenseNumber,
+      driverLicenseIssuedOn: generateForm.driverLicenseIssuedOn,
       driverLicenseExpiry: generateForm.driverLicenseExpiry,
       passportNumber: generateForm.passportNumber,
+      deliveredBy: generateForm.deliveredBy,
+      receivedBy: generateForm.receivedBy,
+      fuelLevelStart: generateForm.fuelLevelStart,
+      kmDepart: generateForm.kmDepart,
+      kmRetour: generateForm.kmRetour,
+      franchiseAmount: generateForm.franchiseAmount,
       secondDriver: {
         enabled: generateForm.secondDriverEnabled,
         fullName: generateForm.secondDriverFullName,
@@ -769,16 +849,48 @@ const Contracts = () => {
             <h3 className="text-sm font-semibold text-gray-800">{t('admin.contracts.tenantDetails')}</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.invoices.customerName')}</label>
+                <input className={inputClass} value={generateForm.customerName} onChange={(e) => setGenerateForm((f) => ({ ...f, customerName: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.invoices.customerEmail')}</label>
+                <input type="email" className={inputClass} value={generateForm.customerEmail} onChange={(e) => setGenerateForm((f) => ({ ...f, customerEmail: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.invoices.customerPhone')}</label>
+                <input className={inputClass} value={generateForm.customerPhone} onChange={(e) => setGenerateForm((f) => ({ ...f, customerPhone: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.invoices.customerAddress')}</label>
+                <input className={inputClass} value={generateForm.customerAddress} onChange={(e) => setGenerateForm((f) => ({ ...f, customerAddress: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">{t('admin.contracts.dateOfBirth')}</label>
                 <DateField variant="admin" value={generateForm.dateOfBirth} onChange={(e) => setGenerateForm((f) => ({ ...f, dateOfBirth: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Place of birth</label>
+                <input className={inputClass} value={generateForm.placeOfBirth} onChange={(e) => setGenerateForm((f) => ({ ...f, placeOfBirth: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">{t('admin.contracts.nationality')}</label>
                 <input className={inputClass} value={generateForm.nationality} onChange={(e) => setGenerateForm((f) => ({ ...f, nationality: e.target.value }))} />
               </div>
               <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.invoices.cinPlaceholder')}</label>
+                <input className={inputClass} value={generateForm.identityDocumentNumber} onChange={(e) => setGenerateForm((f) => ({ ...f, identityDocumentNumber: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">ID issued on</label>
+                <DateField variant="admin" value={generateForm.identityIssuedOn} onChange={(e) => setGenerateForm((f) => ({ ...f, identityIssuedOn: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">{t('admin.contracts.driverLicense')}</label>
                 <input className={inputClass} value={generateForm.driverLicenseNumber} onChange={(e) => setGenerateForm((f) => ({ ...f, driverLicenseNumber: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">License issued on</label>
+                <DateField variant="admin" value={generateForm.driverLicenseIssuedOn} onChange={(e) => setGenerateForm((f) => ({ ...f, driverLicenseIssuedOn: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">{t('admin.contracts.licenseExpiry')}</label>
@@ -831,6 +943,56 @@ const Contracts = () => {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="border-t border-borderColor pt-4 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">Rental and handover details</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Pickup date &amp; time</label>
+                <DateTimeField variant="admin" value={generateForm.pickupDate} onChange={(e) => setGenerateForm((f) => ({ ...f, pickupDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Return date &amp; time</label>
+                <DateTimeField variant="admin" value={generateForm.returnDate} onChange={(e) => setGenerateForm((f) => ({ ...f, returnDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Pickup location</label>
+                <input className={inputClass} value={generateForm.pickupLocation} onChange={(e) => setGenerateForm((f) => ({ ...f, pickupLocation: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Return location</label>
+                <input className={inputClass} value={generateForm.returnLocation} onChange={(e) => setGenerateForm((f) => ({ ...f, returnLocation: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.walkIn.deliveredBy')}</label>
+                <input className={inputClass} value={generateForm.deliveredBy} onChange={(e) => setGenerateForm((f) => ({ ...f, deliveredBy: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.walkIn.receivedBy')}</label>
+                <input className={inputClass} value={generateForm.receivedBy} onChange={(e) => setGenerateForm((f) => ({ ...f, receivedBy: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.walkIn.fuelLevel')}</label>
+                <input className={inputClass} value={generateForm.fuelLevelStart} onChange={(e) => setGenerateForm((f) => ({ ...f, fuelLevelStart: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.walkIn.kmDepart')}</label>
+                <input className={inputClass} value={generateForm.kmDepart} onChange={(e) => setGenerateForm((f) => ({ ...f, kmDepart: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.walkIn.kmRetour')}</label>
+                <input className={inputClass} value={generateForm.kmRetour} onChange={(e) => setGenerateForm((f) => ({ ...f, kmRetour: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">{t('admin.invoices.paymentStatus')}</label>
+                <input className={inputClass} value={generateForm.paymentStatus} onChange={(e) => setGenerateForm((f) => ({ ...f, paymentStatus: e.target.value }))} />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-medium text-gray-600">{t('admin.invoices.notes')}</label>
+                <textarea className={`${inputClass} min-h-[80px]`} value={generateForm.notes} onChange={(e) => setGenerateForm((f) => ({ ...f, notes: e.target.value }))} />
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-borderColor bg-white p-4">

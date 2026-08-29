@@ -632,8 +632,8 @@ export const listBookingsForContracts = async (req, res) => {
       owner: req.user._id,
       status: { $nin: ['cancelled'] },
     })
-      .populate('car', 'brand model year licensePlate')
-      .select('reservationId customerName customerPhone pickupDate returnDate price status channel dateOfBirth nationality driverLicenseNumber driverLicenseExpiry passportNumber secondDriver')
+      .populate('car', 'brand model year licensePlate category fuel_type fuelType transmission gearbox')
+      .select('reservationId customerName customerEmail customerPhone customerAddress pickupDate returnDate pickupLocation returnLocation price status channel dateOfBirth placeOfBirth nationality identityDocumentNumber identityIssuedOn driverLicenseNumber driverLicenseIssuedOn driverLicenseExpiry passportNumber deliveredBy receivedBy fuelLevelStart kmDepart kmRetour franchiseAmount paymentStatus notes secondDriver')
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
