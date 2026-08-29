@@ -573,14 +573,18 @@
   align-items: center;
   gap: 0.35rem;
   flex: 0 1 auto;
+  flex-wrap: nowrap;
   max-width: 100%;
 }
 
 .hdn-cal__time-select-wrap {
   display: flex;
+  flex: 0 0 4.5rem;
   flex-direction: column;
   gap: 0.25rem;
   margin: 0;
+  min-width: 0;
+  width: 4.5rem;
 }
 
 .hdn-cal__time-segment-label {
@@ -596,7 +600,8 @@
 .hdn-cal__time-select,
 .hdn-cal__time-input {
   appearance: none;
-  min-width: 3.25rem;
+  width: 100%;
+  min-width: 0;
   height: 2.35rem;
   padding: 0 0.55rem;
   border-radius: 0.7rem;
@@ -805,5 +810,10 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 0.45rem;
+  }
+
+  .hdn-cal__time-select-wrap {
+    flex-basis: 4rem;
+    width: 4rem;
   }
 }
