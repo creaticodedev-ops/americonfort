@@ -48,7 +48,7 @@ export default function WalkInShareContract({
     created?.completion?.signatureComplete === true
     || booking?.completion?.signatureComplete === true
     || booking?.completion?.signatureRequestStatus === 'signed'
-  const [contractOpen, setContractOpen] = useState(signatureComplete)
+  const [contractOpen, setContractOpen] = useState(true)
   const completionToken = String(completionUrl).split('/complete-booking/')[1]?.split(/[/?#]/)[0] || ''
   const contractPreviewUrl = completionToken
     ? `${resolveApiBaseUrl()}/api/booking-completion/${completionToken}/contract-preview?format=pdf`
@@ -316,6 +316,13 @@ export default function WalkInShareContract({
           </>
         }
       >
+        <div className={`mb-3 inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+          signatureComplete
+            ? 'bg-[var(--admin-success-soft)] text-[var(--admin-success)]'
+            : 'bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]'
+        }`}>
+          {signatureComplete ? t('admin.walkIn.share.signatureSigned') : t('admin.walkIn.share.signatureInProgress')}
+        </div>
         {contractPreviewUrl ? (
           <iframe
             title={t('completion.contractPreview')}
