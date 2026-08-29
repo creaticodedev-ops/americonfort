@@ -11,6 +11,7 @@ export const parseISODate = (value) => {
   if (!value || !/^\d{4}-\d{2}-\d{2}/.test(String(value))) return null
   const [y, m, d] = String(value).slice(0, 10).split('-').map(Number)
   const date = new Date(y, m - 1, d)
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null
   date.setHours(0, 0, 0, 0)
   return Number.isNaN(date.getTime()) ? null : date
 }
@@ -48,6 +49,58 @@ export const formatDisplayDate = (iso, language = 'en') => {
   if (!d) return ''
   const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar' : 'en-GB'
   return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const normalizeMonthName = (value) =>
+  String(value || '')
+    .trim()
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+/**
+ * Parse the human-friendly formats accepted by the shared calendar.
+ * Numeric input follows the app's day-first convention; ISO remains supported.
+ * Returns a local-calendar Date or null without rolling invalid dates over.
+ */
+export const parseDateInput = (value, language = 'en') => {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  const iso = parseISODate(raw)
+  if (iso) return iso
+
+  let day
+  let month
+  let year
+  const numeric = raw.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})$/)
+  const longYearFirst = raw.match(/^(\d{4})[/. -](\d{1,2})[/. -](\d{1,2})$/)
+  const compact = raw.match(/^(\d{2})(\d{2})(\d{4})$/)
+
+  if (numeric) {
+    [, day, month, year] = numeric.map(Number)
+  } else if (longYearFirst) {
+    [, year, month, day] = longYearFirst.map(Number)
+  } else if (compact) {
+    [, day, month, year] = compact.map(Number)
+  } else {
+    const named = raw.match(/^(\d{1,2})\s+([^\d\s]+)\s+(\d{4})$/)
+    if (!named) return null
+    day = Number(named[1])
+    year = Number(named[3])
+    const wanted = normalizeMonthName(named[2])
+    const names = [...(MONTHS[language] || MONTHS.en), ...MONTHS.en]
+    month = names.findIndex((name) => {
+      const normalized = normalizeMonthName(name)
+      return normalized === wanted || normalized.slice(0, 3) === wanted.slice(0, 3)
+    }) % 12 + 1
+    if (!month) return null
+  }
+
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) return null
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+  date.setHours(0, 0, 0, 0)
+  return date
 }
 
 export const todayISO = () => toISODate(startOfDay(new Date()))

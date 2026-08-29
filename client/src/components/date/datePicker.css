@@ -441,6 +441,96 @@
   border-top-color: var(--admin-border, #eee8e2);
 }
 
+.hdn-cal__date-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.6rem;
+  margin: 0 0 0.9rem;
+}
+
+.hdn-cal__date-inputs.is-range {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hdn-cal__date-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.hdn-cal__date-input-label {
+  color: #8a8078;
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hdn-cal__date-input {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.42rem 0.65rem;
+  border: 1px solid #e5ddd6;
+  border-radius: 0.7rem;
+  background: #faf8f6;
+  color: #1c1714;
+  font-size: 0.875rem;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.hdn-cal__date-input::placeholder {
+  color: #aaa098;
+  font-weight: 500;
+}
+
+.hdn-cal__date-input:hover,
+.hdn-cal__date-input-wrap.is-active .hdn-cal__date-input {
+  border-color: color-mix(in srgb, #800020 35%, #e5ddd6);
+}
+
+.hdn-cal__date-input:focus {
+  border-color: color-mix(in srgb, #800020 45%, #e5ddd6);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(128 0 32 / 14%);
+}
+
+.hdn-cal__date-input[aria-invalid='true'] {
+  border-color: #b54747;
+  box-shadow: 0 0 0 3px rgb(181 71 71 / 11%);
+}
+
+.hdn-cal__date-error {
+  margin: -0.45rem 0 0.75rem;
+  color: #b54747;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.hdn-cal--admin .hdn-cal__date-input-label {
+  color: var(--admin-fg-muted, #8a8078);
+}
+
+.hdn-cal--admin .hdn-cal__date-input {
+  border-color: var(--admin-border, #e5ddd6);
+  background: var(--admin-surface-2, #faf8f6);
+  color: var(--admin-fg, #1c1714);
+}
+
+.hdn-cal--admin .hdn-cal__date-input:focus {
+  background: var(--admin-surface, #fff);
+  border-color: color-mix(in srgb, var(--admin-accent, #800020) 45%, var(--admin-border, #e5ddd6));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent, #800020) 14%, transparent);
+}
+
+.hdn-cal--admin .hdn-cal__date-error {
+  color: var(--admin-danger, #b54747);
+}
+
 .hdn-cal__time {
   display: flex;
   align-items: center;
@@ -471,7 +561,8 @@
   margin: 0;
 }
 
-.hdn-cal__time-select {
+.hdn-cal__time-select,
+.hdn-cal__time-input {
   appearance: none;
   min-width: 3.25rem;
   height: 2.35rem;
@@ -488,25 +579,34 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.hdn-cal__time-select:hover:not(:disabled) {
+.hdn-cal__time-select:hover:not(:disabled),
+.hdn-cal__time-input:hover:not(:disabled) {
   border-color: color-mix(in srgb, #800020 35%, #e5ddd6);
 }
 
-.hdn-cal__time-select:focus-visible {
+.hdn-cal__time-select:focus-visible,
+.hdn-cal__time-input:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, #800020 45%, #e5ddd6);
   box-shadow: 0 0 0 3px rgb(128 0 32 / 14%);
 }
 
-.hdn-cal__time-select:disabled {
+.hdn-cal__time-select:disabled,
+.hdn-cal__time-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.hdn-cal--admin .hdn-cal__time-select {
+.hdn-cal--admin .hdn-cal__time-select,
+.hdn-cal--admin .hdn-cal__time-input {
   background: var(--admin-surface-2, #faf8f6);
   border-color: var(--admin-border, #e5ddd6);
   color: var(--admin-fg, #1c1714);
+}
+
+.hdn-cal__time-input[aria-invalid='true'] {
+  border-color: #b54747;
+  box-shadow: 0 0 0 3px rgb(181 71 71 / 11%);
 }
 
 .hdn-cal__time-sep {

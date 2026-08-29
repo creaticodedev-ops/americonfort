@@ -4,8 +4,10 @@ import {
   WEEKDAYS,
   MONTHS,
   addMonths,
+  formatDisplayDate,
   isAfterDay,
   isBeforeDay,
+  parseDateInput,
   parseISODate,
   sameDay,
   startOfDay,
@@ -173,6 +175,8 @@ export const CalendarPopover = ({
   const [panelStyle, setPanelStyle] = useState({})
   const [hover, setHover] = useState(null)
   const [activeField, setActiveField] = useState('start')
+  const [dateDrafts, setDateDrafts] = useState({ single: '', start: '', end: '' })
+  const [dateError, setDateError] = useState('')
   const [level, setLevel] = useState('days') // days | months | years
   const [viewMonth, setViewMonth] = useState(() =>
     parseISODate(value || startDate) || startOfDay(new Date()),
@@ -200,9 +204,18 @@ export const CalendarPopover = ({
     setViewMonth(seed)
     if (rangeFocus === 'start' || rangeFocus === 'end') setActiveField(rangeFocus)
     else setActiveField(start && !end ? 'end' : 'start')
+    setDateDrafts({
+      single: value ? formatDisplayDate(value, language) : '',
+      start: startDate ? formatDisplayDate(startDate, language) : '',
+      end: endDate ? formatDisplayDate(endDate, language) : '',
+    })
+    setDateError('')
     setHover(null)
     setLevel('days')
-  }, [open, value, startDate, endDate, start, end, rangeFocus])
+    // Values are intentionally read only when opening or changing the range side.
+    // Re-syncing on every keystroke would replace the character being edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, rangeFocus])
 
   useEffect(() => {
     if (!open || !isMobile) return undefined
@@ -264,25 +277,93 @@ export const CalendarPopover = ({
 
   if (!open) return null
 
+  const dateErrorText = (reason) => {
+    if (reason === 'bounds') return labels.dateOutOfRange || 'Choose a date within the allowed range.'
+    if (reason === 'disabled') return labels.dateUnavailable || 'That date is unavailable.'
+    if (reason === 'start-required') return labels.startRequired || 'Choose a start date first.'
+    return labels.invalidDate || 'Enter a valid date.'
+  }
+
+  const isSelectable = (date) => {
+    if (!date) return { ok: false, reason: 'invalid' }
+    if ((min && isBeforeDay(date, min)) || (max && isAfterDay(date, max))) {
+      return { ok: false, reason: 'bounds' }
+    }
+    if (disabledDates instanceof Set && disabledDates.has(toISODate(date))) {
+      return { ok: false, reason: 'disabled' }
+    }
+    return { ok: true }
+  }
+
+  const setDraftForField = (field, text) => {
+    setDateDrafts((drafts) => ({ ...drafts, [field]: text }))
+    if (dateError) setDateError('')
+  }
+
+  const commitTypedDate = (field, text = dateDrafts[field]) => {
+    const parsed = parseDateInput(text, language)
+    const availability = isSelectable(parsed)
+    if (!availability.ok) {
+      setDateError(field)
+      return false
+    }
+
+    const iso = toISODate(parsed)
+    setViewMonth(new Date(parsed.getFullYear(), parsed.getMonth(), 1))
+    setDateDrafts((drafts) => ({ ...drafts, [field]: formatDisplayDate(iso, language) }))
+    setDateError('')
+
+    if (mode === 'single') {
+      onSelect?.(iso)
+      return true
+    }
+
+    if (field === 'start') {
+      onRangeChange?.({ startDate: iso, endDate: '' })
+      setActiveField('end')
+      setHover(null)
+      return true
+    }
+
+    if (!start) {
+      setDateError('start-required')
+      return false
+    }
+    if (start && isBeforeDay(parsed, start)) {
+      setDateError('bounds')
+      return false
+    }
+    onRangeChange?.({ startDate: toISODate(start), endDate: iso })
+    setHover(null)
+    return true
+  }
+
   const handleDaySelect = (date) => {
     setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1))
+    const iso = toISODate(date)
     if (mode === 'single') {
-      onSelect?.(toISODate(date))
+      setDraftForField('single', formatDisplayDate(iso, language))
+      onSelect?.(iso)
       if (closeOnSelect) onClose?.()
       return
     }
     if (activeField === 'start' || !start || (start && end)) {
-      onRangeChange?.({ startDate: toISODate(date), endDate: '' })
+      setDraftForField('start', formatDisplayDate(iso, language))
+      setDraftForField('end', '')
+      onRangeChange?.({ startDate: iso, endDate: '' })
       setActiveField('end')
       setHover(null)
       return
     }
     if (isBeforeDay(date, start)) {
-      onRangeChange?.({ startDate: toISODate(date), endDate: '' })
+      setDraftForField('start', formatDisplayDate(iso, language))
+      setDraftForField('end', '')
+      onRangeChange?.({ startDate: iso, endDate: '' })
       setActiveField('end')
       return
     }
-    onRangeChange?.({ startDate: toISODate(start), endDate: toISODate(date) })
+    setDraftForField('end', formatDisplayDate(iso, language))
+    onRangeChange?.({ startDate: toISODate(start), endDate: iso })
     setHover(null)
     setTimeout(() => onClose?.(), 140)
   }
@@ -290,6 +371,8 @@ export const CalendarPopover = ({
   const clear = () => {
     if (mode === 'single') onSelect?.('')
     else onRangeChange?.({ startDate: '', endDate: '' })
+    setDateDrafts({ single: '', start: '', end: '' })
+    setDateError('')
     setActiveField('start')
     setHover(null)
   }
@@ -301,6 +384,7 @@ export const CalendarPopover = ({
     setViewMonth(t)
     if (mode === 'single') {
       onSelect?.(todayISO())
+      setDraftForField('single', formatDisplayDate(todayISO(), language))
       if (closeOnSelect) onClose?.()
     }
   }
@@ -378,6 +462,56 @@ export const CalendarPopover = ({
             </button>
           </div>
         </div>
+
+        <div className={`hdn-cal__date-inputs ${mode === 'range' ? 'is-range' : ''}`}>
+          {(mode === 'range' ? ['start', 'end'] : ['single']).map((field) => {
+            const isActive = mode === 'single' || activeField === field
+            const fieldLabel = mode === 'range'
+              ? (field === 'start' ? labels.from || 'From' : labels.to || 'To')
+              : labels.date || 'Date'
+            const placeholder = labels.datePlaceholder || 'DD/MM/YYYY'
+            return (
+              <label key={field} className={`hdn-cal__date-input-wrap ${isActive ? 'is-active' : ''}`}>
+                <span className="hdn-cal__date-input-label">{fieldLabel}</span>
+                <input
+                  className="hdn-cal__date-input"
+                  value={dateDrafts[field]}
+                  placeholder={placeholder}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  aria-invalid={Boolean(dateError === field || dateError === 'invalid')}
+                  aria-label={fieldLabel}
+                  onFocus={(e) => {
+                    if (mode === 'range') setActiveField(field)
+                    setDateError('')
+                    e.currentTarget.select()
+                  }}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    setDraftForField(field, next)
+                    if (parseDateInput(next, language)) commitTypedDate(field, next)
+                  }}
+                  onBlur={() => {
+                    if (dateDrafts[field].trim()) commitTypedDate(field)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const committed = commitTypedDate(field)
+                      const isCompleteRange = mode === 'range' && field === 'end'
+                      if (committed && closeOnSelect && (mode === 'single' || isCompleteRange)) {
+                        onClose?.()
+                      }
+                    }
+                  }}
+                />
+              </label>
+            )
+          })}
+        </div>
+        {dateError ? (
+          <p className="hdn-cal__date-error" role="alert">{dateErrorText(dateError)}</p>
+        ) : null}
 
         {level === 'years' ? (
           <div className="hdn-cal__picker-grid" role="listbox" aria-label="Year">

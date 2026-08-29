@@ -1,8 +1,6 @@
-import React, { useId, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CalendarPopover } from './CalendarPopover'
 import {
-  HOURS_24,
-  MINUTES_60,
   formatDisplayDateTime,
   mergeDateTimeValue,
   parseISODate,
@@ -10,6 +8,72 @@ import {
 } from './dateUtils'
 import { useI18n } from '../../i18n/I18nContext'
 import './datePicker.css'
+
+const TimeInput = ({ value, min, max, disabled, label, onCommit }) => {
+  const [draft, setDraft] = useState(value)
+  const [focused, setFocused] = useState(false)
+
+  useEffect(() => {
+    if (!focused) setDraft(value)
+  }, [focused, value])
+
+  const isValid = (text) => {
+    const numeric = Number(text)
+    return /^\d{1,2}$/.test(text) && numeric >= min && numeric <= max
+  }
+
+  const commit = (text) => {
+    if (!isValid(text)) return false
+    const normalized = String(Number(text)).padStart(2, '0')
+    setDraft(normalized)
+    onCommit(normalized)
+    return true
+  }
+
+  const adjust = (amount) => {
+    const current = Number(draft)
+    const next = Number.isFinite(current)
+      ? (current + amount + max + 1) % (max + 1)
+      : min
+    commit(String(next))
+  }
+
+  return (
+    <input
+      className="hdn-cal__time-input"
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      maxLength={2}
+      value={draft}
+      disabled={disabled}
+      aria-label={label}
+      aria-invalid={draft.length === 2 && !isValid(draft)}
+      onFocus={(e) => {
+        setFocused(true)
+        e.currentTarget.select()
+      }}
+      onChange={(e) => {
+        const next = e.target.value.replace(/\D/g, '').slice(0, 2)
+        setDraft(next)
+        if (next.length === 2) commit(next)
+      }}
+      onBlur={() => {
+        setFocused(false)
+        if (!commit(draft)) setDraft(value)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault()
+          adjust(e.key === 'ArrowUp' ? 1 : -1)
+        } else if (e.key === 'Enter') {
+          e.preventDefault()
+          commit(draft)
+        }
+      }}
+    />
+  )
+}
 
 /**
  * Premium date+time field — replaces native <input type="datetime-local">.
@@ -71,30 +135,26 @@ export const DateTimeField = ({
       <div className="hdn-cal__time-row">
         <label className="hdn-cal__time-select-wrap">
           <span className="sr-only">{t('admin.datePicker.hour') || 'Hour'}</span>
-          <select
-            className="hdn-cal__time-select"
+          <TimeInput
             value={hour}
+            min={0}
+            max={23}
             disabled={!date}
-            onChange={(e) => emit(date || splitDateTimeValue(value).date, `${e.target.value}:${minute}`)}
-          >
-            {HOURS_24.map((h) => (
-              <option key={h} value={h}>{h}</option>
-            ))}
-          </select>
+            label={t('admin.datePicker.hour') || 'Hour'}
+            onCommit={(next) => emit(date || splitDateTimeValue(value).date, `${next}:${minute}`)}
+          />
         </label>
         <span className="hdn-cal__time-sep" aria-hidden>:</span>
         <label className="hdn-cal__time-select-wrap">
           <span className="sr-only">{t('admin.datePicker.minute') || 'Minute'}</span>
-          <select
-            className="hdn-cal__time-select"
+          <TimeInput
             value={minute}
+            min={0}
+            max={59}
             disabled={!date}
-            onChange={(e) => emit(date || splitDateTimeValue(value).date, `${hour}:${e.target.value}`)}
-          >
-            {MINUTES_60.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+            label={t('admin.datePicker.minute') || 'Minute'}
+            onCommit={(next) => emit(date || splitDateTimeValue(value).date, `${hour}:${next}`)}
+          />
         </label>
       </div>
     </div>
