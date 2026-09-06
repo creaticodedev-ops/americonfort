@@ -35,6 +35,19 @@ const bookingSchema = new mongoose.Schema({
       meta: { type: Object, default: {} },
     }],
   },
+  /**
+   * Desk / Walk-in remise intent (source of truth for recomputation).
+   * Applied amount lives in priceBreakdown.discounts (code: desk_discount).
+   * booking.price is always the post-discount total.
+   */
+  deskDiscount: {
+    type: {
+      type: String,
+      enum: ['fixed', 'percentage'],
+      default: 'fixed',
+    },
+    value: { type: Number, default: 0 },
+  },
   customerName: { type: String, default: "" },
   customerEmail: { type: String, default: "" },
   customerPhone: { type: String, default: "" },

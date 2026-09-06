@@ -242,6 +242,13 @@ const BookingInspector = ({
           {booking.priceBreakdown ? (
             <>
               <DetailRow label={t('admin.bookings.rentalPrice')}>{currency}{booking.priceBreakdown.rentalPrice ?? 0}</DetailRow>
+              <DetailRow label={t('admin.bookings.subtotal')}>
+                {currency}{(
+                  (Number(booking.priceBreakdown.rentalPrice) || 0)
+                  + (Number(booking.priceBreakdown.pickupDeliveryFee) || 0)
+                  + (Number(booking.priceBreakdown.dropoffDeliveryFee) || 0)
+                )}
+              </DetailRow>
               <DetailRow label={t('admin.bookings.pickupFee')}>
                 {(booking.priceBreakdown.pickupDeliveryFee || 0) <= 0
                   ? t('admin.bookings.free')
@@ -256,7 +263,13 @@ const BookingInspector = ({
                 ? (booking.priceBreakdown.discounts || []).map((d, idx) => (
                     <DetailRow
                       key={`disc-${idx}`}
-                      label={d.code === 'partner_discount' ? d.label || t('admin.bookings.partnerDiscount') : d.label || t('admin.bookings.discounts')}
+                      label={
+                        d.code === 'partner_discount'
+                          ? d.label || t('admin.bookings.partnerDiscount')
+                          : d.code === 'desk_discount'
+                            ? d.label || t('admin.bookings.deskDiscount')
+                            : d.label || t('admin.bookings.discounts')
+                      }
                     >
                       −{currency}{d.amount}
                     </DetailRow>

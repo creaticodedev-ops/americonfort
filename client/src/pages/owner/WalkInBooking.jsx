@@ -10,9 +10,11 @@ import { getErrorMessage } from '../../utils/apiError'
 import { getCarLocations } from '../../utils/carLocations'
 import PhoneInput from '../../components/PhoneInput'
 import SignaturePad from '../../components/SignaturePad'
+import WalkInPricingBox from '../../components/owner/WalkInPricingBox'
 import { DateField } from '../../components/date/DateField'
 import { DateTimeField } from '../../components/date/DateTimeField'
 import { isPhoneValid } from '../../utils/phoneValidation'
+import { buildWalkInQuote, normalizeDeskDiscountInput } from '../../utils/deskPricing'
 
 const emptySecondDriver = {
   enabled: false,
@@ -55,6 +57,7 @@ const emptyForm = {
   kmDepart: '',
   kmRetour: '',
   franchiseAmount: '',
+  deskDiscount: { type: 'fixed', value: '' },
   secondDriver: { ...emptySecondDriver },
 }
 
@@ -301,26 +304,18 @@ const WalkInBooking = () => {
       setQuote(null)
       return
     }
-    const start = new Date(form.pickupDate)
-    const end = new Date(form.returnDate)
-    if (!(end > start)) {
-      setQuote(null)
-      return
-    }
-    const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)))
     const pickup = pickupLocations.find((l) => l._id === form.pickupLocationId)
     const dropoff = pickupLocations.find((l) => l._id === form.returnLocationId)
-    const pickupFee = Number(pickup?.deliveryFee) || 0
-    const dropoffFee = Number(dropoff?.deliveryFee) || 0
-    const rental = days * Number(selectedCar.pricePerDay || 0)
-    setQuote({
-      days,
-      rental,
-      pickupFee,
-      dropoffFee,
-      total: rental + pickupFee + dropoffFee,
+    const next = buildWalkInQuote({
+      pricePerDay: selectedCar.pricePerDay,
+      pickupDate: form.pickupDate,
+      returnDate: form.returnDate,
+      pickupFee: Number(pickup?.deliveryFee) || 0,
+      dropoffFee: Number(dropoff?.deliveryFee) || 0,
+      deskDiscount: form.deskDiscount,
       franchise: Number(form.franchiseAmount) || Number(selectedCar.securityDeposit) || 0,
     })
+    setQuote(next)
   }, [
     selectedCar,
     form.pickupDate,
@@ -328,6 +323,7 @@ const WalkInBooking = () => {
     form.pickupLocationId,
     form.returnLocationId,
     form.franchiseAmount,
+    form.deskDiscount,
     pickupLocations,
   ])
 
@@ -443,8 +439,10 @@ const WalkInBooking = () => {
     }
     setSaving(true)
     try {
+      const deskDiscount = normalizeDeskDiscountInput(form.deskDiscount)
       const payload = {
         ...form,
+        deskDiscount: deskDiscount.value > 0 ? deskDiscount : { type: 'fixed', value: 0 },
         clientDocumentId: useExistingDoc && existingClientDoc?._id ? existingClientDoc._id : undefined,
         franchiseAmount: form.franchiseAmount === '' ? undefined : Number(form.franchiseAmount),
         secondDriver: form.secondDriver.enabled
@@ -875,44 +873,18 @@ const WalkInBooking = () => {
             </p>
           </Section>
 
-          <div className="rounded-2xl border border-borderColor bg-gradient-to-b from-white to-sand/30 p-4 sm:p-5">
-            <h2 className="text-sm font-semibold text-ink mb-3">{t('admin.walkIn.estimate')}</h2>
-            {quote ? (
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li className="flex justify-between gap-3">
-                  <span>{t('admin.walkIn.days', { count: quote.days })}</span>
-                  <span>{currency}{quote.rental}</span>
-                </li>
-                {quote.pickupFee > 0 && (
-                  <li className="flex justify-between gap-3">
-                    <span>{t('admin.walkIn.pickupFee')}</span>
-                    <span>{currency}{quote.pickupFee}</span>
-                  </li>
-                )}
-                {quote.dropoffFee > 0 && (
-                  <li className="flex justify-between gap-3">
-                    <span>{t('admin.walkIn.returnFee')}</span>
-                    <span>{currency}{quote.dropoffFee}</span>
-                  </li>
-                )}
-                {quote.franchise > 0 && (
-                  <li className="flex justify-between gap-3 text-xs text-muted">
-                    <span>{t('admin.walkIn.franchiseAmount')}</span>
-                    <span>{currency}{quote.franchise}</span>
-                  </li>
-                )}
-                <li className="flex justify-between gap-3 border-t border-borderColor pt-2 font-semibold text-ink">
-                  <span>{t('admin.walkIn.total')}</span>
-                  <span>{currency}{quote.total}</span>
-                </li>
-              </ul>
-            ) : (
-              <p className="text-sm text-muted">{t('admin.walkIn.estimateHint')}</p>
-            )}
+          <div className="space-y-4">
+            <WalkInPricingBox
+              quote={quote}
+              currency={currency}
+              discount={form.deskDiscount}
+              onDiscountChange={(next) => setField('deskDiscount', next)}
+              t={t}
+            />
             <button
               type="submit"
               disabled={saving}
-              className="admin-btn admin-btn--primary mt-5 w-full h-11"
+              className="admin-btn admin-btn--primary w-full h-11"
             >
               {saving ? t('admin.walkIn.saving') : t('admin.walkIn.submit')}
             </button>

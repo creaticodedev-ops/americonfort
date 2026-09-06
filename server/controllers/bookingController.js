@@ -29,6 +29,11 @@ import {
   getLocationDeliveryFee,
 } from "../services/pricingEngine.js";
 import {
+  normalizeDeskDiscount,
+  buildDiscountsForBooking,
+} from "../services/deskDiscount.js";
+import { computePartnerDiscountLine } from "../services/partnerDiscount.js";
+import {
   initiateBookingCompletion,
   generateCompletionLink,
   ensureWalkInContractPreview,
@@ -607,6 +612,7 @@ export const createWalkInBooking = async (req, res) => {
       kmRetour,
       franchiseAmount,
       secondDriver,
+      deskDiscount: deskDiscountRaw,
     } = req.body;
 
     const hasLocationIds =
@@ -712,13 +718,28 @@ export const createWalkInBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: rulesCheck.message, code: rulesCheck.code });
     }
 
-    const priceBreakdown = calculateBookingPrice({
+    const deskDiscount = normalizeDeskDiscount(deskDiscountRaw);
+    const provisional = calculateBookingPrice({
       pricePerDay: carData.pricePerDay,
       pickupDate: dates.picked,
       returnDate: dates.returned,
       pickupDeliveryFee: getLocationDeliveryFee(pickupLoc),
       dropoffDeliveryFee: getLocationDeliveryFee(returnLoc),
       discounts: [],
+    });
+    const discounts = buildDiscountsForBooking({
+      deskDiscount,
+      rentalPrice: provisional.rentalPrice,
+      pickupDeliveryFee: provisional.pickupDeliveryFee,
+      dropoffDeliveryFee: provisional.dropoffDeliveryFee,
+    });
+    const priceBreakdown = calculateBookingPrice({
+      pricePerDay: carData.pricePerDay,
+      pickupDate: dates.picked,
+      returnDate: dates.returned,
+      pickupDeliveryFee: provisional.pickupDeliveryFee,
+      dropoffDeliveryFee: provisional.dropoffDeliveryFee,
+      discounts,
     });
     const price = priceBreakdown.total;
     const reservationId = await generateReservationId();
@@ -797,6 +818,7 @@ export const createWalkInBooking = async (req, res) => {
       returnDate: dates.returned,
       price,
       priceBreakdown,
+      deskDiscount,
       customerName: fullName.trim(),
       customerEmail: guestEmail,
       customerPhone: phoneCheck.e164,
@@ -1300,6 +1322,7 @@ export const updateBooking = async (req, res) => {
       kmRetour,
       franchiseAmount,
       secondDriver,
+      deskDiscount: deskDiscountRaw,
     } = req.body;
 
     if (!mongoose.isValidObjectId(bookingId)) {
@@ -1389,7 +1412,7 @@ export const updateBooking = async (req, res) => {
     if (pickupLocation) booking.pickupLocation = pickupLocation;
     if (returnLocation) booking.returnLocation = returnLocation;
 
-    // Recalculate transparent total when dates or stored location fees apply
+    // Recalculate transparent total when dates, vehicle, fees, or desk remise change
     {
       let pickupFee = booking.priceBreakdown?.pickupDeliveryFee ?? 0;
       let dropoffFee = booking.priceBreakdown?.dropoffDeliveryFee ?? 0;
@@ -1407,13 +1430,52 @@ export const updateBooking = async (req, res) => {
         if (returnLoc) dropoffFee = getLocationDeliveryFee(returnLoc);
       }
 
-      const priceBreakdown = calculateBookingPrice({
-        pricePerDay: booking.car.pricePerDay,
+      if (deskDiscountRaw !== undefined) {
+        booking.deskDiscount = normalizeDeskDiscount(deskDiscountRaw);
+      }
+
+      let partnerLine = null;
+      if (booking.partnerCompany) {
+        const PartnerCompany = (await import('../models/PartnerCompany.js')).default;
+        const partner = await PartnerCompany.findOne({
+          _id: booking.partnerCompany,
+          owner: booking.owner,
+        });
+        const days = calcRentalDays(booking.pickupDate, booking.returnDate);
+        const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+        const rentalPrice = Math.round((Number(pricePerDay) || 0) * days * 100) / 100;
+        partnerLine = computePartnerDiscountLine({
+          partner,
+          days,
+          rentalPrice,
+          atDate: booking.pickupDate || new Date(),
+        });
+      }
+
+      const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+      const provisional = calculateBookingPrice({
+        pricePerDay,
         pickupDate: booking.pickupDate,
         returnDate: booking.returnDate,
         pickupDeliveryFee: pickupFee,
         dropoffDeliveryFee: dropoffFee,
-        discounts: booking.priceBreakdown?.discounts || [],
+        discounts: [],
+      });
+      const discounts = buildDiscountsForBooking({
+        existingDiscounts: booking.priceBreakdown?.discounts || [],
+        partnerLine,
+        deskDiscount: booking.deskDiscount,
+        rentalPrice: provisional.rentalPrice,
+        pickupDeliveryFee: provisional.pickupDeliveryFee,
+        dropoffDeliveryFee: provisional.dropoffDeliveryFee,
+      });
+      const priceBreakdown = calculateBookingPrice({
+        pricePerDay,
+        pickupDate: booking.pickupDate,
+        returnDate: booking.returnDate,
+        pickupDeliveryFee: pickupFee,
+        dropoffDeliveryFee: dropoffFee,
+        discounts,
       });
       booking.priceBreakdown = priceBreakdown;
       booking.price = priceBreakdown.total;
@@ -1626,9 +1688,6 @@ export const assignBookingRelations = async (req, res) => {
 
     // Reprice when partner assignment changes so partner discounts apply via pricingEngine
     if (partnerChanged) {
-      const { computePartnerDiscountLine, mergePartnerDiscount } = await import(
-        '../services/partnerDiscount.js'
-      );
       const Car = (await import('../models/Car.js')).default;
       const car = booking.car?._id
         ? booking.car
@@ -1638,9 +1697,6 @@ export const assignBookingRelations = async (req, res) => {
       const dropoffFee = booking.priceBreakdown?.dropoffDeliveryFee ?? 0;
       const days = calcRentalDays(booking.pickupDate, booking.returnDate);
       const rentalPrice = Math.round((Number(pricePerDay) || 0) * days * 100) / 100;
-      const existing = (booking.priceBreakdown?.discounts || []).filter(
-        (d) => d?.code !== 'partner_discount',
-      );
       if (!partnerDoc && booking.partnerCompany) {
         const { default: PartnerCompany } = await import('../models/PartnerCompany.js');
         partnerDoc = await PartnerCompany.findOne({
@@ -1654,7 +1710,14 @@ export const assignBookingRelations = async (req, res) => {
         rentalPrice,
         atDate: booking.pickupDate || new Date(),
       });
-      const discounts = mergePartnerDiscount(existing, partnerLine);
+      const discounts = buildDiscountsForBooking({
+        existingDiscounts: booking.priceBreakdown?.discounts || [],
+        partnerLine,
+        deskDiscount: booking.deskDiscount,
+        rentalPrice,
+        pickupDeliveryFee: pickupFee,
+        dropoffDeliveryFee: dropoffFee,
+      });
       const priceBreakdown = calculateBookingPrice({
         pricePerDay,
         pickupDate: booking.pickupDate,
