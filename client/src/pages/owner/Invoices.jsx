@@ -22,7 +22,22 @@ const formatDateTime = (value) => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
 }
 
-const createEmptyItem = () => ({ description: '', quantity: 1, unitPrice: '', taxRate: 0 })
+const createEmptyItem = () => ({
+  id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  description: '',
+  quantity: 1,
+  unitPrice: '',
+  taxRate: 0,
+})
+
+const toApiItems = (items = []) => items
+  .filter((item) => item.description || item.quantity || item.unitPrice)
+  .map((item) => ({
+    description: item.description,
+    quantity: Number(item.quantity || 1),
+    unitPrice: Number(item.unitPrice || 0),
+    taxRate: Number(item.taxRate || 0),
+  }))
 const createEmptyForm = () => {
   const today = new Date()
   const due = new Date(today)
@@ -190,7 +205,7 @@ const Invoices = () => {
           </div>
           <div className="mt-3 space-y-3">
             {items.map((item, index) => (
-              <div key={`edit-item-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.8fr_1fr_0.7fr_auto]">
+              <div key={item.id || `edit-item-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.8fr_1fr_0.7fr_auto]">
                 <input className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.description} onChange={(e) => updateItem(index, 'description', e.target.value)} placeholder={t('admin.invoices.itemDescription')} />
                 <input type="number" min="1" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
                 <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.unitPrice} onChange={(e) => updateItem(index, 'unitPrice', e.target.value)} />
@@ -414,7 +429,7 @@ const Invoices = () => {
       return
     }
 
-    const items = form.items.filter((item) => item.description || item.quantity || item.unitPrice)
+    const items = toApiItems(form.items)
     if (!items.length) {
       toast.error(t('admin.invoices.itemRequired'))
       return
@@ -783,7 +798,7 @@ const Invoices = () => {
                 </div>
                 <div className="mt-3 space-y-3">
                   {form.items.map((item, index) => (
-                    <div key={`${item.description}-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.8fr_1fr_0.7fr_auto]">
+                    <div key={item.id || `create-item-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.8fr_1fr_0.7fr_auto]">
                       <input className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.description} onChange={(e) => updateItem(index, 'description', e.target.value)} placeholder={t('admin.invoices.itemDescription')} />
                       <input type="number" min="1" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
                       <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.unitPrice} onChange={(e) => updateItem(index, 'unitPrice', e.target.value)} />

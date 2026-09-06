@@ -242,7 +242,8 @@ export const initInvoiceForm = (doc) => {
   const items = (Array.isArray(doc.items) && doc.items.length
     ? doc.items
     : (Array.isArray(s.items) && s.items.length ? s.items : [{ description: '', quantity: 1, unitPrice: '', taxRate: 0 }])
-  ).map((item) => ({
+  ).map((item, index) => ({
+    id: item.id || `invoice-item-${index}-${Date.now()}`,
     description: item.description || '',
     quantity: item.quantity ?? 1,
     unitPrice: item.unitPrice ?? '',
