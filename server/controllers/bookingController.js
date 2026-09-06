@@ -39,6 +39,7 @@ import {
   ensureWalkInContractPreview,
 } from "../services/bookingCompletionService.js";
 import { resolveIncludeCompanyStamp } from "../services/documentSettings.js";
+import { getWalkInFleetAvailability } from "../services/walkInFleetAvailability.js";
 import { isSyntheticWalkInEmail } from "../utils/contractFields.js";
 import {
   carServesCity,
@@ -553,6 +554,49 @@ export const createBooking = async (req, res) => {
       return res.status(409).json({ success: false, message: 'Reservation conflict, please try again' });
     }
     res.status(500).json({ success: false, message: 'Failed to create reservation' });
+  }
+};
+
+/**
+ * Staff desk reservation — walk-in / offline.
+ * Same Booking pipeline (CRM, calendar, payments, completion, reports).
+ */
+export const getWalkInFleetAvailabilityForOwner = async (req, res) => {
+  try {
+    const { pickupDate, returnDate } = req.query;
+    let picked = null;
+    let returned = null;
+
+    if (pickupDate || returnDate) {
+      if (!pickupDate || !returnDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Both pickupDate and returnDate are required when checking a rental window',
+        });
+      }
+      const dates = parseDateRange(pickupDate, returnDate);
+      if (!dates.valid) {
+        return res.status(400).json({ success: false, message: dates.message });
+      }
+      picked = dates.picked;
+      returned = dates.returned;
+    }
+
+    const result = await getWalkInFleetAvailability({
+      ownerId: req.user._id,
+      pickupDate: picked,
+      returnDate: returned,
+    });
+
+    res.json({
+      success: true,
+      ...result,
+      pickupDate: picked,
+      returnDate: returned,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to load fleet availability' });
   }
 };
 

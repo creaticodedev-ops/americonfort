@@ -7,6 +7,7 @@ import {
   checkAvailabilityOfCar,
   createBooking,
   createWalkInBooking,
+  getWalkInFleetAvailabilityForOwner,
   deleteBooking,
   deleteBookingsBulk,
   exportOwnerBookings,
@@ -53,6 +54,7 @@ const ledgerWriteLimit = rateLimit({ windowMs: 60_000, max: 40, message: 'Too ma
 bookingRouter.post('/check-availability', rateLimit({ windowMs: 60_000, max: 30 }), checkAvailabilityOfCar);
 bookingRouter.post('/create', rateLimit({ windowMs: 60_000, max: 10, message: 'Too many booking attempts' }), createBooking);
 bookingRouter.post('/owner/walk-in', ...bookingsGate, createWalkInBooking);
+bookingRouter.get('/owner/walk-in/fleet-availability', ...bookingsGate, getWalkInFleetAvailabilityForOwner);
 bookingRouter.get('/owner', ...bookingsGate, getOwnerBookings);
 bookingRouter.get('/owner/export', ...bookingsGate, exportOwnerBookings);
 bookingRouter.get('/owner/calendar', ...calendarGate, getCalendarBookings);

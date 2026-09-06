@@ -7,7 +7,14 @@ import { useI18n } from '../../../i18n/I18nContext'
 const normalize = (v) => String(v || '').trim().toLowerCase()
 
 const optionSearchBlob = (option) =>
-  normalize([option.label, option.description, option.meta, option.searchText].filter(Boolean).join(' '))
+  normalize([
+    option.label,
+    option.description,
+    option.meta,
+    option.searchText,
+    option.status?.label,
+    option.status?.detail,
+  ].filter(Boolean).join(' '))
 
 const PANEL_GAP = 6
 const VIEWPORT_PAD = 8
@@ -17,11 +24,27 @@ const getPortalRoot = () => {
   return document.querySelector('.admin-app') || document.body
 }
 
+const StatusRow = ({ status }) => {
+  if (!status?.label) return null
+  return (
+    <span className={`admin-ss__status admin-ss__status--${status.tone || 'neutral'}`}>
+      <span className="admin-ss__status-dot" aria-hidden />
+      <span className="admin-ss__status-label">{status.label}</span>
+      {status.detail ? (
+        <span className="admin-ss__status-detail">· {status.detail}</span>
+      ) : null}
+    </span>
+  )
+}
+
 /**
  * Premium searchable select for admin forms.
  * Dropdown is portaled so parent cards (overflow:hidden) never clip it.
  *
- * options: [{ value, label, description?, meta?, searchText?, disabled? }]
+ * options: [{
+ *   value, label, description?, meta?, searchText?, disabled?,
+ *   tooltip?, status?: { tone, label, detail? }
+ * }]
  */
 export const AdminSearchSelect = ({
   value = '',
@@ -254,14 +277,22 @@ export const AdminSearchSelect = ({
           filtered.map((option, index) => {
             const active = String(option.value) === String(value)
             const highlighted = index === highlight
+            const unavailable = Boolean(option.disabled)
             return (
               <li key={String(option.value)}>
                 <button
                   type="button"
                   role="option"
                   aria-selected={active}
-                  disabled={option.disabled}
-                  className={`admin-ss__option${active ? ' is-selected' : ''}${highlighted ? ' is-highlight' : ''}`}
+                  aria-disabled={unavailable}
+                  disabled={unavailable}
+                  title={option.tooltip || undefined}
+                  className={[
+                    'admin-ss__option',
+                    active ? 'is-selected' : '',
+                    highlighted ? 'is-highlight' : '',
+                    unavailable ? 'is-unavailable' : '',
+                  ].filter(Boolean).join(' ')}
                   onMouseEnter={() => setHighlight(index)}
                   onClick={() => pick(option)}
                 >
@@ -270,11 +301,16 @@ export const AdminSearchSelect = ({
                     {option.description ? (
                       <span className="admin-ss__option-desc">{option.description}</span>
                     ) : null}
-                    {option.meta ? (
+                    {option.status ? (
+                      <StatusRow status={option.status} />
+                    ) : option.meta ? (
+                      <span className="admin-ss__option-meta">{option.meta}</span>
+                    ) : null}
+                    {option.status && option.meta ? (
                       <span className="admin-ss__option-meta">{option.meta}</span>
                     ) : null}
                   </span>
-                  {active ? (
+                  {active && !unavailable ? (
                     <span className="admin-ss__check" aria-hidden>✓</span>
                   ) : null}
                 </button>
@@ -308,7 +344,15 @@ export const AdminSearchSelect = ({
             <span className="admin-ss__placeholder">{t('admin.common.loading')}</span>
           ) : selected ? (
             <>
-              <span className="admin-ss__title">{selected.label}</span>
+              <span className="admin-ss__title-row">
+                <span className="admin-ss__title">{selected.label}</span>
+                {selected.status?.label ? (
+                  <span className={`admin-ss__status-chip admin-ss__status--${selected.status.tone || 'neutral'}`}>
+                    <span className="admin-ss__status-dot" aria-hidden />
+                    {selected.status.label}
+                  </span>
+                ) : null}
+              </span>
               {selected.description ? (
                 <span className="admin-ss__desc">{selected.description}</span>
               ) : selected.meta ? (

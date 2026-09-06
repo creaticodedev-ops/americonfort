@@ -18,6 +18,7 @@ import { DateTimeField } from '../../components/date/DateTimeField'
 import { isPhoneValid } from '../../utils/phoneValidation'
 import { buildWalkInQuote, normalizeDeskDiscountInput } from '../../utils/deskPricing'
 import { useWalkInDraft } from '../../hooks/useWalkInDraft'
+import { buildWalkInVehicleOptions } from '../../utils/walkInVehicleOptions'
 
 const emptySecondDriver = {
   enabled: false,
@@ -106,8 +107,10 @@ const Section = ({ title, subtitle, children }) => (
 
 const WalkInBooking = () => {
   const { axios, currency, pickupLocations } = useAppContext()
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   const [cars, setCars] = useState([])
+  const [fleetSummary, setFleetSummary] = useState(null)
+  const [fleetLoading, setFleetLoading] = useState(true)
   const [form, setForm] = useState(() => ({ ...emptyForm, secondDriver: { ...emptySecondDriver } }))
   const [quote, setQuote] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -172,17 +175,36 @@ const WalkInBooking = () => {
   }, [pickupLocations, draftHydrated])
 
   useEffect(() => {
-    ;(async () => {
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setFleetLoading(true)
       try {
-        const { data } = await axios.get('/api/owner/cars')
+        const params = new URLSearchParams()
+        if (form.pickupDate && form.returnDate) {
+          params.set('pickupDate', form.pickupDate)
+          params.set('returnDate', form.returnDate)
+        }
+        const qs = params.toString()
+        const { data } = await axios.get(
+          `/api/bookings/owner/walk-in/fleet-availability${qs ? `?${qs}` : ''}`,
+        )
+        if (cancelled) return
         if (data.success) {
-          setCars((data.cars || []).filter((c) => c.status !== 'maintenance' && c.isAvaliable !== false))
+          setCars(data.items || [])
+          setFleetSummary(data.summary || null)
         }
       } catch (error) {
-        toast.error(getErrorMessage(error))
+        if (!cancelled) toast.error(getErrorMessage(error))
+      } finally {
+        if (!cancelled) setFleetLoading(false)
       }
-    })()
-  }, [axios])
+    }, form.pickupDate && form.returnDate ? 280 : 0)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [axios, form.pickupDate, form.returnDate])
 
   useEffect(() => {
     let cancelled = false
@@ -236,26 +258,28 @@ const WalkInBooking = () => {
     sublabel: c.phone || c.licenseNumber || '',
   })), [chauffeurs, t])
 
+  const datesReady = Boolean(form.pickupDate && form.returnDate)
+
   const vehicleOptions = useMemo(
     () =>
-      cars.map((c) => {
-        const title = [c.brand, c.model].filter(Boolean).join(' ').trim() || '—'
-        const plate = String(c.licensePlate || '').trim()
-        const metaParts = [
-          c.pricePerDay != null ? `${currency}${c.pricePerDay}/day` : null,
-          c.branch || null,
-          c.fleetId ? String(c.fleetId) : null,
-        ].filter(Boolean)
-        return {
-          value: c._id,
-          label: title,
-          description: plate || t('admin.walkIn.noPlate'),
-          meta: metaParts.join(' · '),
-          searchText: [title, plate, c.fleetId, c.branch, c.category].filter(Boolean).join(' '),
-        }
+      buildWalkInVehicleOptions(cars, {
+        currency,
+        t,
+        language,
+        datesReady,
       }),
-    [cars, currency, t],
+    [cars, currency, t, language, datesReady],
   )
+
+  // Drop a previously selected car if it becomes unavailable for the new window.
+  useEffect(() => {
+    if (!form.car || !cars.length || fleetLoading) return
+    const selected = cars.find((c) => String(c._id) === String(form.car))
+    if (!selected || selected.selectable === false) {
+      setForm((f) => ({ ...f, car: '' }))
+      toast.error(t('admin.walkIn.vehicleClearedUnavailable'))
+    }
+  }, [cars, form.car, fleetLoading, t])
 
   const fuelOptions = useMemo(
     () => [
@@ -860,7 +884,29 @@ const WalkInBooking = () => {
 
           <Section title={t('admin.walkIn.rental')} subtitle={t('admin.walkIn.rentalHint')}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t('admin.walkIn.vehicle')} required className="sm:col-span-2">
+              <Field
+                label={t('admin.walkIn.vehicle')}
+                required
+                className="sm:col-span-2"
+                hint={
+                  fleetSummary
+                    ? (datesReady
+                      ? t('admin.walkIn.vehicleFleetHint', {
+                          available: fleetSummary.available || 0,
+                          reserved: fleetSummary.reserved || 0,
+                          onRent: fleetSummary.onRent || 0,
+                          blocked:
+                            (fleetSummary.maintenance || 0) + (fleetSummary.unavailable || 0),
+                        })
+                      : t('admin.walkIn.vehicleFleetHintNoDates', {
+                          available: fleetSummary.available || 0,
+                          onRent: fleetSummary.onRent || 0,
+                          blocked:
+                            (fleetSummary.maintenance || 0) + (fleetSummary.unavailable || 0),
+                        }))
+                    : t('admin.walkIn.vehicleFleetLoading')
+                }
+              >
                 <AdminSearchSelect
                   value={form.car}
                   options={vehicleOptions}
@@ -868,6 +914,7 @@ const WalkInBooking = () => {
                   emptyLabel={t('admin.walkIn.noVehicles')}
                   searchable
                   clearable
+                  loading={fleetLoading}
                   onChange={(v) => setField('car', v)}
                   aria-label={t('admin.walkIn.vehicle')}
                 />

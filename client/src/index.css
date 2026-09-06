@@ -3665,6 +3665,36 @@ body.nav-open {
   white-space: nowrap;
 }
 
+.admin-ss__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.admin-ss__title-row .admin-ss__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-ss__status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  max-width: 46%;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-ss__desc {
   display: block;
   font-size: 0.75rem;
@@ -3818,15 +3848,26 @@ body.nav-open {
   background: color-mix(in srgb, var(--admin-accent) 10%, var(--admin-surface));
 }
 
-.admin-ss__option:disabled {
-  opacity: 0.45;
+.admin-ss__option:disabled,
+.admin-ss__option.is-unavailable {
+  opacity: 1;
   cursor: not-allowed;
+  color: var(--admin-fg-muted);
+}
+
+.admin-ss__option.is-unavailable .admin-ss__option-title {
+  color: var(--admin-fg-secondary);
+}
+
+.admin-ss__option.is-unavailable:hover,
+.admin-ss__option.is-unavailable.is-highlight {
+  background: color-mix(in srgb, var(--admin-surface-hover) 75%, transparent);
 }
 
 .admin-ss__option-main {
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
+  gap: 0.18rem;
   min-width: 0;
 }
 
@@ -3860,6 +3901,85 @@ body.nav-open {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-ss__status {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin-top: 0.05rem;
+  font-size: 0.6875rem;
+  font-weight: 550;
+  line-height: 1.3;
+  background: transparent;
+}
+
+.admin-ss__status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.admin-ss__status-label {
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.admin-ss__status-detail {
+  font-weight: 500;
+  color: var(--admin-fg-muted);
+}
+
+.admin-ss__status--available,
+.admin-ss__status-chip.admin-ss__status--available {
+  color: var(--admin-success);
+}
+
+.admin-ss__status-chip.admin-ss__status--available {
+  background: color-mix(in srgb, var(--admin-success) 12%, transparent);
+}
+
+.admin-ss__status--reserved,
+.admin-ss__status-chip.admin-ss__status--reserved {
+  color: #b45309;
+}
+
+.admin-ss__status-chip.admin-ss__status--reserved {
+  background: color-mix(in srgb, #b45309 12%, transparent);
+}
+
+.admin-ss__status--on_rent,
+.admin-ss__status-chip.admin-ss__status--on_rent {
+  color: #1d4ed8;
+}
+
+.admin-ss__status-chip.admin-ss__status--on_rent {
+  background: color-mix(in srgb, #1d4ed8 12%, transparent);
+}
+
+.admin-ss__status--maintenance,
+.admin-ss__status-chip.admin-ss__status--maintenance,
+.admin-ss__status--unavailable,
+.admin-ss__status-chip.admin-ss__status--unavailable {
+  color: var(--admin-danger);
+}
+
+.admin-ss__status-chip.admin-ss__status--maintenance,
+.admin-ss__status-chip.admin-ss__status--unavailable {
+  background: color-mix(in srgb, var(--admin-danger) 12%, transparent);
+}
+
+.admin-ss__status--neutral,
+.admin-ss__status-chip.admin-ss__status--neutral {
+  color: var(--admin-fg-muted);
+}
+
+.admin-ss__status-chip.admin-ss__status--neutral {
+  background: var(--admin-surface-2);
 }
 
 .admin-ss__check {
