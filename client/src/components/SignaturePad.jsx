@@ -24,8 +24,9 @@ const wipeBackingStore = (ctx, dpr) => {
 
 /**
  * Lightweight browser signature pad — no external dependency.
+ * Optional `value` (data URL) restores a previously captured signature (draft recovery).
  */
-const SignaturePad = ({ onChange, className = '', disabled = false }) => {
+const SignaturePad = ({ onChange, value = '', className = '', disabled = false }) => {
   const canvasRef = useRef(null)
   const drawing = useRef(false)
   const lastPoint = useRef(null)
@@ -33,7 +34,9 @@ const SignaturePad = ({ onChange, className = '', disabled = false }) => {
   const layoutRef = useRef({ width: 0, height: 0, dpr: 0 })
   const hasInkRef = useRef(false)
   const onChangeRef = useRef(onChange)
+  const externalValueRef = useRef('')
   const [hasInk, setHasInk] = useState(false)
+  const [canvasReady, setCanvasReady] = useState(0)
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -42,6 +45,25 @@ const SignaturePad = ({ onChange, className = '', disabled = false }) => {
   useEffect(() => {
     hasInkRef.current = hasInk
   }, [hasInk])
+
+  const paintDataUrl = useCallback((dataUrl) => {
+    const canvas = canvasRef.current
+    if (!canvas || !dataUrl?.startsWith?.('data:image')) return false
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return false
+    const img = new Image()
+    img.onload = () => {
+      const dpr = dprRef.current || window.devicePixelRatio || 1
+      wipeBackingStore(ctx, dpr)
+      const { width, height } = layoutRef.current
+      ctx.drawImage(img, 0, 0, width || canvas.clientWidth, height || 160)
+      hasInkRef.current = true
+      setHasInk(true)
+      externalValueRef.current = dataUrl
+    }
+    img.src = dataUrl
+    return true
+  }, [])
 
   const setupCanvas = useCallback(({ force = false } = {}) => {
     const canvas = canvasRef.current
@@ -80,21 +102,27 @@ const SignaturePad = ({ onChange, className = '', disabled = false }) => {
     lastPoint.current = null
     hasInkRef.current = false
     setHasInk(false)
+    externalValueRef.current = ''
     onChangeRef.current?.('')
   }, [])
 
   useEffect(() => {
     setupCanvas({ force: true })
+    setCanvasReady((n) => n + 1)
 
     let frame = 0
     const onResize = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         const hadInk = hasInkRef.current
+        const saved = externalValueRef.current || (hadInk ? canvasRef.current?.toDataURL?.('image/png') : '')
         const changed = setupCanvas()
         if (!changed) return
-        if (hadInk) resetSignatureState()
-        else {
+        if (saved?.startsWith?.('data:image')) {
+          paintDataUrl(saved)
+        } else if (hadInk) {
+          resetSignatureState()
+        } else {
           drawing.current = false
           lastPoint.current = null
         }
@@ -113,7 +141,18 @@ const SignaturePad = ({ onChange, className = '', disabled = false }) => {
       window.removeEventListener('resize', onResize)
       ro?.disconnect()
     }
-  }, [setupCanvas, resetSignatureState])
+  }, [setupCanvas, resetSignatureState, paintDataUrl])
+
+  useEffect(() => {
+    if (!value) {
+      if (externalValueRef.current && !hasInkRef.current) {
+        externalValueRef.current = ''
+      }
+      return
+    }
+    if (value === externalValueRef.current) return
+    paintDataUrl(value)
+  }, [value, canvasReady, paintDataUrl])
 
   const pos = (e) => {
     const canvas = canvasRef.current
@@ -168,7 +207,9 @@ const SignaturePad = ({ onChange, className = '', disabled = false }) => {
     const ctx = canvas?.getContext('2d')
     ctx?.beginPath()
     if (canvas && hasInkRef.current) {
-      onChangeRef.current?.(canvas.toDataURL('image/png'))
+      const dataUrl = canvas.toDataURL('image/png')
+      externalValueRef.current = dataUrl
+      onChangeRef.current?.(dataUrl)
     }
   }
 
@@ -191,6 +232,7 @@ const SignaturePad = ({ onChange, className = '', disabled = false }) => {
 
     hasInkRef.current = false
     setHasInk(false)
+    externalValueRef.current = ''
     onChangeRef.current?.('')
   }
 

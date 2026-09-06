@@ -9,6 +9,7 @@ import {
 } from '../services/customerDocuments.js';
 import {
   upsertClientDocumentFromWalkIn,
+  appendTypedClientDocumentFile,
   linkBookingToClientDocument,
 } from '../services/clientDocumentService.js';
 import { cleanupUploadedFile } from '../middleware/multer.js';
@@ -29,7 +30,7 @@ export const uploadBookingDocuments = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid booking ID' });
     }
     if (!file) {
-      return res.status(400).json({ success: false, message: 'Please upload an image file' });
+      return res.status(400).json({ success: false, message: 'Please upload an image or PDF file' });
     }
 
     const booking = await Booking.findOne({ _id: bookingId, owner: req.user._id });
@@ -47,12 +48,13 @@ export const uploadBookingDocuments = async (req, res) => {
       const url = await storeDocumentImage(file, `/client-docs/${booking.reservationId || bookingId}`);
       file = null;
 
+      const replaceExisting = String(req.body.replaceExisting ?? 'true').toLowerCase() !== 'false';
       const clientDoc = await upsertClientDocumentFromWalkIn({
         ownerId: req.user._id,
         booking,
         documentUrl: url,
         uploadedBy: req.user._id,
-        replaceExisting: true,
+        replaceExisting,
       });
 
       applyWalkInCombinedDocument(booking, {
@@ -100,6 +102,31 @@ export const uploadBookingDocuments = async (req, res) => {
 
     await booking.save();
 
+    let clientDocumentId = null;
+    if (isWalkInChannel(booking.channel)) {
+      const archiveType =
+        docType === 'driving_license'
+          ? 'driving_license'
+          : docType === 'passport'
+            ? 'passport'
+            : identityType === 'passport'
+              ? 'passport'
+              : 'national_id';
+      const clientDoc = await appendTypedClientDocumentFile({
+        ownerId: req.user._id,
+        booking,
+        fileType: archiveType,
+        documentUrl: url,
+        uploadedBy: req.user._id,
+        existingClientDocumentId: booking.clientDocument || null,
+      });
+      clientDocumentId = clientDoc?._id || null;
+      if (clientDocumentId && !booking.clientDocument) {
+        booking.clientDocument = clientDocumentId;
+        await booking.save();
+      }
+    }
+
     await logAudit({
       owner: req.user._id,
       actor: req.user._id,
@@ -113,6 +140,7 @@ export const uploadBookingDocuments = async (req, res) => {
     res.json({
       success: true,
       message: 'Document uploaded',
+      clientDocumentId,
       documents: {
         drivingLicenseUrl: signDocUrl(docs.drivingLicenseUrl),
         identityDocumentUrl: signDocUrl(docs.identityDocumentUrl),

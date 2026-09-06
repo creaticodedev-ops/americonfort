@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { AdminPage, PageHeader, DirectorySearchSelect, AdminSearchSelect } from '../../components/owner/ui'
 import ChannelBadge from '../../components/owner/ChannelBadge'
 import WalkInShareContract from '../../components/owner/WalkInShareContract'
+import WalkInDocumentUploader from '../../components/owner/WalkInDocumentUploader'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
@@ -15,6 +16,7 @@ import { DateField } from '../../components/date/DateField'
 import { DateTimeField } from '../../components/date/DateTimeField'
 import { isPhoneValid } from '../../utils/phoneValidation'
 import { buildWalkInQuote, normalizeDeskDiscountInput } from '../../utils/deskPricing'
+import { useWalkInDraft } from '../../hooks/useWalkInDraft'
 
 const emptySecondDriver = {
   enabled: false,
@@ -109,10 +111,11 @@ const WalkInBooking = () => {
   const [quote, setQuote] = useState(null)
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState(null)
-  const [docFiles, setDocFiles] = useState({ combined: null })
+  const [docItems, setDocItems] = useState([])
   const [clientSignature, setClientSignature] = useState('')
   const [secondDriverSignature, setSecondDriverSignature] = useState('')
-  const [uploadingDoc, setUploadingDoc] = useState('')
+  const [signaturePadKey, setSignaturePadKey] = useState(0)
+  const [uploadingDoc, setUploadingDoc] = useState(false)
   const [existingClientDoc, setExistingClientDoc] = useState(null)
   const [useExistingDoc, setUseExistingDoc] = useState(false)
   const [lookupBusy, setLookupBusy] = useState(false)
@@ -121,14 +124,50 @@ const WalkInBooking = () => {
   const [chauffeurs, setChauffeurs] = useState([])
   const [directoriesLoading, setDirectoriesLoading] = useState(true)
 
+  const {
+    hydrated: draftHydrated,
+    draftBanner,
+    discardDraft,
+    clearDraftAfterSuccess,
+    dismissBanner,
+  } = useWalkInDraft({
+    form,
+    setForm,
+    clientSignature,
+    setClientSignature,
+    secondDriverSignature,
+    setSecondDriverSignature,
+    docItems,
+    setDocItems,
+    useExistingDoc,
+    setUseExistingDoc,
+    enabled: !created,
+  })
+
   const input =
     'w-full rounded-xl border border-borderColor bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/10'
 
-  // Default pickup + return to Casablanca when locations are available.
-  useEffect(() => {
-    if (!pickupLocations?.length) return
-    setForm((f) => withDefaultLocations(f, pickupLocations))
+  const resetDeskForm = React.useCallback(() => {
+    setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
+    setQuote(null)
+    setExistingClientDoc(null)
+    setUseExistingDoc(false)
+    setDocItems((prev) => {
+      prev.forEach((d) => {
+        if (d.previewUrl) URL.revokeObjectURL(d.previewUrl)
+      })
+      return []
+    })
+    setClientSignature('')
+    setSecondDriverSignature('')
+    setSignaturePadKey((k) => k + 1)
   }, [pickupLocations])
+
+  // Default pickup + return to Casablanca when locations are available (never overwrite filled fields).
+  useEffect(() => {
+    if (!pickupLocations?.length || !draftHydrated) return
+    setForm((f) => withDefaultLocations(f, pickupLocations))
+  }, [pickupLocations, draftHydrated])
 
   useEffect(() => {
     ;(async () => {
@@ -337,7 +376,7 @@ const WalkInBooking = () => {
     try {
       const params = new URLSearchParams()
       if (form.phone) params.set('phone', form.phone)
-      if (form.customerName) params.set('customerName', form.customerName)
+      if (form.fullName) params.set('customerName', form.fullName)
       if (form.identityDocumentNumber) params.set('identityDocumentNumber', form.identityDocumentNumber)
       if (form.passportNumber) params.set('passportNumber', form.passportNumber)
       const { data } = await axios.get(`/api/bookings/owner/client-documents/lookup?${params}`)
@@ -354,7 +393,7 @@ const WalkInBooking = () => {
     } finally {
       setLookupBusy(false)
     }
-  }, [axios, form.phone, form.customerName, form.identityDocumentNumber, form.passportNumber])
+  }, [axios, form.phone, form.fullName, form.identityDocumentNumber, form.passportNumber])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -363,28 +402,32 @@ const WalkInBooking = () => {
     return () => window.clearTimeout(timer)
   }, [lookupExistingClient])
 
-  const uploadDocument = async (bookingId, file) => {
-    if (!file || !bookingId) return
-    setUploadingDoc('combined')
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('docType', 'combined')
-      const { data } = await axios.post(`/api/bookings/owner/${bookingId}/documents`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      if (data.success) toast.success(data.message)
-      else toast.error(data.message)
-    } catch (error) {
-      toast.error(getErrorMessage(error))
-    } finally {
-      setUploadingDoc('')
+  const mapDocTypeToApi = (docType) => {
+    if (docType === 'driving_license') return { docType: 'driving_license' }
+    if (docType === 'passport') return { docType: 'passport' }
+    if (docType === 'national_id') return { docType: 'identity', identityType: 'national_id' }
+    return { docType: 'combined' }
+  }
+
+  const uploadDocumentItem = async (bookingId, item, { replaceCombined = true } = {}) => {
+    if (!item?.file || !bookingId) return { success: false }
+    const mapped = mapDocTypeToApi(item.docType)
+    const formData = new FormData()
+    formData.append('file', item.file)
+    formData.append('docType', mapped.docType)
+    if (mapped.identityType) formData.append('identityType', mapped.identityType)
+    if (mapped.docType === 'combined' && !replaceCombined) {
+      formData.append('replaceExisting', 'false')
     }
+    const { data } = await axios.post(`/api/bookings/owner/${bookingId}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
   }
 
   const linkExistingDocument = async (bookingId) => {
     if (!existingClientDoc?._id) return
-    setUploadingDoc('link')
+    setUploadingDoc(true)
     try {
       const { data } = await axios.post('/api/bookings/owner/client-documents/link', {
         bookingId,
@@ -395,7 +438,7 @@ const WalkInBooking = () => {
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
-      setUploadingDoc('')
+      setUploadingDoc(false)
     }
   }
 
@@ -404,10 +447,51 @@ const WalkInBooking = () => {
       await linkExistingDocument(bookingId)
       return
     }
-    if (docFiles.combined) {
-      await uploadDocument(bookingId, docFiles.combined)
+    const pending = docItems.filter((d) => d.file && d.status !== 'success')
+    if (!pending.length) return
+
+    setUploadingDoc(true)
+    let combinedSeen = false
+    let okCount = 0
+    try {
+      for (const item of pending) {
+        setDocItems((list) =>
+          list.map((d) => (d.id === item.id ? { ...d, status: 'uploading', error: null } : d)),
+        )
+        try {
+          const replaceCombined = item.docType === 'combined' ? !combinedSeen : true
+          if (item.docType === 'combined') combinedSeen = true
+          const data = await uploadDocumentItem(bookingId, item, { replaceCombined })
+          if (data?.success) {
+            okCount += 1
+            setDocItems((list) =>
+              list.map((d) => (d.id === item.id ? { ...d, status: 'success' } : d)),
+            )
+          } else {
+            setDocItems((list) =>
+              list.map((d) =>
+                d.id === item.id
+                  ? { ...d, status: 'error', error: data?.message || t('admin.walkIn.docUploadFailed') }
+                  : d,
+              ),
+            )
+          }
+        } catch (error) {
+          setDocItems((list) =>
+            list.map((d) =>
+              d.id === item.id
+                ? { ...d, status: 'error', error: getErrorMessage(error, t('admin.walkIn.docUploadFailed')) }
+                : d,
+            ),
+          )
+        }
+      }
+      if (okCount > 0) {
+        toast.success(t('admin.walkIn.docUploadSuccess', { count: okCount }))
+      }
+    } finally {
+      setUploadingDoc(false)
     }
-    setDocFiles({ combined: null })
   }
 
   const saveOptionalWalkInSignatures = async (bookingId, signatureDataUrl, secondDriverSignatureDataUrl) => {
@@ -503,19 +587,21 @@ const WalkInBooking = () => {
           }
         }
         setCreated(createdPayload)
-        setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
-        setQuote(null)
-        setExistingClientDoc(null)
-        setUseExistingDoc(false)
-        setDocFiles({ combined: null })
-        setClientSignature('')
-        setSecondDriverSignature('')
+        await clearDraftAfterSuccess()
+        resetDeskForm()
       } else toast.error(data.message)
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
       setSaving(false)
     }
+  }
+
+  const onDiscardDraft = async () => {
+    await discardDraft()
+    resetDeskForm()
+    dismissBanner()
+    toast.success(t('admin.walkIn.draftDiscarded'))
   }
 
   return (
@@ -526,6 +612,16 @@ const WalkInBooking = () => {
         actions={
           <>
             <ChannelBadge channel="walk_in" />
+            {!created && (
+              <button
+                type="button"
+                onClick={onDiscardDraft}
+                className="admin-btn admin-btn--secondary"
+                disabled={saving || uploadingDoc}
+              >
+                {t('admin.walkIn.startNew')}
+              </button>
+            )}
             <Link to="/owner/manage-bookings" className="admin-btn admin-btn--secondary">
               {t('admin.walkIn.viewAll')}
             </Link>
@@ -538,14 +634,38 @@ const WalkInBooking = () => {
           created={created}
           onCreateAnother={() => {
             setCreated(null)
-            setForm(withDefaultLocations({ ...emptyForm, secondDriver: { ...emptySecondDriver } }, pickupLocations))
-            setClientSignature('')
-            setSecondDriverSignature('')
+            resetDeskForm()
           }}
         />
       ) : (
       <form onSubmit={onSubmit} className="mt-6 grid gap-6 lg:grid-cols-12">
         <div className="lg:col-span-8 space-y-5">
+          {draftBanner && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--admin-accent)_28%,var(--admin-border))] bg-[color-mix(in_srgb,var(--admin-accent)_6%,white)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--admin-fg)]">{t('admin.walkIn.draftRestored')}</p>
+                <p className="mt-0.5 text-xs text-[var(--admin-fg-muted)]">
+                  {t('admin.walkIn.draftRestoredHint')}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={dismissBanner}
+                  className="admin-btn admin-btn--secondary h-9 px-3 text-xs"
+                >
+                  {t('admin.walkIn.draftContinue')}
+                </button>
+                <button
+                  type="button"
+                  onClick={onDiscardDraft}
+                  className="admin-btn h-9 px-3 text-xs border border-[var(--admin-border)] bg-white text-[var(--admin-fg-secondary)] hover:bg-[var(--admin-surface-hover)]"
+                >
+                  {t('admin.walkIn.draftDiscard')}
+                </button>
+              </div>
+            </div>
+          )}
           <Section title={t('admin.walkIn.customer')} subtitle={t('admin.walkIn.customerHint')}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t('admin.walkIn.fullName')} required>
@@ -619,7 +739,7 @@ const WalkInBooking = () => {
             </div>
           </Section>
 
-          <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHintCombined')}>
+          <Section title={t('admin.walkIn.uploadDocuments')} subtitle={t('admin.walkIn.uploadDocumentsHintMulti')}>
             {lookupBusy && (
               <p className="text-xs text-[var(--admin-fg-muted)]">{t('admin.walkIn.lookupClient')}</p>
             )}
@@ -637,7 +757,14 @@ const WalkInBooking = () => {
                     checked={useExistingDoc}
                     onChange={(e) => {
                       setUseExistingDoc(e.target.checked)
-                      if (e.target.checked) setDocFiles({ combined: null })
+                      if (e.target.checked) {
+                        setDocItems((prev) => {
+                          prev.forEach((d) => {
+                            if (d.previewUrl) URL.revokeObjectURL(d.previewUrl)
+                          })
+                          return []
+                        })
+                      }
                     }}
                     className="mt-0.5"
                   />
@@ -646,25 +773,22 @@ const WalkInBooking = () => {
               </div>
             )}
             {!useExistingDoc && (
-              <div className="rounded-xl border border-dashed border-borderColor bg-sand/20 p-4">
-                <label className="text-sm font-medium text-gray-700">{t('admin.walkIn.uploadCombined')}</label>
-                <p className="mt-1 text-xs text-muted">{t('admin.walkIn.uploadCombinedHint')}</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={Boolean(uploadingDoc)}
-                  className="mt-3 block w-full text-sm"
-                  onChange={(e) => setDocFiles({ combined: e.target.files?.[0] || null })}
-                />
-                {docFiles.combined && (
-                  <p className="mt-2 truncate text-xs text-emerald-700">{docFiles.combined.name}</p>
-                )}
-              </div>
+              <WalkInDocumentUploader
+                items={docItems}
+                onChange={setDocItems}
+                disabled={saving || uploadingDoc}
+                t={t}
+              />
             )}
           </Section>
 
           <Section title={t('admin.walkIn.clientSignature')} subtitle={t('admin.walkIn.clientSignatureHint')}>
-            <SignaturePad onChange={setClientSignature} disabled={saving} />
+            <SignaturePad
+              key={`client-sig-${signaturePadKey}`}
+              value={clientSignature}
+              onChange={setClientSignature}
+              disabled={saving}
+            />
           </Section>
 
           <Section title={t('admin.walkIn.secondDriverSection')} subtitle={t('admin.walkIn.secondDriverHint')}>
@@ -709,7 +833,12 @@ const WalkInBooking = () => {
                   hint={t('admin.walkIn.secondDriverSignatureHint')}
                   className="sm:col-span-2"
                 >
-                  <SignaturePad onChange={setSecondDriverSignature} disabled={saving} />
+                  <SignaturePad
+                    key={`second-sig-${signaturePadKey}`}
+                    value={secondDriverSignature}
+                    onChange={setSecondDriverSignature}
+                    disabled={saving}
+                  />
                 </Field>
               </div>
             )}
@@ -883,10 +1012,10 @@ const WalkInBooking = () => {
             />
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploadingDoc || !draftHydrated}
               className="admin-btn admin-btn--primary w-full h-11"
             >
-              {saving ? t('admin.walkIn.saving') : t('admin.walkIn.submit')}
+              {saving || uploadingDoc ? t('admin.walkIn.saving') : t('admin.walkIn.submit')}
             </button>
           </div>
         </aside>

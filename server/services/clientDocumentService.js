@@ -168,9 +168,12 @@ export const upsertClientDocumentFromWalkIn = async ({
     const idx = doc.files.findIndex((f) => f.type === 'combined');
     if (idx >= 0) doc.files[idx] = { ...doc.files[idx].toObject?.() || doc.files[idx], ...filePayload };
     else doc.files.push(filePayload);
-  } else if (!doc.syncedLegacyKeys.includes(legacyKey)) {
+    if (!doc.syncedLegacyKeys.includes(legacyKey)) doc.syncedLegacyKeys.push(legacyKey);
+  } else {
+    // Always append additional walk-in uploads (multi-file desk flow).
     doc.files.push(filePayload);
-    doc.syncedLegacyKeys.push(legacyKey);
+    const appendKey = `${legacyKey}:${now.getTime()}`;
+    if (!doc.syncedLegacyKeys.includes(appendKey)) doc.syncedLegacyKeys.push(appendKey);
   }
 
   doc.documentUrl = documentUrl;
@@ -189,6 +192,83 @@ export const upsertClientDocumentFromWalkIn = async ({
     channels: [...new Set([...(doc.channelFlags?.channels || []), 'walk_in'])],
   };
 
+  await doc.save();
+  return doc;
+};
+
+/**
+ * Append a typed identity document to the client archive (walk-in multi-upload).
+ */
+export const appendTypedClientDocumentFile = async ({
+  ownerId,
+  booking,
+  fileType,
+  documentUrl,
+  uploadedBy,
+  existingClientDocumentId = null,
+}) => {
+  const owner = asObjectId(ownerId);
+  const bookingId = booking._id || booking.id;
+  const allowed = new Set(['national_id', 'driving_license', 'passport', 'identity', 'other', 'combined']);
+  if (!owner || !documentUrl || !allowed.has(fileType)) return null;
+
+  const identity = identityFromBooking(booking);
+  const now = new Date();
+
+  let doc = null;
+  if (existingClientDocumentId && mongoose.isValidObjectId(existingClientDocumentId)) {
+    doc = await ClientDocument.findOne({ _id: existingClientDocumentId, owner });
+  }
+  if (!doc) {
+    const resolved = await resolveClientDocumentForIdentity(owner, identity);
+    if (resolved.match && !resolved.ambiguous) {
+      doc = await ClientDocument.findById(resolved.match._id);
+    }
+  }
+  if (!doc) {
+    doc = new ClientDocument({
+      owner,
+      customerKey: buildCustomerKey(identity),
+      customerName: booking.customerName || '',
+      customerPhone: identity.phone,
+      customerEmail: identity.email,
+      identityDocumentNumber: identity.cin,
+      passportNumber: identity.passport,
+      files: [],
+      syncedLegacyKeys: [],
+      bookingIds: [],
+      channelFlags: { walkIn: true, online: false, channels: ['walk_in'] },
+    });
+  }
+
+  doc.customerName = booking.customerName || doc.customerName;
+  if (identity.phone) doc.customerPhone = identity.phone;
+  if (identity.cin) doc.identityDocumentNumber = identity.cin;
+  if (identity.passport) doc.passportNumber = identity.passport;
+  doc.files = doc.files || [];
+  doc.files.push({
+    type: fileType,
+    url: documentUrl,
+    uploadedAt: now,
+    sourceBookingId: bookingId,
+    channel: booking.channel || 'walk_in',
+  });
+  if (!doc.documentUrl) {
+    doc.documentUrl = documentUrl;
+    doc.documentType = fileType;
+  }
+  doc.uploadedAt = now;
+  doc.uploadedBy = uploadedBy || doc.uploadedBy;
+  if (bookingId && !doc.bookingIds.some((id) => String(id) === String(bookingId))) {
+    doc.bookingIds.push(bookingId);
+  }
+  doc.lastBooking = bookingId || doc.lastBooking;
+  doc.reservationCount = doc.bookingIds.length;
+  doc.channelFlags = {
+    walkIn: true,
+    online: Boolean(doc.channelFlags?.online),
+    channels: [...new Set([...(doc.channelFlags?.channels || []), 'walk_in'])],
+  };
   await doc.save();
   return doc;
 };
@@ -358,6 +438,7 @@ export default {
   ensureClientDocumentsSynced,
   findClientDocumentMatch,
   upsertClientDocumentFromWalkIn,
+  appendTypedClientDocumentFile,
   linkBookingToClientDocument,
   listClientDocuments,
   getClientDocumentDetail,
