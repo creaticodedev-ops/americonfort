@@ -2,6 +2,7 @@ import { defaultAgencyName } from '../utils/brand.js';
 import { logoToDataUri, embedCompletionSignatures } from '../utils/uploadPaths.js';
 import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
 import { displayCustomerEmail, resolveIdentityDocument } from '../utils/contractFields.js';
+import { amountInWordsFr, invoiceAmountInWordsSentence } from '../utils/amountInWords.js';
 import {
   resolveBrokerReferrerLabel,
   resolveVehicleDeliveryDriverLabel,
@@ -11,6 +12,13 @@ import {
 
 export const TEMPLATE_VARIABLES = [
   { key: 'contract_number', label: 'Contract Number', group: 'contract' },
+  { key: 'invoice_number', label: 'Invoice Number', group: 'invoice' },
+  { key: 'invoice_date', label: 'Invoice Date', group: 'invoice' },
+  { key: 'due_date', label: 'Due Date', group: 'invoice' },
+  { key: 'amount_in_words', label: 'Amount in words', group: 'invoice' },
+  { key: 'amount_in_words_sentence', label: 'Amount in words (sentence)', group: 'invoice' },
+  { key: 'amount_paid', label: 'Amount paid', group: 'invoice' },
+  { key: 'balance_due', label: 'Balance due', group: 'invoice' },
   { key: 'reservation_id', label: 'Reservation ID', group: 'booking' },
   { key: 'customer_name', label: 'Customer Name', group: 'customer' },
   { key: 'customer_email', label: 'Customer Email', group: 'customer' },
@@ -81,7 +89,10 @@ export const TEMPLATE_VARIABLES = [
 const formatDateTime = (value) => {
   if (!value) return '—';
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('en-GB', { hour12: false });
+  if (Number.isNaN(d.getTime())) return String(value);
+  const date = d.toLocaleDateString('en-GB');
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${date} à ${time}`;
 };
 
 const formatDate = (value) => {
@@ -240,12 +251,22 @@ const resolveVehicleRecord = (booking) => {
   return {};
 };
 
-export const buildTemplateVariables = (booking, { contractNumber, owner, agency = {}, template = {}, includeCompanyStamp = true } = {}) => {
+export const buildTemplateVariables = (booking, {
+  contractNumber,
+  invoiceNumber,
+  invoiceDate,
+  dueDate,
+  owner,
+  agency = {},
+  template = {},
+  includeCompanyStamp = true,
+} = {}) => {
   // Customer/rental fields live on the booking root; completion holds workflow URLs only.
   const mergedBooking = { ...(booking || {}) };
+  const inv = mergedBooking._invoice || {};
   const car = resolveVehicleRecord(mergedBooking);
   const b = mergedBooking?.priceBreakdown || {};
-  const currency = agency.currency || process.env.CURRENCY || 'MAD';
+  const currency = inv.currency || agency.currency || process.env.CURRENCY || 'MAD';
   const sd = mergedBooking?.secondDriver || {};
   const identityDoc = resolveIdentityDocument({
     identityDocumentNumber: firstNonEmpty(mergedBooking, ['identityDocumentNumber']),
@@ -255,8 +276,28 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     booking?.franchiseAmount ??
     car.securityDeposit ??
     0;
+
+  const resolvedInvoiceNumber = invoiceNumber || inv.invoiceNumber || '';
+  const resolvedInvoiceDate = invoiceDate || inv.invoiceDate || null;
+  const resolvedDueDate = dueDate || inv.dueDate || null;
+  // Never reuse invoice number as contract number.
+  const resolvedContractNumber = contractNumber || inv.contractNumber || '';
+  const totalNumeric = Number(
+    inv.totalAmount != null ? inv.totalAmount : (mergedBooking?.price ?? b.total ?? b.rentalPrice ?? 0),
+  ) || 0;
+  const paidNumeric = Number(inv.amountPaid ?? mergedBooking?.completion?.amountPaid ?? 0) || 0;
+  const balanceNumeric = Number(
+    inv.balanceDue != null ? inv.balanceDue : Math.max(0, totalNumeric - paidNumeric),
+  ) || 0;
+  const taxNumeric = Number(inv.taxAmount ?? b.taxTotal ?? 0) || 0;
+  const subtotalNumeric = Number(inv.subtotal ?? b.rentalPrice ?? totalNumeric) || 0;
+  const discountNumeric = Number(inv.discountAmount ?? b.discountTotal ?? 0) || 0;
+
   const values = {
-    contract_number: contractNumber || '—',
+    contract_number: resolvedContractNumber || '—',
+    invoice_number: resolvedInvoiceNumber || '—',
+    invoice_date: resolvedInvoiceDate ? formatDate(resolvedInvoiceDate) : '—',
+    due_date: resolvedDueDate ? formatDate(resolvedDueDate) : '—',
     reservation_id: firstNonEmpty(mergedBooking, ['reservationId', 'reservation_id']) || '—',
     customer_name: firstNonEmpty(mergedBooking, ['customerName', 'customer_name']) || '—',
     customer_email: displayCustomerEmail(firstNonEmpty(mergedBooking, ['customerEmail', 'customer_email'])),
@@ -265,6 +306,7 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     customer_dob: firstNonEmpty(mergedBooking, ['dateOfBirth', 'customerDob']) || '—',
     customer_birth_place: firstNonEmpty(mergedBooking, ['placeOfBirth', 'customerBirthPlace']) || '—',
     customer_address: firstNonEmpty(mergedBooking, ['customerAddress', 'customer_address']) || '—',
+    customer_tax_id: inv.customerTaxId || '—',
     driver_license: firstNonEmpty(mergedBooking, ['driverLicenseNumber', 'driverLicense']) || '—',
     driver_license_expiry: firstNonEmpty(mergedBooking, ['driverLicenseExpiry', 'driverLicenseExpiryDate']) || '—',
     driver_license_issued_on: firstNonEmpty(mergedBooking, ['driverLicenseIssuedOn', 'driverLicenseIssueDate']) || '—',
@@ -308,11 +350,19 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     rental_price: money(b.rentalPrice ?? mergedBooking?.price, currency),
     pickup_fee: money(b.pickupDeliveryFee, currency),
     dropoff_fee: money(b.dropoffDeliveryFee, currency),
-    discount_total: money(b.discountTotal, currency),
-    total_price: money(mergedBooking?.price ?? b.total ?? b.rentalPrice, currency),
+    discount_total: money(discountNumeric || b.discountTotal, currency),
+    tax_total: money(taxNumeric, currency),
+    subtotal: money(subtotalNumeric, currency),
+    total_price: money(totalNumeric, currency),
+    amount_paid: money(paidNumeric, currency),
+    balance_due: money(balanceNumeric, currency),
+    amount_in_words: amountInWordsFr(totalNumeric, currency),
+    amount_in_words_sentence: invoiceAmountInWordsSentence(totalNumeric, currency),
     franchise_amount: money(franchise, currency),
     currency,
     payment_status: firstNonEmpty(mergedBooking, ['paymentStatus']) || '—',
+    payment_method: inv.paymentMethod || '—',
+    payment_reference: inv.paymentReference || '—',
     booking_status: firstNonEmpty(mergedBooking, ['status']) || '—',
     booking_method:
       booking?.channel === 'walk_in'
@@ -347,6 +397,9 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
   return {
     ...values,
     contractNumber: values.contract_number,
+    invoiceNumber: values.invoice_number,
+    invoiceDate: values.invoice_date,
+    dueDate: values.due_date,
     reservationId: values.reservation_id,
     customerName: values.customer_name,
     customerEmail: values.customer_email,
@@ -386,6 +439,9 @@ export const buildTemplateVariables = (booking, { contractNumber, owner, agency 
     dropoffFee: values.dropoff_fee,
     discountTotal: values.discount_total,
     totalPrice: values.total_price,
+    amountInWords: values.amount_in_words,
+    amountPaid: values.amount_paid,
+    balanceDue: values.balance_due,
     franchiseAmount: values.franchise_amount,
     paymentStatus: values.payment_status,
     bookingStatus: values.booking_status,

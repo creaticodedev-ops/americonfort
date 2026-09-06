@@ -8,6 +8,9 @@ import {
   DEFAULT_CONTRACT_CUSTOM_CSS,
   DEFAULT_CONTRACT_TERMS_HTML,
   DEFAULT_INVOICE_BODY,
+  DEFAULT_INVOICE_HEADER,
+  DEFAULT_INVOICE_FOOTER,
+  DEFAULT_INVOICE_CUSTOM_CSS,
 } from '../services/defaultTemplates.js';
 import { storeTemplateAsset } from '../services/documentStore.js';
 import { resolveOwnerId } from '../utils/resolveExportTemplate.js';
@@ -35,7 +38,7 @@ const withAbsoluteAssets = (template) => {
 };
 
 const BUILTIN_CONTRACT_VERSION = 5;
-const BUILTIN_INVOICE_VERSION = 2;
+const BUILTIN_INVOICE_VERSION = 3;
 
 /**
  * Ensure each owner has seed contract + invoice templates.
@@ -64,10 +67,10 @@ export const ensureDefaultTemplates = async (ownerId) => {
   const invoiceDefaults = {
     name: 'Facture Standard',
     type: 'invoice',
-    headerHtml: DEFAULT_CONTRACT_HEADER,
+    headerHtml: DEFAULT_INVOICE_HEADER,
     bodyHtml: DEFAULT_INVOICE_BODY,
-    footerHtml: DEFAULT_CONTRACT_FOOTER,
-    customCss: DEFAULT_CONTRACT_CUSTOM_CSS,
+    footerHtml: DEFAULT_INVOICE_FOOTER,
+    customCss: DEFAULT_INVOICE_CUSTOM_CSS,
     pageSize: 'A4',
     isDefault: true,
     isActive: true,
@@ -79,6 +82,21 @@ export const ensureDefaultTemplates = async (ownerId) => {
     const doc = await ExportTemplate.findOne({ owner, systemKey });
     if (!doc) {
       await ExportTemplate.create({ owner, ...defaults });
+      return;
+    }
+    // Refresh seeded builtin invoice layout when we ship a newer templateVersion.
+    // Never overwrite user-created templates (no systemKey / different key).
+    if (
+      systemKey === 'builtin_invoice'
+      && Number(doc.templateVersion || 0) < Number(defaults.templateVersion || 0)
+    ) {
+      doc.headerHtml = defaults.headerHtml;
+      doc.bodyHtml = defaults.bodyHtml;
+      doc.footerHtml = defaults.footerHtml;
+      doc.customCss = defaults.customCss;
+      doc.templateVersion = defaults.templateVersion;
+      doc.name = defaults.name;
+      await doc.save();
     }
   };
 

@@ -165,7 +165,17 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
   };
 };
 
-export const generateDocumentFromTemplate = async ({ template, booking, owner, documentTitle, includeCompanyStamp = true }) => {
+export const generateDocumentFromTemplate = async ({
+  template,
+  booking,
+  owner,
+  documentTitle,
+  includeCompanyStamp = true,
+  invoiceNumber,
+  invoiceDate,
+  dueDate,
+  contractNumber,
+}) => {
   if (!template) {
     throw new Error('Export template is required');
   }
@@ -175,6 +185,10 @@ export const generateDocumentFromTemplate = async ({ template, booking, owner, d
     owner,
     template: readyTemplate,
     includeCompanyStamp,
+    invoiceNumber,
+    invoiceDate,
+    dueDate,
+    contractNumber,
   });
   const fullHtml = buildDocumentHtml(readyTemplate, variables);
 

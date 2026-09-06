@@ -250,6 +250,7 @@ export const initInvoiceForm = (doc) => {
   }))
 
   return {
+    invoiceNumber: pickValue(doc.invoiceNumber, s.invoiceNumber, v.invoice_number),
     invoiceDate: toDateInput(pickValue(doc.invoiceDate, s.invoiceDate, b.pickupDate)) || new Date().toISOString().slice(0, 10),
     dueDate: toDateInput(pickValue(doc.dueDate, s.dueDate, b.returnDate)),
     customerName: pickValue(doc.customerName, s.customerName, b.customerName, v.customer_name),
@@ -302,6 +303,7 @@ export const buildInvoicePatch = (form) => {
       taxRate: Number(item.taxRate || 0),
     }))
   return {
+    invoiceNumber: form.invoiceNumber || '',
     invoiceDate: form.invoiceDate || '',
     dueDate: form.dueDate || '',
     customerName: form.customerName,

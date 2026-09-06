@@ -105,19 +105,49 @@ export const buildBookingLikeFromInvoice = (invoice, booking = null) => {
   const vehicleYear = invoice.vehicleYear || structured.vehicleYear || booking?.car?.year || '';
   const vehiclePlate = invoice.vehiclePlate || structured.vehiclePlate || booking?.car?.licensePlate || '';
   const vehicleType = invoice.vehicleType || structured.vehicleType || booking?.car?.category || '';
+
+  // Rental window must come from booking / structured rental fields — never from invoice/due dates.
+  const pickupDate =
+    structured.pickupDate
+    || booking?.pickupDate
+    || null;
+  const returnDate =
+    structured.returnDate
+    || booking?.returnDate
+    || null;
+
+  const reservationId =
+    structured.reservationId
+    || booking?.reservationId
+    || '';
+
+  const contractNumber =
+    structured.contractNumber
+    || invoice.contractNumber
+    || '';
+
+  const totalAmount = invoice.totalAmount ?? structured.totalAmount ?? booking?.price ?? 0;
+  const amountPaid = Number(
+    structured.amountPaid
+    ?? invoice.amountPaid
+    ?? (booking?.paymentStatus === 'paid' ? totalAmount : (booking?.completion?.amountPaid || 0)),
+  ) || 0;
+
   return {
     ...(booking || {}),
     _id: booking?._id || invoice.booking || null,
-    reservationId: booking?.reservationId || invoice.invoiceNumber,
+    reservationId,
     customerName: invoice.customerName || structured.customerName || booking?.customerName || '',
     customerEmail: invoice.customerEmail || structured.customerEmail || booking?.customerEmail || '',
     customerPhone: invoice.customerPhone || structured.customerPhone || booking?.customerPhone || '',
     customerAddress: invoice.customerAddress || structured.customerAddress || booking?.customerAddress || '',
     nationality: structured.customerNationality || booking?.nationality || '',
     dateOfBirth: structured.customerDob || booking?.dateOfBirth || '',
-    pickupDate: invoice.invoiceDate || booking?.pickupDate || new Date(),
-    returnDate: invoice.dueDate || invoice.invoiceDate || booking?.returnDate || new Date(),
-    price: invoice.totalAmount ?? structured.totalAmount ?? booking?.price ?? 0,
+    pickupDate,
+    returnDate,
+    pickupLocation: structured.pickupLocation || booking?.pickupLocation || '',
+    returnLocation: structured.returnLocation || booking?.returnLocation || '',
+    price: totalAmount,
     paymentStatus: invoice.paymentStatus || structured.paymentStatus || booking?.paymentStatus || 'pending',
     notes: invoice.notes || structured.notes || booking?.notes || '',
     channel: invoice.source === 'manual' ? 'walk_in' : (booking?.channel || 'online'),
@@ -137,12 +167,32 @@ export const buildBookingLikeFromInvoice = (invoice, booking = null) => {
       discountTotal: invoice.discountAmount ?? structured.discountAmount ?? 0,
       days: structured.rentalDays ?? booking?.priceBreakdown?.days,
       pricePerDay: structured.pricePerDay ?? booking?.priceBreakdown?.pricePerDay,
+      taxTotal: invoice.taxAmount ?? structured.taxAmount ?? 0,
     },
     completion: {
       ...(booking?.completion || {}),
       signatureUrl: structured.customerSignatureUrl || booking?.completion?.signatureUrl || '',
       secondDriverSignatureUrl:
         structured.secondDriverSignatureUrl || booking?.completion?.secondDriverSignatureUrl || '',
+      amountPaid,
+    },
+    // Invoice-only metadata (never confuse with contract / booking IDs or rental dates)
+    _invoice: {
+      invoiceNumber: invoice.invoiceNumber || structured.invoiceNumber || '',
+      invoiceDate: invoice.invoiceDate || structured.invoiceDate || null,
+      dueDate: invoice.dueDate || structured.dueDate || null,
+      currency: invoice.currency || structured.currency || 'MAD',
+      contractNumber,
+      subtotal: Number(invoice.subtotal ?? structured.subtotal ?? 0) || 0,
+      discountAmount: Number(invoice.discountAmount ?? structured.discountAmount ?? 0) || 0,
+      taxAmount: Number(invoice.taxAmount ?? structured.taxAmount ?? 0) || 0,
+      totalAmount: Number(totalAmount) || 0,
+      amountPaid,
+      balanceDue: Math.max(0, Number(totalAmount) - amountPaid),
+      customerTaxId: invoice.customerTaxId || structured.customerTaxId || '',
+      paymentMethod: invoice.paymentMethod || structured.paymentMethod || '',
+      paymentReference: invoice.paymentReference || structured.paymentReference || '',
+      items: Array.isArray(invoice.items) ? invoice.items : (structured.items || []),
     },
   };
 };
@@ -298,10 +348,12 @@ export const buildInvoiceSourceData = async ({
     buildBookingLikeFromInvoice(
       {
         invoiceNumber,
+        contractNumber: invoiceData.contractNumber || '',
         customerName: invoiceData.customerName,
         customerEmail: invoiceData.customerEmail,
         customerPhone: invoiceData.customerPhone,
         customerAddress: invoiceData.customerAddress,
+        customerTaxId: invoiceData.customerTaxId,
         vehicleBrand: invoiceData.vehicleBrand,
         vehicleModel: invoiceData.vehicleModel,
         vehicleYear: invoiceData.vehicleYear,
@@ -309,19 +361,41 @@ export const buildInvoiceSourceData = async ({
         vehicleType: invoiceData.vehicleType,
         invoiceDate: invoiceData.invoiceDate,
         dueDate: invoiceData.dueDate,
+        currency: invoiceData.currency,
         subtotal: invoiceData.subtotal,
         discountAmount: invoiceData.discountAmount,
+        taxAmount: invoiceData.taxAmount,
         totalAmount: invoiceData.totalAmount,
+        amountPaid: invoiceData.amountPaid,
         paymentStatus: invoiceData.paymentStatus,
+        paymentMethod: invoiceData.paymentMethod,
+        paymentReference: invoiceData.paymentReference,
         notes: invoiceData.notes,
+        items: invoiceData.items,
         source: booking ? 'booking' : 'manual',
+        sourceData: {
+          structured: {
+            reservationId: booking?.reservationId || invoiceData.reservationId || '',
+            contractNumber: invoiceData.contractNumber || '',
+            pickupDate: invoiceData.pickupDate || booking?.pickupDate || null,
+            returnDate: invoiceData.returnDate || booking?.returnDate || null,
+            pickupLocation: invoiceData.pickupLocation || booking?.pickupLocation || '',
+            returnLocation: invoiceData.returnLocation || booking?.returnLocation || '',
+            rentalDays: invoiceData.rentalDays ?? booking?.priceBreakdown?.days,
+            pricePerDay: invoiceData.pricePerDay ?? booking?.priceBreakdown?.pricePerDay,
+            amountPaid: invoiceData.amountPaid,
+          },
+        },
       },
       booking?.toObject ? booking.toObject() : booking,
     ),
   );
   const templateObj = template?.toObject ? template.toObject() : template;
   const variables = buildTemplateVariables(bookingLike, {
-    contractNumber: invoiceNumber,
+    invoiceNumber,
+    invoiceDate: invoiceData.invoiceDate,
+    dueDate: invoiceData.dueDate,
+    contractNumber: invoiceData.contractNumber || '',
     owner,
     template: templateObj,
     includeCompanyStamp,
@@ -333,6 +407,8 @@ export const buildInvoiceSourceData = async ({
       invoiceDate: invoiceData.invoiceDate || new Date(),
       dueDate: invoiceData.dueDate || null,
       currency: invoiceData.currency || 'MAD',
+      reservationId: booking?.reservationId || invoiceData.reservationId || '',
+      contractNumber: invoiceData.contractNumber || '',
       customerName: invoiceData.customerName || '',
       customerEmail: invoiceData.customerEmail || '',
       customerPhone: invoiceData.customerPhone || '',
@@ -345,11 +421,17 @@ export const buildInvoiceSourceData = async ({
       vehicleYear: invoiceData.vehicleYear || '',
       vehiclePlate: invoiceData.vehiclePlate || '',
       vehicleType: invoiceData.vehicleType || '',
+      pickupDate: invoiceData.pickupDate || booking?.pickupDate || null,
+      returnDate: invoiceData.returnDate || booking?.returnDate || null,
+      pickupLocation: invoiceData.pickupLocation || booking?.pickupLocation || '',
+      returnLocation: invoiceData.returnLocation || booking?.returnLocation || '',
+      rentalDays: invoiceData.rentalDays ?? booking?.priceBreakdown?.days ?? '',
       items: Array.isArray(invoiceData.items) ? invoiceData.items : [],
       subtotal: Number(invoiceData.subtotal) || 0,
       discountAmount: Number(invoiceData.discountAmount) || 0,
       taxAmount: Number(invoiceData.taxAmount) || 0,
       totalAmount: Number(invoiceData.totalAmount) || 0,
+      amountPaid: Number(invoiceData.amountPaid) || 0,
       paymentStatus: invoiceData.paymentStatus || 'pending',
       paymentMethod: invoiceData.paymentMethod || 'cash',
       paymentReference: invoiceData.paymentReference || '',
@@ -446,7 +528,10 @@ export const rebuildVariablesFromStructured = async (doc, {
       ),
     );
     return buildTemplateVariables(bookingLike, {
-      contractNumber: doc.invoiceNumber,
+      invoiceNumber: doc.invoiceNumber || structured.invoiceNumber,
+      invoiceDate: doc.invoiceDate || structured.invoiceDate,
+      dueDate: doc.dueDate || structured.dueDate,
+      contractNumber: structured.contractNumber || '',
       owner,
       template: snap,
       includeCompanyStamp,
@@ -744,7 +829,7 @@ export const applyContractStructuredEdits = (doc, patch = {}) => {
 };
 
 const INVOICE_FLAT_FIELDS = [
-  'invoiceDate', 'dueDate', 'currency',
+  'invoiceNumber', 'invoiceDate', 'dueDate', 'currency',
   'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'customerTaxId',
   'vehicleBrand', 'vehicleModel', 'vehicleYear', 'vehiclePlate', 'vehicleType',
   'subtotal', 'discountAmount', 'taxAmount', 'totalAmount',

@@ -129,26 +129,134 @@ export const DEFAULT_CONTRACT_FOOTER = `
 <p>Tél: {{agency_phone}} | Email: {{agency_email}} | ICE / IF / RC: {{agency_tax_id}}</p>
 `;
 
+export const DEFAULT_INVOICE_HEADER = `
+<div class="inv-title-block">
+  <div class="inv-doc-label">FACTURE</div>
+  <div class="inv-number">N° {{invoice_number}}</div>
+  <div class="inv-meta-line"><span>Date de facture</span><strong>{{invoice_date}}</strong></div>
+  <div class="inv-meta-line"><span>Date d'échéance</span><strong>{{due_date}}</strong></div>
+</div>
+`;
+
 export const DEFAULT_INVOICE_BODY = `
-<h1>Facture</h1>
-<p class="muted">Réservation: <strong>{{reservation_id}}</strong> &nbsp;|&nbsp; Date: {{generated_date}}</p>
+<div class="inv-agency-block">
+  <div class="inv-agency">{{agency_name}}</div>
+  <div class="inv-muted">{{agency_address}}</div>
+  <div class="inv-muted">Tél: {{agency_phone}} · {{agency_email}}</div>
+  <div class="inv-muted">ICE / IF / RC: {{agency_tax_id}}</div>
+</div>
 
-<h2>Client</h2>
-<p>{{customer_name}}<br/>{{customer_email}}<br/>{{customer_phone}}</p>
+<div class="inv-refs">
+  <div><span>N° Réservation</span><strong>{{reservation_id}}</strong></div>
+  <div><span>N° Contrat</span><strong>{{contract_number}}</strong></div>
+  <div><span>N° Facture</span><strong>{{invoice_number}}</strong></div>
+</div>
 
-<h2>Description</h2>
-<p>Location de véhicule — {{car_make}} ({{car_year}}) · {{car_registration}}</p>
-<p>Période: {{pickup_date}} → {{return_date}} ({{rental_days}} jour(s))</p>
+<div class="inv-grid">
+  <section class="inv-card">
+    <h2>Client</h2>
+    <p class="inv-strong">{{customer_name}}</p>
+    <p>{{customer_phone}}</p>
+    <p>{{customer_email}}</p>
+    <p>{{customer_address}}</p>
+    <p class="inv-muted">Identifiant fiscal: {{customer_tax_id}}</p>
+  </section>
+  <section class="inv-card">
+    <h2>Location</h2>
+    <p class="inv-strong">{{car_make}}</p>
+    <p>Immatriculation: <strong>{{car_registration}}</strong></p>
+    <p>Départ : <strong>{{pickup_date}}</strong></p>
+    <p>Retour : <strong>{{return_date}}</strong></p>
+    <p>Durée : <strong>{{rental_days}} jour(s)</strong></p>
+  </section>
+</div>
 
-<table>
-  <tr><th>Libellé</th><th>Montant</th></tr>
-  <tr><td>Location</td><td>{{rental_price}}</td></tr>
-  <tr><td>Frais livraison départ</td><td>{{pickup_fee}}</td></tr>
-  <tr><td>Frais livraison retour</td><td>{{dropoff_fee}}</td></tr>
-  <tr><td>Remises</td><td>-{{discount_total}}</td></tr>
-  <tr><th>Total T.T.C.</th><th>{{total_price}}</th></tr>
-</table>
-<p>Merci d'avoir choisi {{agency_name}}.</p>
+<section class="inv-section">
+  <h2>Détails de facturation</h2>
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th>Désignation</th>
+        <th class="num">Qté / durée</th>
+        <th class="num">Prix unitaire</th>
+        <th class="num">Montant</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Location véhicule — {{car_make}}</td>
+        <td class="num">{{rental_days}}</td>
+        <td class="num">{{price_per_day}}</td>
+        <td class="num">{{rental_price}}</td>
+      </tr>
+      <tr>
+        <td>Frais livraison départ</td>
+        <td class="num">—</td>
+        <td class="num">—</td>
+        <td class="num">{{pickup_fee}}</td>
+      </tr>
+      <tr>
+        <td>Frais livraison retour</td>
+        <td class="num">—</td>
+        <td class="num">—</td>
+        <td class="num">{{dropoff_fee}}</td>
+      </tr>
+      <tr>
+        <td>Remise</td>
+        <td class="num">—</td>
+        <td class="num">—</td>
+        <td class="num">-{{discount_total}}</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="inv-totals">
+  <div class="inv-totals-row"><span>Sous-total</span><strong>{{subtotal}}</strong></div>
+  <div class="inv-totals-row"><span>Taxe</span><strong>{{tax_total}}</strong></div>
+  <div class="inv-totals-row"><span>Remise</span><strong>-{{discount_total}}</strong></div>
+  <div class="inv-totals-row inv-totals-main"><span>Total TTC</span><strong>{{total_price}}</strong></div>
+  <div class="inv-totals-row"><span>Montant déjà payé</span><strong>{{amount_paid}}</strong></div>
+  <div class="inv-totals-row"><span>Solde restant</span><strong>{{balance_due}}</strong></div>
+</section>
+
+<p class="inv-words">{{amount_in_words_sentence}}</p>
+<p class="inv-thanks">Merci d'avoir choisi {{agency_name}}.</p>
+{{signatures_row_html}}
+`;
+
+export const DEFAULT_INVOICE_FOOTER = `
+<p>{{agency_name}} — {{agency_address}}</p>
+<p>Tél: {{agency_phone}} | Email: {{agency_email}} | ICE / IF / RC: {{agency_tax_id}}</p>
+<p>Facture {{invoice_number}} · Émise le {{invoice_date}} · Échéance {{due_date}}</p>
+`;
+
+export const DEFAULT_INVOICE_CUSTOM_CSS = `
+.inv-title-block { text-align:right; margin-bottom:8px; }
+.inv-doc-label { font-size:22px; font-weight:800; letter-spacing:0.08em; color:#8f1f1f; }
+.inv-number { font-size:16px; font-weight:700; margin:6px 0 10px; color:#111827; }
+.inv-meta-line { display:flex; justify-content:flex-end; gap:12px; font-size:12px; margin-top:3px; }
+.inv-meta-line span { color:#6b7280; }
+.inv-agency-block { margin:0 0 18px; padding-bottom:14px; border-bottom:2px solid #1f2937; }
+.inv-agency { font-size:16px; font-weight:700; color:#111827; margin-bottom:4px; }
+.inv-muted { color:#6b7280; font-size:11px; line-height:1.45; }
+.inv-refs { display:flex; flex-wrap:wrap; gap:20px 28px; margin:0 0 22px; font-size:12px; }
+.inv-refs span { display:block; color:#6b7280; font-size:11px; }
+.inv-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
+.inv-card { border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; background:#fafafa; }
+.inv-card h2, .inv-section h2 { font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:#8f1f1f; margin:0 0 10px; }
+.inv-strong { font-weight:700; font-size:14px; margin:0 0 4px; }
+.inv-card p { margin:2px 0; font-size:12px; line-height:1.45; }
+.inv-section { margin-bottom:18px; }
+.inv-table { width:100%; border-collapse:collapse; font-size:12px; }
+.inv-table th { text-align:left; background:#111827; color:#fff; padding:9px 10px; font-weight:600; }
+.inv-table td { padding:9px 10px; border-bottom:1px solid #e5e7eb; }
+.inv-table .num { text-align:right; white-space:nowrap; }
+.inv-totals { margin:18px 0 14px auto; width:280px; }
+.inv-totals-row { display:flex; justify-content:space-between; gap:16px; padding:5px 0; font-size:12px; }
+.inv-totals-main { border-top:2px solid #111827; margin-top:6px; padding-top:10px; font-size:14px; }
+.inv-words { margin:18px 0 10px; padding:12px 14px; background:#f8fafc; border-left:3px solid #8f1f1f; font-size:12px; line-height:1.5; }
+.inv-thanks { margin-top:18px; font-size:12px; color:#374151; }
 `;
 
 export default {
@@ -157,4 +265,8 @@ export default {
   DEFAULT_CONTRACT_FOOTER,
   DEFAULT_CONTRACT_CUSTOM_CSS,
   DEFAULT_INVOICE_BODY,
+  DEFAULT_INVOICE_HEADER,
+  DEFAULT_INVOICE_FOOTER,
+  DEFAULT_INVOICE_CUSTOM_CSS,
 };
+

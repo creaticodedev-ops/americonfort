@@ -16,9 +16,9 @@ import PhoneInput from '../../components/PhoneInput'
 import { isPhoneValid } from '../../utils/phoneValidation'
 import { Link } from 'react-router-dom'
 import { buildCustomerConfirmationWaUrl, buildWaMeUrl, getAgencyWhatsAppDial } from '../../utils/whatsapp'
-import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import ContractExtensionModal from '../../components/owner/ContractExtensionModal'
+import GenerateInvoiceModal from '../../components/owner/invoice/GenerateInvoiceModal'
 import BulkSelectionBar from '../../components/owner/BulkSelectionBar'
 import {
   AdminPage,
@@ -106,6 +106,7 @@ const ManageBookings = () => {
   const [extendBooking, setExtendBooking] = useState(null)
   const closeExtend = useCallback(() => setExtendBooking(null), [])
   const [confirmAction, setConfirmAction] = useState(null)
+  const [invoiceBookingId, setInvoiceBookingId] = useState(null)
 
   const resolveCompletionUrl = (booking) =>
     booking?.completion?.shareableCompletionUrl ||
@@ -523,32 +524,9 @@ const ManageBookings = () => {
     }
   }
 
-  const generateInvoiceForBooking = async (booking) => {
-    try {
-      const { data } = await axios.post('/api/invoices/generate', {
-        bookingId: booking._id,
-        includeCompanyStamp: true,
-      })
-      if (data.success) {
-        toast.success(data.message)
-        if (data.invoice?._id) {
-          try {
-            await downloadPdfFromApi(
-              axios,
-              `/api/invoices/${data.invoice._id}/pdf`,
-              `${data.invoice.invoiceNumber || 'invoice'}.pdf`,
-            )
-          } catch (downloadError) {
-            toast.error(getErrorMessage(downloadError, 'Invoice created but PDF download failed'))
-          }
-        }
-        fetchOwnerBookings()
-      } else {
-        toast.error(data.message)
-      }
-    } catch (error) {
-      toast.error(getErrorMessage(error))
-    }
+  const openGenerateInvoice = (booking) => {
+    if (!booking?._id) return
+    setInvoiceBookingId(booking._id)
   }
 
   const openWhatsApp = (booking) => {
@@ -709,7 +687,7 @@ const ManageBookings = () => {
         onUploadDoc: (file, docType) => uploadDocument(selectedBooking._id, file, docType),
         onResendLink: () => resendCompletionLink(selectedBooking._id),
         onConfirmWhatsApp: () => confirmViaWhatsApp(selectedBooking),
-        onGenerateInvoice: () => generateInvoiceForBooking(selectedBooking),
+        onGenerateInvoice: () => openGenerateInvoice(selectedBooking),
         onWhatsApp: () => openWhatsApp(selectedBooking),
         onPrint: () => printBooking(selectedBooking),
         onCancel: () => requestCancel(selectedBooking._id),
@@ -854,6 +832,14 @@ const ManageBookings = () => {
           }}
         />
       )}
+
+      <GenerateInvoiceModal
+        open={Boolean(invoiceBookingId)}
+        bookingId={invoiceBookingId}
+        axios={axios}
+        onClose={() => setInvoiceBookingId(null)}
+        onSuccess={() => fetchOwnerBookings()}
+      />
 
       <ConfirmDialog
         isOpen={Boolean(confirmAction)}
