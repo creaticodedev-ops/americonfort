@@ -1,4 +1,4 @@
-import { defaultAgencyName } from '../utils/brand.js';
+import { defaultAgencyName, resolveAgencyProfile } from '../utils/brand.js';
 import { logoToDataUri, embedCompletionSignatures } from '../utils/uploadPaths.js';
 import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
 import { displayCustomerEmail, resolveIdentityDocument } from '../utils/contractFields.js';
@@ -18,6 +18,8 @@ export const TEMPLATE_VARIABLES = [
   { key: 'amount_in_words', label: 'Amount in words', group: 'invoice' },
   { key: 'amount_in_words_sentence', label: 'Amount in words (sentence)', group: 'invoice' },
   { key: 'amount_in_words_banner', label: 'Amount in words (banner)', group: 'invoice' },
+  { key: 'invoice_items_rows_html', label: 'Invoice line items (HTML rows)', group: 'invoice' },
+  { key: 'invoice_rental_section_html', label: 'Optional rental details section', group: 'invoice' },
   { key: 'amount_paid', label: 'Amount paid', group: 'invoice' },
   { key: 'balance_due', label: 'Balance due', group: 'invoice' },
   { key: 'reservation_id', label: 'Reservation ID', group: 'booking' },
@@ -79,6 +81,9 @@ export const TEMPLATE_VARIABLES = [
   { key: 'agency_email', label: 'Agency Email', group: 'agency' },
   { key: 'agency_address', label: 'Agency Address', group: 'agency' },
   { key: 'agency_tax_id', label: 'Agency Tax ID', group: 'agency' },
+  { key: 'agency_ice', label: 'Agency ICE', group: 'agency' },
+  { key: 'agency_if', label: 'Agency IF', group: 'agency' },
+  { key: 'agency_rc', label: 'Agency RC', group: 'agency' },
   { key: 'company_signature_html', label: 'Company Signature / Stamp', group: 'agency' },
   { key: 'customer_signature_html', label: 'Customer Signature', group: 'customer' },
   { key: 'second_driver_signature_html', label: 'Second Driver Signature Image', group: 'customer' },
@@ -185,6 +190,130 @@ const buildImageHtml = (imageUrl, alt, style = 'max-height:48px;max-width:140px;
   }
 };
 
+/** Escape text for safe HTML injection in invoice rows. */
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+/**
+ * Build invoice line-item rows from invoice items when present.
+ * Falls back to a single rental/service summary row for booking invoices.
+ * Supports manual invoices for any service description.
+ */
+export const buildInvoiceItemsRowsHtml = (booking, { currency = 'MAD' } = {}) => {
+  const inv = booking?._invoice || {};
+  const items = Array.isArray(inv.items) ? inv.items.filter((item) => (
+    String(item?.description || '').trim()
+    || Number(item?.quantity || 0)
+    || Number(item?.unitPrice || 0)
+  )) : [];
+
+  const renderRow = ({ title, subtitle = '', qty, taxLabel, unitPrice, amount }) => `
+    <tr>
+      <td>
+        <div class="inv-item-title">${escapeHtml(title)}</div>
+        ${subtitle ? `<div class="inv-item-sub">${escapeHtml(subtitle)}</div>` : ''}
+      </td>
+      <td class="num">${escapeHtml(qty)}</td>
+      <td class="num">${escapeHtml(taxLabel)}</td>
+      <td class="num">${escapeHtml(unitPrice)}</td>
+      <td class="num">${escapeHtml(amount)}</td>
+    </tr>
+  `;
+
+  if (items.length) {
+    return items.map((item) => {
+      const qty = Number(item.quantity || 1) || 1;
+      const unit = Number(item.unitPrice || 0) || 0;
+      const taxRate = Number(item.taxRate || 0) || 0;
+      const line = qty * unit;
+      return renderRow({
+        title: String(item.description || 'Prestation').trim() || 'Prestation',
+        qty: String(qty),
+        taxLabel: taxRate > 0 ? `${taxRate} %` : '—',
+        unitPrice: money(unit, currency),
+        amount: money(line, currency),
+      });
+    }).join('');
+  }
+
+  const car = resolveVehicleRecord(booking || {});
+  const carMake = `${firstNonEmpty(car, ['brand', 'carBrand']) || ''} ${firstNonEmpty(car, ['model', 'carModel']) || ''}`.trim();
+  const pickup = formatDateTime(firstNonEmpty(booking || {}, ['pickupDate', 'pickup_date']));
+  const ret = formatDateTime(firstNonEmpty(booking || {}, ['returnDate', 'return_date']));
+  const days = String(booking?.priceBreakdown?.days || inv.rentalDays || '1');
+  const hasRentalContext = Boolean(carMake || (pickup && pickup !== '—') || (ret && ret !== '—'));
+  const title = hasRentalContext
+    ? `Location véhicule${carMake ? ` — ${carMake}` : ''}`
+    : 'Prestation';
+  const subtitle = (pickup && pickup !== '—') || (ret && ret !== '—')
+    ? `Du ${pickup} au ${ret}`
+    : '';
+  const total = Number(inv.totalAmount != null ? inv.totalAmount : (booking?.price || 0)) || 0;
+  const unit = Number(booking?.priceBreakdown?.pricePerDay || (Number(days) > 0 ? total / Number(days) : total)) || total;
+  const taxAmount = Number(inv.taxAmount || booking?.priceBreakdown?.taxTotal || 0) || 0;
+  const subtotal = Number(inv.subtotal || booking?.priceBreakdown?.rentalPrice || total) || 0;
+  const taxLabel = taxAmount > 0 && subtotal > 0
+    ? `${Math.round((taxAmount / subtotal) * 100)} %`
+    : '—';
+
+  return renderRow({
+    title,
+    subtitle,
+    qty: days,
+    taxLabel,
+    unitPrice: money(unit, currency),
+    amount: money(total || subtotal, currency),
+  });
+};
+
+/** Optional rental context block — empty for generic manual service invoices. */
+export const buildInvoiceRentalSectionHtml = (booking) => {
+  const inv = booking?._invoice || {};
+  const car = resolveVehicleRecord(booking || {});
+  const carMake = `${firstNonEmpty(car, ['brand', 'carBrand']) || ''} ${firstNonEmpty(car, ['model', 'carModel']) || ''}`.trim();
+  const plate = [
+    car.licensePlate, car.registrationNumber, car.plateNumber, car.plate,
+  ].find((v) => v !== undefined && v !== null && String(v).trim() !== '') || '';
+  const pickup = formatDateTime(firstNonEmpty(booking || {}, ['pickupDate', 'pickup_date']));
+  const ret = formatDateTime(firstNonEmpty(booking || {}, ['returnDate', 'return_date']));
+  const days = booking?.priceBreakdown?.days || inv.rentalDays || '';
+  const reservationId = firstNonEmpty(booking || {}, ['reservationId', 'reservation_id']) || '';
+  const contractNumber = inv.contractNumber || '';
+
+  const hasRental = Boolean(
+    carMake
+    || plate
+    || (pickup && pickup !== '—')
+    || (ret && ret !== '—')
+    || reservationId
+    || contractNumber,
+  );
+  if (!hasRental) return '';
+
+  const cell = (label, value) => (
+    value && String(value).trim() && String(value).trim() !== '—'
+      ? `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`
+      : ''
+  );
+
+  return `
+<div class="inv-rental">
+  <div class="inv-rental-title">Détails complémentaires</div>
+  <div class="inv-rental-grid">
+    ${cell('Véhicule', carMake)}
+    ${cell('Immatriculation', plate)}
+    ${cell('Départ', pickup)}
+    ${cell('Retour', ret)}
+    ${cell('Durée', days ? `${days} jour(s)` : '')}
+    ${cell('N° Réservation', reservationId)}
+    ${cell('N° Contrat', contractNumber)}
+  </div>
+</div>`;
+};
+
 /** Full signature row for PDF: agency + renter (+ 2nd driver when enabled). */
 export const buildSignaturesRowHtml = (booking, { template, includeCompanyStamp = true } = {}) => {
   const agencyName =
@@ -286,7 +415,8 @@ export const buildTemplateVariables = (booking, {
   const inv = mergedBooking._invoice || {};
   const car = resolveVehicleRecord(mergedBooking);
   const b = mergedBooking?.priceBreakdown || {};
-  const currency = inv.currency || agency.currency || process.env.CURRENCY || 'MAD';
+  const agencyProfile = resolveAgencyProfile(agency, owner);
+  const currency = inv.currency || agency.currency || agencyProfile.currency || process.env.CURRENCY || 'MAD';
   const sd = mergedBooking?.secondDriver || {};
   const identityDoc = resolveIdentityDocument({
     identityDocumentNumber: firstNonEmpty(mergedBooking, ['identityDocumentNumber']),
@@ -385,6 +515,8 @@ export const buildTemplateVariables = (booking, {
     amount_in_words: amountInWordsFr(totalNumeric, currency),
     amount_in_words_sentence: invoiceAmountInWordsSentence(totalNumeric, currency),
     amount_in_words_banner: `Arrêté la présente facture à la somme de : ${amountInWordsFr(totalNumeric, currency)} TTC`,
+    invoice_items_rows_html: buildInvoiceItemsRowsHtml(mergedBooking, { currency }),
+    invoice_rental_section_html: buildInvoiceRentalSectionHtml(mergedBooking),
     franchise_amount: money(franchise, currency),
     currency,
     payment_status: firstNonEmpty(mergedBooking, ['paymentStatus']) || '—',
@@ -405,11 +537,14 @@ export const buildTemplateVariables = (booking, {
     second_driver_license_expiry: sd.enabled ? val(sd.driverLicenseExpiry) : '—',
     second_driver_passport: sd.enabled ? val(sd.passportNumber) : '—',
     second_driver_phone: sd.enabled ? val(sd.phone) : '—',
-    agency_name: agency.name || owner?.agencyName || defaultAgencyName(),
-    agency_phone: agency.phone || process.env.AGENCY_PHONE || process.env.WHATSAPP_BUSINESS_NUMBER || '—',
-    agency_email: agency.email || owner?.email || process.env.AGENCY_EMAIL || '—',
-    agency_address: agency.address || process.env.AGENCY_ADDRESS || '—',
-    agency_tax_id: agency.taxId || process.env.AGENCY_TAX_ID || '—',
+    agency_name: agencyProfile.name,
+    agency_phone: agencyProfile.phone || '—',
+    agency_email: agencyProfile.email || '—',
+    agency_address: agencyProfile.address || '—',
+    agency_tax_id: agencyProfile.taxId || '—',
+    agency_ice: agencyProfile.ice || '—',
+    agency_if: agencyProfile.if || '—',
+    agency_rc: agencyProfile.rc || '—',
     company_signature_html: includeCompanyStamp ? buildImageHtml(template?.companySignatureUrl || template?.signatureUrl || '', 'Company signature') : '',
     customer_signature_html: buildImageHtml(booking?.completion?.signatureUrl || '', 'Customer signature', 'max-height:80px;max-width:220px;margin-top:6px;'),
     second_driver_signature_html: sd.enabled
@@ -659,6 +794,8 @@ export default {
   buildSecondDriverSection,
   buildSecondDriverSignatureSection,
   buildSignaturesRowHtml,
+  buildInvoiceItemsRowsHtml,
+  buildInvoiceRentalSectionHtml,
   renderTemplate,
   buildDocumentHtml,
 };

@@ -130,6 +130,12 @@ export const DEFAULT_CONTRACT_FOOTER = `
 `;
 
 export const DEFAULT_INVOICE_HEADER = `
+<div class="inv-brand-details">
+  <div class="inv-company-name">{{agency_name}}</div>
+  <div class="inv-company-line">{{agency_address}}</div>
+  <div class="inv-company-line"><span>Tél</span> {{agency_phone}}</div>
+  <div class="inv-company-line"><span>Email</span> {{agency_email}}</div>
+</div>
 <div class="inv-title-block">
   <div class="inv-doc-label">FACTURE</div>
   <div class="inv-meta"><span>Facture N°</span> : <strong>{{invoice_number}}</strong></div>
@@ -139,24 +145,13 @@ export const DEFAULT_INVOICE_HEADER = `
 
 export const DEFAULT_INVOICE_BODY = `
 <div class="inv-client">
-  <div class="inv-line"><span>Société</span> : <strong>{{customer_name}}</strong></div>
+  <div class="inv-line"><span>Société / Client</span> : <strong>{{customer_name}}</strong></div>
   <div class="inv-line"><span>Adresse</span> : {{customer_address}}</div>
   <div class="inv-line"><span>Tél</span> : {{customer_phone}} &nbsp;&nbsp; <span>Email</span> : {{customer_email}}</div>
   <div class="inv-line"><span>ICE</span> : {{customer_tax_id}}</div>
 </div>
 
-<div class="inv-rental">
-  <div class="inv-rental-title">Location</div>
-  <div class="inv-rental-grid">
-    <div><span>Véhicule</span><strong>{{car_make}}</strong></div>
-    <div><span>Immatriculation</span><strong>{{car_registration}}</strong></div>
-    <div><span>Départ</span><strong>{{pickup_date}}</strong></div>
-    <div><span>Retour</span><strong>{{return_date}}</strong></div>
-    <div><span>Durée</span><strong>{{rental_days}} jour(s)</strong></div>
-    <div><span>N° Réservation</span><strong>{{reservation_id}}</strong></div>
-    <div><span>N° Contrat</span><strong>{{contract_number}}</strong></div>
-  </div>
-</div>
+{{invoice_rental_section_html}}
 
 <table class="inv-table">
   <thead>
@@ -169,16 +164,7 @@ export const DEFAULT_INVOICE_BODY = `
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td>
-        <div class="inv-item-title">Location véhicule — {{car_make}}</div>
-        <div class="inv-item-sub">Du {{pickup_date}} au {{return_date}}</div>
-      </td>
-      <td class="num">{{rental_days}}</td>
-      <td class="num">{{tax_rate_label}}</td>
-      <td class="num">{{price_per_day}}</td>
-      <td class="num">{{rental_price}}</td>
-    </tr>
+    {{invoice_items_rows_html}}
   </tbody>
 </table>
 
@@ -210,29 +196,74 @@ export const DEFAULT_INVOICE_FOOTER = `
     <div class="inv-footer-item"><span class="inv-ico">⌖</span>{{agency_address}}</div>
   </div>
   <div class="inv-footer-legal">
-    {{agency_name}} — ICE / IF / RC : {{agency_tax_id}}
+    <span>N° I.C.E : {{agency_ice}}</span>
+    <span class="inv-legal-sep">—</span>
+    <span>IF : {{agency_if}}</span>
+    <span class="inv-legal-sep">—</span>
+    <span>RC : {{agency_rc}}</span>
   </div>
 </div>
 `;
 
 export const DEFAULT_INVOICE_CUSTOM_CSS = `
-.inv-title-block { text-align: right; min-width: 190px; }
+body.doc-invoice .doc-header {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "logo brand title";
+  align-items: start;
+  gap: 8px 14px;
+  border-bottom: 1px solid #d1d5db !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 12px !important;
+}
+body.doc-invoice .doc-logo {
+  grid-area: logo;
+  max-height: 58px !important;
+  margin: 0 !important;
+}
+.inv-brand-details {
+  grid-area: brand;
+  min-width: 0;
+  padding-top: 2px;
+}
+.inv-company-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 3px;
+  letter-spacing: 0.02em;
+}
+.inv-company-line {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #4b5563;
+  margin: 0;
+}
+.inv-company-line span {
+  color: #6b7280;
+  margin-right: 4px;
+}
+.inv-title-block {
+  grid-area: title;
+  text-align: right;
+  min-width: 170px;
+}
 .inv-doc-label {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.12em;
   color: #8f1f1f;
   line-height: 1;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
-.inv-meta { font-size: 12px; color: #111827; margin-top: 4px; }
+.inv-meta { font-size: 11px; color: #111827; margin-top: 3px; }
 .inv-meta span { color: #4b5563; }
-.inv-client { margin: 0 0 12px; font-size: 12px; line-height: 1.55; }
+.inv-client { margin: 0 0 10px; font-size: 11px; line-height: 1.5; }
 .inv-line { margin: 1px 0; }
 .inv-line span { color: #4b5563; }
 .inv-rental {
-  margin: 0 0 12px;
-  padding: 8px 10px;
+  margin: 0 0 10px;
+  padding: 7px 9px;
   border: 1px solid #e5e7eb;
   background: #fafafa;
 }
@@ -242,27 +273,27 @@ export const DEFAULT_INVOICE_CUSTOM_CSS = `
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #8f1f1f;
-  margin: 0 0 6px;
+  margin: 0 0 5px;
 }
 .inv-rental-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px 12px;
-  font-size: 11px;
+  gap: 5px 10px;
+  font-size: 10px;
 }
-.inv-rental-grid span { display: block; color: #6b7280; font-size: 10px; }
+.inv-rental-grid span { display: block; color: #6b7280; font-size: 9px; }
 .inv-rental-grid strong { color: #111827; font-weight: 600; }
 .inv-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0 0 10px !important;
+  margin: 0 0 8px !important;
   font-size: 11px;
 }
 .inv-table th,
 .inv-table td {
   border: none !important;
   border-bottom: 1px solid #d1d5db !important;
-  padding: 8px 10px !important;
+  padding: 7px 9px !important;
   vertical-align: top;
 }
 .inv-table thead th {
@@ -284,71 +315,74 @@ export const DEFAULT_INVOICE_CUSTOM_CSS = `
 .inv-bottom {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
-  gap: 16px;
+  gap: 14px;
   align-items: start;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .inv-words {
-  margin: 0 0 10px;
-  font-size: 11px;
+  margin: 0 0 8px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  line-height: 1.45;
+  line-height: 1.4;
   color: #111827;
 }
-.inv-pay-line { font-size: 11px; margin: 3px 0; color: #111827; }
+.inv-pay-line { font-size: 11px; margin: 2px 0; color: #111827; }
 .inv-pay-line span { color: #4b5563; }
 .inv-totals { width: 100%; margin-left: auto; }
 .inv-totals-row {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  padding: 3px 0;
+  gap: 14px;
+  padding: 2px 0;
   font-size: 11px;
 }
 .inv-totals-main {
-  margin-top: 4px;
-  padding-top: 6px;
+  margin-top: 3px;
+  padding-top: 5px;
   border-top: 2px solid #111827;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 .inv-stamp {
-  margin-top: 10px;
+  margin-top: 8px;
   text-align: right;
-  min-height: 70px;
+  min-height: 56px;
 }
-.inv-stamp img { max-height: 90px !important; max-width: 180px !important; }
-.inv-footer { margin-top: 8px; }
+.inv-stamp img { max-height: 80px !important; max-width: 160px !important; }
+.inv-footer { margin-top: 6px; }
 .inv-footer-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
+  gap: 6px 14px;
   align-items: center;
   background: #111827;
   color: #fff;
-  padding: 8px 12px;
-  font-size: 10px;
+  padding: 7px 10px;
+  font-size: 9px;
 }
-.inv-footer-item { display: flex; align-items: center; gap: 6px; }
+.inv-footer-item { display: flex; align-items: center; gap: 6px; max-width: 100%; }
 .inv-ico {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   background: #8f1f1f;
   color: #fff;
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1;
+  flex-shrink: 0;
 }
 .inv-footer-legal {
-  margin-top: 6px;
+  margin-top: 5px;
   text-align: center;
   font-size: 9px;
-  color: #6b7280;
+  color: #4b5563;
+  line-height: 1.4;
 }
+.inv-legal-sep { margin: 0 6px; color: #9ca3af; }
 `;
 
 export default {
