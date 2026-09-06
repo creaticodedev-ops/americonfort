@@ -758,29 +758,29 @@ export const buildDocumentHtml = (template, variables) => {
     .section { margin-bottom: 16px; }
     .muted { color: #666; font-size: 9pt; }
     body.doc-invoice .doc-page {
-      padding: 4mm 2mm 3mm;
+      padding: 3mm 1.5mm 2mm;
       min-height: auto;
     }
     body.doc-invoice .doc-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      border-bottom: 1px solid #d1d5db;
-      padding-bottom: 10px;
-      margin-bottom: 14px;
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 0;
     }
     body.doc-invoice .doc-logo {
-      max-height: 64px;
+      max-height: 56px;
       width: auto;
       margin: 0;
     }
     body.doc-invoice .doc-footer {
       border-top: none;
-      margin-top: 12px;
+      margin-top: 16px;
       padding-top: 0;
       color: inherit;
       font-size: inherit;
+    }
+    body.doc-invoice table th,
+    body.doc-invoice table td {
+      border: none;
     }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
