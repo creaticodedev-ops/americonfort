@@ -17,6 +17,7 @@ export const TEMPLATE_VARIABLES = [
   { key: 'due_date', label: 'Due Date', group: 'invoice' },
   { key: 'amount_in_words', label: 'Amount in words', group: 'invoice' },
   { key: 'amount_in_words_sentence', label: 'Amount in words (sentence)', group: 'invoice' },
+  { key: 'amount_in_words_banner', label: 'Amount in words (banner)', group: 'invoice' },
   { key: 'amount_paid', label: 'Amount paid', group: 'invoice' },
   { key: 'balance_due', label: 'Balance due', group: 'invoice' },
   { key: 'reservation_id', label: 'Reservation ID', group: 'booking' },
@@ -57,6 +58,7 @@ export const TEMPLATE_VARIABLES = [
   { key: 'pickup_fee', label: 'Pickup Delivery Fee', group: 'pricing' },
   { key: 'dropoff_fee', label: 'Drop-off Delivery Fee', group: 'pricing' },
   { key: 'discount_total', label: 'Discount Total', group: 'pricing' },
+  { key: 'tax_rate_label', label: 'Tax Rate', group: 'pricing' },
   { key: 'total_price', label: 'Total Price', group: 'pricing' },
   { key: 'currency', label: 'Currency', group: 'pricing' },
   { key: 'payment_status', label: 'Payment Status', group: 'pricing' },
@@ -99,6 +101,24 @@ const formatDate = (value) => {
   if (!value) return '—';
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('en-GB');
+};
+
+const formatPaymentMethod = (raw) => {
+  const key = String(raw || '').trim().toLowerCase();
+  if (!key || key === '—') return '—';
+  const labels = {
+    cash: 'Espèces',
+    especes: 'Espèces',
+    espèces: 'Espèces',
+    bank_transfer: 'Virement',
+    transfer: 'Virement',
+    virement: 'Virement',
+    card: 'Carte',
+    carte: 'Carte',
+    cheque: 'Chèque',
+    chèque: 'Chèque',
+  };
+  return labels[key] || String(raw).trim();
 };
 
 const money = (amount, currency = 'MAD') => {
@@ -292,6 +312,11 @@ export const buildTemplateVariables = (booking, {
   const taxNumeric = Number(inv.taxAmount ?? b.taxTotal ?? 0) || 0;
   const subtotalNumeric = Number(inv.subtotal ?? b.rentalPrice ?? totalNumeric) || 0;
   const discountNumeric = Number(inv.discountAmount ?? b.discountTotal ?? 0) || 0;
+  const taxRateLabel = (() => {
+    if (taxNumeric <= 0 || subtotalNumeric <= 0) return '—';
+    const rate = Math.round((taxNumeric / subtotalNumeric) * 100);
+    return Number.isFinite(rate) ? `${rate} %` : '—';
+  })();
 
   const values = {
     contract_number: resolvedContractNumber || '—',
@@ -352,16 +377,18 @@ export const buildTemplateVariables = (booking, {
     dropoff_fee: money(b.dropoffDeliveryFee, currency),
     discount_total: money(discountNumeric || b.discountTotal, currency),
     tax_total: money(taxNumeric, currency),
+    tax_rate_label: taxRateLabel,
     subtotal: money(subtotalNumeric, currency),
     total_price: money(totalNumeric, currency),
     amount_paid: money(paidNumeric, currency),
     balance_due: money(balanceNumeric, currency),
     amount_in_words: amountInWordsFr(totalNumeric, currency),
     amount_in_words_sentence: invoiceAmountInWordsSentence(totalNumeric, currency),
+    amount_in_words_banner: `Arrêté la présente facture à la somme de : ${amountInWordsFr(totalNumeric, currency)} TTC`,
     franchise_amount: money(franchise, currency),
     currency,
     payment_status: firstNonEmpty(mergedBooking, ['paymentStatus']) || '—',
-    payment_method: inv.paymentMethod || '—',
+    payment_method: formatPaymentMethod(inv.paymentMethod),
     payment_reference: inv.paymentReference || '—',
     booking_status: firstNonEmpty(mergedBooking, ['status']) || '—',
     booking_method:
@@ -505,12 +532,14 @@ export const renderTemplate = (html, variables) => {
  */
 export const buildDocumentHtml = (template, variables) => {
   const safeTemplate = template || {};
+  const isInvoice = String(safeTemplate.type || '').toLowerCase() === 'invoice';
   const header = renderTemplate(safeTemplate.headerHtml || '', variables);
   const body = renderTemplate(safeTemplate.bodyHtml || '', variables);
   const footer = renderTemplate(safeTemplate.footerHtml || '', variables);
   const css = safeTemplate.customCss || '';
   // Use only Admin-stored termsHtml — no hardcoded duplicate fallback at render time.
-  const termsBody = safeTemplate.termsHtml
+  // Invoices stay strictly single-page (no terms page).
+  const termsBody = (!isInvoice && safeTemplate.termsHtml)
     ? renderTemplate(safeTemplate.termsHtml, variables)
     : '';
   const twoPages = Boolean(termsBody);
@@ -526,14 +555,14 @@ export const buildDocumentHtml = (template, variables) => {
     const logoSrc = logoDataUri
       || (safeTemplate.logoUrl ? signDocumentAccessUrl(safeTemplate.logoUrl, 60 * 60) : '');
     logo = logoSrc
-      ? `<img src="${logoSrc}" alt="Logo" style="max-height:48px;margin-bottom:8px;" />`
+      ? `<img src="${logoSrc}" alt="Logo" class="doc-logo" />`
       : '';
   } catch (error) {
     console.error('[IMAGE_HTML] Failed for Logo', error.message);
   }
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -553,6 +582,7 @@ export const buildDocumentHtml = (template, variables) => {
       margin: 0 auto;
       padding: 16mm 14mm;
     }
+    .doc-logo { max-height: 48px; margin-bottom: 8px; display: block; }
     .doc-header { border-bottom: 2px solid #8F1F1F; padding-bottom: 12px; margin-bottom: 20px; }
     .doc-footer {
       border-top: 1px solid #ccc;
@@ -570,15 +600,41 @@ export const buildDocumentHtml = (template, variables) => {
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .section { margin-bottom: 16px; }
     .muted { color: #666; font-size: 9pt; }
+    body.doc-invoice .doc-page {
+      padding: 4mm 2mm 3mm;
+      min-height: auto;
+    }
+    body.doc-invoice .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      border-bottom: 1px solid #d1d5db;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+    body.doc-invoice .doc-logo {
+      max-height: 64px;
+      width: auto;
+      margin: 0;
+    }
+    body.doc-invoice .doc-footer {
+      border-top: none;
+      margin-top: 12px;
+      padding-top: 0;
+      color: inherit;
+      font-size: inherit;
+    }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .doc-page { padding: 10mm; }
+      body.doc-invoice .doc-page { padding: 0; }
       .no-print { display: none !important; }
     }
     ${css}
   </style>
 </head>
-<body>
+<body class="${isInvoice ? 'doc-invoice' : ''}">
   <div class="doc-page doc-page-1">
     <div class="doc-header">${logo}${header}</div>
     <div class="doc-body">${body}</div>

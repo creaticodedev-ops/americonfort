@@ -84,7 +84,7 @@ const embedTemplateAssetUrls = async (template = {}, { includeCompanyStamp = tru
   return next;
 };
 
-const renderHtmlToPdf = async (html, filePath, pageSize = 'A4') => {
+const renderHtmlToPdf = async (html, filePath, pageSize = 'A4', { tightMargins = false } = {}) => {
   const preparedHtml = await embedRemoteImagesAsDataUris(html);
   const browser = await launchPdfBrowser();
 
@@ -94,11 +94,14 @@ const renderHtmlToPdf = async (html, filePath, pageSize = 'A4') => {
     // Prefer load over networkidle0 — remote beacons/CDNs must not block PDF generation.
     await page.setContent(preparedHtml, { waitUntil: 'load', timeout: 45_000 });
     await page.emulateMediaType('print');
+    const margin = tightMargins
+      ? { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' }
+      : { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' };
     await page.pdf({
       path: filePath,
       format: pageSize === 'Letter' ? 'Letter' : 'A4',
       printBackground: true,
-      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+      margin,
     });
   } finally {
     await browser.close();
@@ -110,7 +113,8 @@ export const generatePdfFromTemplate = async ({ template, variables, filePath, t
   const readyTemplate = await embedTemplateAssetUrls(template);
   const fullHtml = buildDocumentHtml(readyTemplate, variables);
   const html = fullHtml.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
-  await renderHtmlToPdf(html, filePath, readyTemplate?.pageSize || 'A4');
+  const isInvoice = String(readyTemplate?.type || template?.type || '').toLowerCase() === 'invoice';
+  await renderHtmlToPdf(html, filePath, readyTemplate?.pageSize || 'A4', { tightMargins: isInvoice });
   return filePath;
 };
 
