@@ -205,12 +205,23 @@ const Invoices = () => {
           </div>
           <div className="mt-3 space-y-3">
             {items.map((item, index) => (
-              <div key={item.id || `edit-item-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.8fr_1fr_0.7fr_auto]">
-                <input className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.description} onChange={(e) => updateItem(index, 'description', e.target.value)} placeholder={t('admin.invoices.itemDescription')} />
-                <input type="number" min="1" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
-                <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.unitPrice} onChange={(e) => updateItem(index, 'unitPrice', e.target.value)} />
-                <input type="number" min="0" max="100" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.taxRate} onChange={(e) => updateItem(index, 'taxRate', e.target.value)} />
-                <button type="button" onClick={() => removeItem(index)} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600">×</button>
+              <div key={item.id || `edit-item-${index}`} className="rounded-lg border border-borderColor bg-white p-3 space-y-2">
+                <div className="hidden md:grid md:grid-cols-[2fr_0.7fr_1fr_0.7fr_0.9fr_auto] gap-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                  <span>{t('admin.invoices.itemDescription')}</span>
+                  <span>{t('admin.invoices.itemQuantity')}</span>
+                  <span>{t('admin.invoices.itemUnitPrice')}</span>
+                  <span>{t('admin.invoices.itemTax')}</span>
+                  <span>{t('admin.invoices.itemLineTotal')}</span>
+                  <span />
+                </div>
+                <div className="grid gap-2 md:grid-cols-[2fr_0.7fr_1fr_0.7fr_0.9fr_auto]">
+                  <input className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.description} onChange={(e) => updateItem(index, 'description', e.target.value)} placeholder={t('admin.invoices.itemDescription')} />
+                  <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} placeholder={t('admin.invoices.itemQuantity')} aria-label={t('admin.invoices.itemQuantity')} />
+                  <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.unitPrice} onChange={(e) => updateItem(index, 'unitPrice', e.target.value)} placeholder={t('admin.invoices.itemUnitPrice')} aria-label={t('admin.invoices.itemUnitPrice')} />
+                  <input type="number" min="0" max="100" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.taxRate} onChange={(e) => updateItem(index, 'taxRate', e.target.value)} placeholder={t('admin.invoices.itemTax')} aria-label={t('admin.invoices.itemTax')} />
+                  <input className="rounded-lg border border-borderColor bg-gray-50 px-3 py-2 text-sm" value={(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toFixed(2)} readOnly aria-label={t('admin.invoices.itemLineTotal')} />
+                  <button type="button" onClick={() => removeItem(index)} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600">×</button>
+                </div>
               </div>
             ))}
           </div>
@@ -797,12 +808,21 @@ const Invoices = () => {
                   <button type="button" onClick={addItem} className="rounded-lg border border-borderColor bg-white px-3 py-1.5 text-sm">{t('admin.invoices.addItem')}</button>
                 </div>
                 <div className="mt-3 space-y-3">
+                  <div className="hidden md:grid md:grid-cols-[2fr_0.7fr_1fr_0.7fr_0.9fr_auto] gap-2 px-3 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    <span>{t('admin.invoices.itemDescription')}</span>
+                    <span>{t('admin.invoices.itemQuantity')}</span>
+                    <span>{t('admin.invoices.itemUnitPrice')}</span>
+                    <span>{t('admin.invoices.itemTax')}</span>
+                    <span>{t('admin.invoices.itemLineTotal')}</span>
+                    <span />
+                  </div>
                   {form.items.map((item, index) => (
-                    <div key={item.id || `create-item-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.8fr_1fr_0.7fr_auto]">
+                    <div key={item.id || `create-item-${index}`} className="grid gap-2 rounded-lg border border-borderColor bg-white p-3 md:grid-cols-[2fr_0.7fr_1fr_0.7fr_0.9fr_auto]">
                       <input className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.description} onChange={(e) => updateItem(index, 'description', e.target.value)} placeholder={t('admin.invoices.itemDescription')} />
-                      <input type="number" min="1" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
-                      <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.unitPrice} onChange={(e) => updateItem(index, 'unitPrice', e.target.value)} />
-                      <input type="number" min="0" max="100" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.taxRate} onChange={(e) => updateItem(index, 'taxRate', e.target.value)} />
+                      <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} placeholder={t('admin.invoices.itemQuantity')} aria-label={t('admin.invoices.itemQuantity')} />
+                      <input type="number" min="0" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.unitPrice} onChange={(e) => updateItem(index, 'unitPrice', e.target.value)} placeholder={t('admin.invoices.itemUnitPrice')} aria-label={t('admin.invoices.itemUnitPrice')} />
+                      <input type="number" min="0" max="100" step="0.01" className="rounded-lg border border-borderColor px-3 py-2 text-sm" value={item.taxRate} onChange={(e) => updateItem(index, 'taxRate', e.target.value)} placeholder={t('admin.invoices.itemTax')} aria-label={t('admin.invoices.itemTax')} />
+                      <input className="rounded-lg border border-borderColor bg-gray-50 px-3 py-2 text-sm" value={(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toFixed(2)} readOnly aria-label={t('admin.invoices.itemLineTotal')} />
                       <button type="button" onClick={() => removeItem(index)} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600">×</button>
                     </div>
                   ))}

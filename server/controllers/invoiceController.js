@@ -15,6 +15,7 @@ import {
   invoiceNumberValidationMessage,
   suggestNextInvoiceNumber as suggestNextNumber,
 } from '../utils/invoiceNumber.js';
+import { normalizeInvoiceItems } from '../services/templateEngine.js';
 import {
   snapshotTemplate,
   buildInvoiceSourceData,
@@ -164,21 +165,14 @@ const buildDraftFromBooking = async (ownerId, booking) => {
 };
 
 const normalizeInvoicePayload = (body = {}, { booking = null } = {}) => {
-  const items = (Array.isArray(body.items) ? body.items : [])
-    .map((item) => ({
-      description: String(item.description || '').trim(),
-      quantity: Number(item.quantity || 1),
-      unitPrice: Number(item.unitPrice || 0),
-      taxRate: Number(item.taxRate || 0),
-    }))
-    .filter((item) => item.description || item.quantity || item.unitPrice);
+  const items = normalizeInvoiceItems(body.items);
 
   const subtotal = items.length
-    ? items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    ? items.reduce((sum, item) => sum + item.lineTotal, 0)
     : Number(body.subtotal ?? booking?.price ?? 0) || 0;
   const taxAmount = Number(
     body.taxAmount
-    ?? items.reduce((sum, item) => sum + ((item.quantity * item.unitPrice) * (item.taxRate || 0) / 100), 0),
+    ?? items.reduce((sum, item) => sum + (item.lineTotal * (item.taxRate || 0) / 100), 0),
   ) || 0;
   const discountAmount = Number(body.discountAmount || 0) || 0;
   const totalAmount = Math.max(
@@ -237,7 +231,12 @@ const normalizeInvoicePayload = (body = {}, { booking = null } = {}) => {
     pricePerDay: body.pricePerDay != null ? Number(body.pricePerDay) : (booking?.priceBreakdown?.pricePerDay ?? null),
     pickupFee: Number(body.pickupFee ?? booking?.priceBreakdown?.pickupDeliveryFee ?? 0) || 0,
     dropoffFee: Number(body.dropoffFee ?? booking?.priceBreakdown?.dropoffDeliveryFee ?? 0) || 0,
-    items: items.length ? items : [{
+    items: items.length ? items.map(({ description, quantity, unitPrice, taxRate }) => ({
+      description,
+      quantity,
+      unitPrice,
+      taxRate,
+    })) : [{
       description: `Location ${booking?.car?.brand || ''} ${booking?.car?.model || ''}`.trim() || 'Location véhicule',
       quantity: 1,
       unitPrice: totalAmount,

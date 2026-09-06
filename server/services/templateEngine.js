@@ -198,17 +198,41 @@ const escapeHtml = (value) => String(value ?? '')
   .replace(/"/g, '&quot;');
 
 /**
+ * Normalize invoice line items with explicit Quantity / Unit Price mapping.
+ * Amount line = quantity × unitPrice (never swapped).
+ */
+export const normalizeInvoiceItems = (rawItems = []) => {
+  const items = (Array.isArray(rawItems) ? rawItems : [])
+    .map((item) => {
+      const quantity = Number(item?.quantity);
+      const unitPrice = Number(item?.unitPrice);
+      const taxRate = Number(item?.taxRate);
+      return {
+        description: String(item?.description || '').trim(),
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+        unitPrice: Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0,
+        taxRate: Number.isFinite(taxRate) && taxRate >= 0 ? taxRate : 0,
+      };
+    })
+    .filter((item) => item.description || item.quantity || item.unitPrice);
+
+  return items.map((item) => ({
+    ...item,
+    lineTotal: Math.round((item.quantity * item.unitPrice) * 100) / 100,
+  }));
+};
+
+/**
  * Build invoice line-item rows from invoice items when present.
  * Falls back to a single rental/service summary row for booking invoices.
  * Supports manual invoices for any service description.
+ *
+ * Column order is fixed: Description | Quantity | Tax | Unit Price | Amount
+ * Amount = Quantity × Unit Price
  */
 export const buildInvoiceItemsRowsHtml = (booking, { currency = 'MAD' } = {}) => {
   const inv = booking?._invoice || {};
-  const items = Array.isArray(inv.items) ? inv.items.filter((item) => (
-    String(item?.description || '').trim()
-    || Number(item?.quantity || 0)
-    || Number(item?.unitPrice || 0)
-  )) : [];
+  const items = normalizeInvoiceItems(inv.items);
 
   const renderRow = ({ title, subtitle = '', qty, taxLabel, unitPrice, amount }) => `
     <tr>
@@ -224,26 +248,21 @@ export const buildInvoiceItemsRowsHtml = (booking, { currency = 'MAD' } = {}) =>
   `;
 
   if (items.length) {
-    return items.map((item) => {
-      const qty = Number(item.quantity || 1) || 1;
-      const unit = Number(item.unitPrice || 0) || 0;
-      const taxRate = Number(item.taxRate || 0) || 0;
-      const line = qty * unit;
-      return renderRow({
-        title: String(item.description || 'Prestation').trim() || 'Prestation',
-        qty: String(qty),
-        taxLabel: taxRate > 0 ? `${taxRate} %` : '—',
-        unitPrice: money(unit, currency),
-        amount: money(line, currency),
-      });
-    }).join('');
+    return items.map((item) => renderRow({
+      title: item.description || 'Prestation',
+      qty: String(item.quantity),
+      taxLabel: item.taxRate > 0 ? `${item.taxRate} %` : '—',
+      unitPrice: money(item.unitPrice, currency),
+      amount: money(item.lineTotal, currency),
+    })).join('');
   }
 
   const car = resolveVehicleRecord(booking || {});
   const carMake = `${firstNonEmpty(car, ['brand', 'carBrand']) || ''} ${firstNonEmpty(car, ['model', 'carModel']) || ''}`.trim();
   const pickup = formatDateTime(firstNonEmpty(booking || {}, ['pickupDate', 'pickup_date']));
   const ret = formatDateTime(firstNonEmpty(booking || {}, ['returnDate', 'return_date']));
-  const days = String(booking?.priceBreakdown?.days || inv.rentalDays || '1');
+  const daysRaw = Number(booking?.priceBreakdown?.days || inv.rentalDays || 1);
+  const days = Number.isFinite(daysRaw) && daysRaw > 0 ? daysRaw : 1;
   const hasRentalContext = Boolean(carMake || (pickup && pickup !== '—') || (ret && ret !== '—'));
   const title = hasRentalContext
     ? `Location véhicule${carMake ? ` — ${carMake}` : ''}`
@@ -252,9 +271,12 @@ export const buildInvoiceItemsRowsHtml = (booking, { currency = 'MAD' } = {}) =>
     ? `Du ${pickup} au ${ret}`
     : '';
   const total = Number(inv.totalAmount != null ? inv.totalAmount : (booking?.price || 0)) || 0;
-  const unit = Number(booking?.priceBreakdown?.pricePerDay || (Number(days) > 0 ? total / Number(days) : total)) || total;
+  const unit = Number(
+    booking?.priceBreakdown?.pricePerDay
+    ?? (days > 0 ? total / days : total),
+  ) || 0;
   const taxAmount = Number(inv.taxAmount || booking?.priceBreakdown?.taxTotal || 0) || 0;
-  const subtotal = Number(inv.subtotal || booking?.priceBreakdown?.rentalPrice || total) || 0;
+  const subtotal = Number(inv.subtotal || booking?.priceBreakdown?.rentalPrice || (days * unit)) || 0;
   const taxLabel = taxAmount > 0 && subtotal > 0
     ? `${Math.round((taxAmount / subtotal) * 100)} %`
     : '—';
@@ -262,10 +284,10 @@ export const buildInvoiceItemsRowsHtml = (booking, { currency = 'MAD' } = {}) =>
   return renderRow({
     title,
     subtitle,
-    qty: days,
+    qty: String(days),
     taxLabel,
     unitPrice: money(unit, currency),
-    amount: money(total || subtotal, currency),
+    amount: money(days * unit || subtotal || total, currency),
   });
 };
 
@@ -796,6 +818,7 @@ export default {
   buildSignaturesRowHtml,
   buildInvoiceItemsRowsHtml,
   buildInvoiceRentalSectionHtml,
+  normalizeInvoiceItems,
   renderTemplate,
   buildDocumentHtml,
 };

@@ -17,6 +17,22 @@ export const defaultAgencyName = () => {
   return fromEnv || DEFAULT_AGENCY_PROFILE.name || BRAND_NAME;
 };
 
+const digitsOnly = (value) => String(value || '').replace(/\D/g, '');
+
+/** Company phone for invoices — never confuse with WhatsApp / customer numbers. */
+const resolveCompanyPhone = (...candidates) => {
+  const expected = digitsOnly(DEFAULT_AGENCY_PROFILE.phone); // 212670551055
+  for (const candidate of candidates) {
+    const raw = String(candidate || '').trim();
+    if (!raw) continue;
+    const digits = digitsOnly(raw);
+    if (digits.includes('670551055') || digits === expected || digits === expected.slice(3)) {
+      return DEFAULT_AGENCY_PROFILE.phone;
+    }
+  }
+  return DEFAULT_AGENCY_PROFILE.phone;
+};
+
 export const resolveAgencyProfile = (agency = {}, owner = null) => {
   const ice = String(
     agency.ice
@@ -51,7 +67,13 @@ export const resolveAgencyProfile = (agency = {}, owner = null) => {
   return {
     name: agency.name || owner?.agencyName || defaultAgencyName(),
     address: agency.address || process.env.AGENCY_ADDRESS || DEFAULT_AGENCY_PROFILE.address,
-    phone: agency.phone || process.env.AGENCY_PHONE || process.env.WHATSAPP_BUSINESS_NUMBER || DEFAULT_AGENCY_PROFILE.phone,
+    phone: resolveCompanyPhone(
+      agency.invoicePhone,
+      agency.businessPhone,
+      process.env.AGENCY_INVOICE_PHONE,
+      process.env.AGENCY_PHONE,
+      agency.phone,
+    ),
     email: agency.email || owner?.email || process.env.AGENCY_EMAIL || DEFAULT_AGENCY_PROFILE.email,
     ice,
     if: taxIf,

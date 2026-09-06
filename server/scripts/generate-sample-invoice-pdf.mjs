@@ -11,7 +11,7 @@ import {
   DEFAULT_INVOICE_FOOTER,
   DEFAULT_INVOICE_CUSTOM_CSS,
 } from '../services/defaultTemplates.js';
-import { buildTemplateVariables, buildDocumentHtml } from '../services/templateEngine.js';
+import { buildTemplateVariables, buildDocumentHtml, buildInvoiceItemsRowsHtml } from '../services/templateEngine.js';
 import { generatePdfFromHtml } from '../services/templatePdfExport.js';
 import { DEFAULT_AGENCY_PROFILE } from '../utils/brand.js';
 
@@ -119,7 +119,7 @@ const rentalBooking = {
   customerAddress: '46 BD ZERKTOUNI ETAGE 6 BLOC N 15 ET 16 CASABLANCA',
   pickupDate: new Date('2026-09-06T14:00:00'),
   returnDate: new Date('2026-09-09T14:00:00'),
-  price: 1500,
+  price: 1800,
   paymentStatus: 'partial',
   car: {
     brand: 'Renault',
@@ -127,13 +127,13 @@ const rentalBooking = {
     licensePlate: '12345-A-6',
   },
   priceBreakdown: {
-    days: 3,
-    pricePerDay: 500,
-    rentalPrice: 1500,
-    taxTotal: 0,
+    days: 6,
+    pricePerDay: 300,
+    rentalPrice: 1800,
+    taxTotal: 360,
     discountTotal: 0,
   },
-  completion: { amountPaid: 500 },
+  completion: { amountPaid: 0 },
   _invoice: {
     invoiceNumber: '20/2026',
     invoiceDate: new Date('2026-09-06'),
@@ -141,25 +141,56 @@ const rentalBooking = {
     currency: 'MAD',
     contractNumber: 'CTR-24091',
     customerTaxId: '00269718900',
-    subtotal: 1500,
-    taxAmount: 0,
+    subtotal: 1800,
+    taxAmount: 360,
     discountAmount: 0,
-    totalAmount: 1500,
-    amountPaid: 500,
-    balanceDue: 1000,
+    totalAmount: 2160,
+    amountPaid: 0,
+    balanceDue: 2160,
     paymentMethod: 'cash',
     items: [
       {
         description: 'Location véhicule — Renault Clio 5',
-        quantity: 3,
-        unitPrice: 500,
-        taxRate: 0,
+        quantity: 6,
+        unitPrice: 300,
+        taxRate: 20,
       },
     ],
   },
 };
 
 const main = async () => {
+  // Verify quantity/unitPrice mapping is never swapped in HTML rows.
+  const mappingCheckBooking = {
+    customerName: 'Test',
+    _invoice: {
+      currency: 'MAD',
+      totalAmount: 1800,
+      items: [{ description: 'Test line', quantity: 6, unitPrice: 300, taxRate: 20 }],
+    },
+  };
+  const rows = buildInvoiceItemsRowsHtml(mappingCheckBooking, { currency: 'MAD' });
+  if (!rows.includes('>6<') || !rows.includes('MAD 300.00') || !rows.includes('MAD 1800.00')) {
+    throw new Error(`Quantity/UnitPrice mapping failed in rows HTML:\n${rows}`);
+  }
+  if (rows.indexOf('>6<') > rows.indexOf('MAD 300.00')) {
+    throw new Error('Quantity column appears after unit price — columns swapped');
+  }
+
+  const vars = buildTemplateVariables(mappingCheckBooking, {
+    owner: { agencyName: DEFAULT_AGENCY_PROFILE.name, email: DEFAULT_AGENCY_PROFILE.email },
+    agency: { phone: '212665330116' }, // must NOT appear on invoice
+    template,
+    invoiceNumber: '99/2026',
+    invoiceDate: new Date('2026-09-06'),
+    dueDate: new Date('2026-09-13'),
+  });
+  if (vars.agency_phone !== DEFAULT_AGENCY_PROFILE.phone) {
+    throw new Error(`Agency phone incorrect: ${vars.agency_phone}`);
+  }
+  if (String(vars.agency_phone).includes('665330116')) {
+    throw new Error('Customer/WhatsApp phone leaked into agency phone');
+  }
   const manualPath = await renderSample(
     'sample-invoice-manual-service.pdf',
     manualServiceBooking,
