@@ -271,7 +271,10 @@ export const refreshCompletionFlags = (booking) => {
 };
 
 /** Generate (or reuse) unsigned contract PDF for walk-in signature review. */
-export const ensureWalkInContractPreview = async (booking, { force = false } = {}) => {
+export const ensureWalkInContractPreview = async (
+  booking,
+  { force = false, includeCompanyStamp: stampOverride } = {},
+) => {
   if (!isWalkInChannel(booking.channel)) return null;
 
   booking.completion = booking.completion || {};
@@ -300,10 +303,20 @@ export const ensureWalkInContractPreview = async (booking, { force = false } = {
     populated.owner && typeof populated.owner === 'object' && populated.owner.documentSettings != null
       ? populated.owner
       : await User.findById(ownerId).select('documentSettings agencyName email').lean();
+
+  // Explicit desk choice (request or persisted on booking) wins over owner defaults.
+  const stampSource =
+    stampOverride !== undefined && stampOverride !== null
+      ? stampOverride
+      : c.includeCompanyStamp;
   const includeCompanyStamp = resolveIncludeCompanyStamp({
+    bodyValue: stampSource,
     owner: ownerDoc || populated.owner,
     documentType: 'contracts',
   });
+  if (c.includeCompanyStamp === undefined || c.includeCompanyStamp === null) {
+    c.includeCompanyStamp = includeCompanyStamp;
+  }
 
   const contractNumber = populated.reservationId || `PREVIEW-${populated._id.toString().slice(-6).toUpperCase()}`;
   const bookingObj = populated.toObject ? populated.toObject() : populated;
@@ -384,6 +397,7 @@ export const tryFinalizeBookingCompletion = async (bookingId, { inlineSignatures
       ? booking.owner
       : await User.findById(ownerId).select('documentSettings agencyName email').lean();
   const includeCompanyStamp = resolveIncludeCompanyStamp({
+    bodyValue: booking.completion?.includeCompanyStamp,
     owner: ownerDoc || booking.owner,
     documentType: 'contracts',
   });

@@ -220,6 +220,8 @@ const bookingSchema = new mongoose.Schema({
     stripeSessionId: { type: String, default: "" },
     /** Unsigned walk-in contract shown on the signature-only page (before customer signs). */
     contractPreviewUrl: { type: String, default: "" },
+    /** Desk choice: include agency stamp + company signature on generated contracts. */
+    includeCompanyStamp: { type: Boolean },
     /** Timestamp when the signed walk-in contract PDF was generated (after customer signature). */
     signedContractGeneratedAt: { type: Date, default: null },
     contractPdfUrl: { type: String, default: "" },

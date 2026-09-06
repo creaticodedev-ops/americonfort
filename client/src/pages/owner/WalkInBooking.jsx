@@ -12,6 +12,7 @@ import { getCarLocations } from '../../utils/carLocations'
 import PhoneInput from '../../components/PhoneInput'
 import SignaturePad from '../../components/SignaturePad'
 import WalkInPricingBox from '../../components/owner/WalkInPricingBox'
+import WalkInStampConfirmModal from '../../components/owner/WalkInStampConfirmModal'
 import { DateField } from '../../components/date/DateField'
 import { DateTimeField } from '../../components/date/DateTimeField'
 import { isPhoneValid } from '../../utils/phoneValidation'
@@ -123,6 +124,7 @@ const WalkInBooking = () => {
   const [partners, setPartners] = useState([])
   const [chauffeurs, setChauffeurs] = useState([])
   const [directoriesLoading, setDirectoriesLoading] = useState(true)
+  const [stampModalOpen, setStampModalOpen] = useState(false)
 
   const {
     hydrated: draftHydrated,
@@ -503,24 +505,33 @@ const WalkInBooking = () => {
     return data
   }
 
-  const onSubmit = async (e) => {
-    e.preventDefault()
+  const validateWalkInForm = () => {
     if (!form.car || !form.fullName || !form.phone || !form.pickupDate || !form.returnDate) {
       toast.error(t('admin.walkIn.required'))
-      return
+      return false
     }
     if (!form.pickupLocationId || !form.returnLocationId) {
       toast.error(t('admin.walkIn.selectLocations'))
-      return
+      return false
     }
     if (!isPhoneValid(form.phone)) {
       toast.error(t('admin.walkIn.invalidPhone'))
-      return
+      return false
     }
     if (form.secondDriver.enabled && !form.secondDriver.fullName.trim()) {
       toast.error(t('admin.walkIn.secondDriverNameRequired'))
-      return
+      return false
     }
+    return true
+  }
+
+  const onSubmit = (e) => {
+    e.preventDefault()
+    if (!validateWalkInForm()) return
+    setStampModalOpen(true)
+  }
+
+  const createWalkInReservation = async (includeCompanyStamp) => {
     setSaving(true)
     try {
       const deskDiscount = normalizeDeskDiscountInput(form.deskDiscount)
@@ -533,6 +544,7 @@ const WalkInBooking = () => {
           ? form.secondDriver
           : { ...emptySecondDriver, enabled: false },
         paymentStatus: form.markPaid ? 'paid' : 'pending',
+        includeCompanyStamp: Boolean(includeCompanyStamp),
       }
       const { data } = await axios.post('/api/bookings/owner/walk-in', payload)
       if (data.success) {
@@ -555,6 +567,7 @@ const WalkInBooking = () => {
                   signatureStatus: sig.data.status || 'pending',
                   contractReady: true,
                   emailSent: Boolean(data.completion?.emailSent),
+                  includeCompanyStamp: Boolean(includeCompanyStamp),
                 },
               }
             }
@@ -586,6 +599,7 @@ const WalkInBooking = () => {
             toast.error(getErrorMessage(error, t('admin.walkIn.signaturesSaveFailed')))
           }
         }
+        setStampModalOpen(false)
         setCreated(createdPayload)
         await clearDraftAfterSuccess()
         resetDeskForm()
@@ -1021,6 +1035,16 @@ const WalkInBooking = () => {
         </aside>
       </form>
       )}
+
+      <WalkInStampConfirmModal
+        open={stampModalOpen}
+        onClose={() => {
+          if (!saving) setStampModalOpen(false)
+        }}
+        onConfirm={createWalkInReservation}
+        loading={saving}
+        t={t}
+      />
     </AdminPage>
   )
 }

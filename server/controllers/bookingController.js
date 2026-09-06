@@ -38,6 +38,7 @@ import {
   generateCompletionLink,
   ensureWalkInContractPreview,
 } from "../services/bookingCompletionService.js";
+import { resolveIncludeCompanyStamp } from "../services/documentSettings.js";
 import { isSyntheticWalkInEmail } from "../utils/contractFields.js";
 import {
   carServesCity,
@@ -613,6 +614,7 @@ export const createWalkInBooking = async (req, res) => {
       franchiseAmount,
       secondDriver,
       deskDiscount: deskDiscountRaw,
+      includeCompanyStamp: includeCompanyStampRaw,
     } = req.body;
 
     const hasLocationIds =
@@ -807,6 +809,12 @@ export const createWalkInBooking = async (req, res) => {
       vehicleDeliveryDriverId,
     });
 
+    const includeCompanyStamp = resolveIncludeCompanyStamp({
+      bodyValue: includeCompanyStampRaw,
+      owner: req.user,
+      documentType: 'contracts',
+    });
+
     const booking = await Booking.create({
       reservationId,
       car: carId,
@@ -859,6 +867,7 @@ export const createWalkInBooking = async (req, res) => {
         amountPaid: paymentStatus === 'paid' ? price : 0,
         paymentType: paymentStatus === 'paid' ? 'full' : '',
         paymentCompletedAt: paymentStatus === 'paid' ? new Date() : null,
+        includeCompanyStamp,
       },
     });
 
@@ -925,7 +934,7 @@ export const createWalkInBooking = async (req, res) => {
       const linkResult = await generateCompletionLink(booking._id, { resend: false });
       let contractReady = false;
       try {
-        await ensureWalkInContractPreview(linkResult.booking);
+        await ensureWalkInContractPreview(linkResult.booking, { includeCompanyStamp });
         contractReady = true;
       } catch (previewErr) {
         console.error('Walk-in contract preview failed:', previewErr.message);
@@ -986,10 +995,13 @@ export const createWalkInBooking = async (req, res) => {
       booking: populated,
       completion: completionMeta
         ? {
-            emailSent: completionMeta.email?.success,
+            emailSent: Boolean(completionMeta.emailSent),
             completionUrl: completionMeta.completionUrl,
+            signatureStatus: completionMeta.signatureStatus,
+            contractReady: Boolean(completionMeta.contractReady),
+            includeCompanyStamp,
           }
-        : null,
+        : { includeCompanyStamp },
     });
   } catch (error) {
     console.error(error.message);
