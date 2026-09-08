@@ -125,7 +125,7 @@ export const previewBookingExtension = async ({ bookingId, ownerId, newReturnDat
       owner: ownerId,
     }).lean();
     const provisionalDays = calcRentalDays(booking.pickupDate, newReturn);
-    const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+    const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.listPricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
     const rentalPrice = Math.round((Number(pricePerDay) || 0) * provisionalDays * 100) / 100;
     partnerLine = computePartnerDiscountLine({
       partner,
@@ -135,7 +135,7 @@ export const previewBookingExtension = async ({ bookingId, ownerId, newReturnDat
     });
   }
   const { buildDiscountsForBooking } = await import('./deskDiscount.js');
-  const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+  const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.listPricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
   const provisionalDays = calcRentalDays(booking.pickupDate, newReturn);
   const rentalPrice = Math.round((Number(pricePerDay) || 0) * provisionalDays * 100) / 100;
   const discounts = buildDiscountsForBooking({

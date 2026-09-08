@@ -113,10 +113,12 @@ export const generateRentalContractPdf = async (booking, { signaturePath, signat
     doc.moveDown(0.4);
     doc.fontSize(10);
     const b = booking.priceBreakdown || {};
+    doc.text(`Daily rate: ${money(b.pricePerDay, currency)}`);
     doc.text(`Rental: ${money(b.rentalPrice ?? booking.price, currency)}`);
     doc.text(`Pickup delivery fee: ${money(b.pickupDeliveryFee, currency)}`);
     doc.text(`Drop-off delivery fee: ${money(b.dropoffDeliveryFee, currency)}`);
-    if (b.discountTotal) doc.text(`Discounts: -${money(b.discountTotal, currency)}`);
+    const discountShown = b.discountTotal || b.originalDiscountTotal;
+    if (discountShown) doc.text(`Discounts: -${money(discountShown, currency)}`);
     doc.text(`Total: ${money(booking.price, currency)}`);
     doc.text(`Payment type: ${booking.completion?.paymentType || "—"}`);
     doc.text(`Amount paid: ${money(booking.completion?.amountPaid || 0, currency)}`);
@@ -201,7 +203,9 @@ export const generateInvoicePdf = async (booking, { includeCompanyStamp = true }
       ["Pickup delivery", money(b.pickupDeliveryFee, currency)],
       ["Drop-off delivery", money(b.dropoffDeliveryFee, currency)],
     ];
-    if (b.discountTotal) rows.push(["Discounts", `-${money(b.discountTotal, currency)}`]);
+    if (b.discountTotal || b.originalDiscountTotal) {
+      rows.push(["Discounts", `-${money(b.discountTotal || b.originalDiscountTotal, currency)}`]);
+    }
 
     rows.forEach(([label, value]) => {
       doc.text(`${label}`, { continued: true });

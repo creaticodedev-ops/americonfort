@@ -455,48 +455,80 @@ export const buildTemplateVariables = (booking, {
   // Never reuse invoice number as contract number.
   const resolvedContractNumber = contractNumber || inv.contractNumber || '';
 
-  // Walk-in / booking pricing: final client price is always booking.price (post-remise).
-  // Sous-total = rental + fees (pre-remise). Remise from priceBreakdown or deskDiscount intent.
+  // Pricing SSOT for documents:
+  // - price_per_day = effective commercial daily rate (remise baked in when present)
+  // - rental_price = effective daily × days (rental portion)
+  // - total_price = final client total (booking.price / invoice.totalAmount)
+  // Never show list daily next to a remised total.
+  const toMoneySafe = (n) => {
+    const x = Number(n);
+    if (!Number.isFinite(x) || x < 0) return 0;
+    return Math.round(x * 100) / 100;
+  };
+
   const rentalLine = Number(b.rentalPrice) || 0;
   const pickupFeeLine = Number(b.pickupDeliveryFee) || 0;
   const dropoffFeeLine = Number(b.dropoffDeliveryFee) || 0;
-  const breakdownSubtotal = Number(b.subtotal);
-  const preDiscountSubtotal = Number.isFinite(breakdownSubtotal) && breakdownSubtotal > 0
-    ? breakdownSubtotal
-    : (rentalLine + pickupFeeLine + dropoffFeeLine);
-
-  let discountNumeric = Number(inv.discountAmount ?? b.discountTotal ?? 0) || 0;
-  if (!(discountNumeric > 0) && mergedBooking?.deskDiscount) {
-    const desk = mergedBooking.deskDiscount;
-    const deskValue = Number(desk?.value) || 0;
-    if (deskValue > 0 && preDiscountSubtotal > 0) {
-      discountNumeric = desk?.type === 'percentage'
-        ? Math.round(((preDiscountSubtotal * deskValue) / 100) * 100) / 100
-        : Math.round(deskValue * 100) / 100;
-      discountNumeric = Math.min(discountNumeric, preDiscountSubtotal);
-    }
-  }
+  const feesTotal = pickupFeeLine + dropoffFeeLine;
+  const daysForRate = Math.max(1, Number(b.days) || Number(mergedBooking?.priceBreakdown?.days) || 1);
 
   const totalNumeric = Number(
     inv.totalAmount != null
       ? inv.totalAmount
-      : (mergedBooking?.price ?? b.total ?? Math.max(0, preDiscountSubtotal - discountNumeric) ?? rentalLine),
+      : (mergedBooking?.price ?? b.total ?? rentalLine),
   ) || 0;
+
+  const listDaily = Number(
+    b.listPricePerDay ?? b.originalPricePerDay ?? b.pricePerDay ?? car.pricePerDay,
+  ) || 0;
+
+  let effectiveDaily = Number(b.effectivePricePerDay);
+  if (!(effectiveDaily > 0)) {
+    effectiveDaily = Number(b.pricePerDay) || 0;
+  }
+
+  const baked = Boolean(b.discountBakedIntoDaily);
+  let legacyDiscount = Number(inv.discountAmount ?? b.discountTotal ?? 0) || 0;
+  if (!(legacyDiscount > 0) && !baked) {
+    legacyDiscount = Number(b.originalDiscountTotal) || 0;
+  }
+  if (!(legacyDiscount > 0) && !baked && mergedBooking?.deskDiscount) {
+    const desk = mergedBooking.deskDiscount;
+    const deskValue = Number(desk?.value) || 0;
+    const listRental = toMoneySafe(listDaily * daysForRate);
+    const listSubtotal = listRental + feesTotal;
+    if (deskValue > 0 && listSubtotal > 0) {
+      legacyDiscount = desk?.type === 'percentage'
+        ? toMoneySafe((listSubtotal * deskValue) / 100)
+        : toMoneySafe(deskValue);
+      legacyDiscount = Math.min(legacyDiscount, listSubtotal);
+    }
+  }
+
+  // Legacy snapshots: list daily still stored with a separate remise → derive effective daily.
+  if (!baked && legacyDiscount > 0 && daysForRate > 0) {
+    effectiveDaily = toMoneySafe(Math.max(0, totalNumeric - feesTotal) / daysForRate);
+  }
+  if (!(effectiveDaily > 0) && listDaily > 0) {
+    effectiveDaily = listDaily;
+  }
+
+  const rentalAtEffective = toMoneySafe(effectiveDaily * daysForRate);
+  // Remise is in the daily rate — do not print a separate remise line on documents.
+  const discountNumeric = 0;
   const paidNumeric = Number(inv.amountPaid ?? mergedBooking?.completion?.amountPaid ?? 0) || 0;
   const balanceNumeric = Number(
     inv.balanceDue != null ? inv.balanceDue : Math.max(0, totalNumeric - paidNumeric),
   ) || 0;
   const taxNumeric = Number(inv.taxAmount ?? b.taxTotal ?? 0) || 0;
-  // Invoice subtotal stays net/HT when provided; contracts use pre-discount gross of rental lines.
   const subtotalNumeric = Number(
-    inv.subtotal != null ? inv.subtotal : (preDiscountSubtotal || totalNumeric),
+    inv.subtotal != null ? inv.subtotal : (rentalAtEffective + feesTotal || totalNumeric),
   ) || 0;
   const taxRateLabel = (() => {
     if (taxNumeric <= 0 || subtotalNumeric <= 0) return '—';
     const rate = Math.round((taxNumeric / subtotalNumeric) * 100);
     return Number.isFinite(rate) ? `${rate} %` : '—';
   })();
-
   const values = {
     contract_number: resolvedContractNumber || '—',
     invoice_number: resolvedInvoiceNumber || '—',
@@ -550,19 +582,16 @@ export const buildTemplateVariables = (booking, {
     pickup_location: firstNonEmpty(mergedBooking, ['pickupLocation', 'pickup_location']) || '—',
     return_location: firstNonEmpty(mergedBooking, ['returnLocation', 'return_location']) || '—',
     rental_days: String(b.days || mergedBooking?.priceBreakdown?.days || 0),
-    price_per_day: money(b.pricePerDay ?? car.pricePerDay ?? mergedBooking?.priceBreakdown?.pricePerDay, currency),
-    // Pre-remise total of rental lines (rental + fees). Never use final booking.price here.
-    rental_price: money(
-      preDiscountSubtotal > 0 ? preDiscountSubtotal : (b.rentalPrice ?? 0),
-      currency,
-    ),
+    price_per_day: money(effectiveDaily, currency),
+    // Rental at the commercial (effective) daily rate — matches Prix par jour × durée
+    rental_price: money(rentalAtEffective > 0 ? rentalAtEffective : (b.rentalPrice ?? 0), currency),
     pickup_fee: money(b.pickupDeliveryFee, currency),
     dropoff_fee: money(b.dropoffDeliveryFee, currency),
     discount_total: money(discountNumeric, currency),
     tax_total: money(taxNumeric, currency),
     tax_rate_label: taxRateLabel,
     subtotal: money(subtotalNumeric, currency),
-    // Final client price after remise — SSOT is booking.price / invoice.totalAmount
+    // Final client price — SSOT is booking.price / invoice.totalAmount
     total_price: money(totalNumeric, currency),
     amount_paid: money(paidNumeric, currency),
     balance_due: money(balanceNumeric, currency),

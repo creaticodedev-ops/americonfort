@@ -99,15 +99,100 @@ export const calculateBookingPrice = ({
   const subtotal = toMoney(rentalPrice + pickupFee + dropoffFee);
   const total = toMoney(Math.max(0, subtotal - discountTotal));
 
-  return {
+  const breakdown = {
     days,
     pricePerDay: daily,
+    listPricePerDay: daily,
+    effectivePricePerDay: daily,
     rentalPrice,
     pickupDeliveryFee: pickupFee,
     dropoffDeliveryFee: dropoffFee,
     discounts: normalizedDiscounts,
     discountTotal,
     subtotal,
+    total,
+    lineItems,
+    discountBakedIntoDaily: false,
+  };
+
+  return bakeDiscountIntoDailyRate(breakdown);
+};
+
+/**
+ * When a remise is applied, the commercial daily rate becomes the discounted
+ * daily rate so Contract / Invoice never show listPrice/day + reduced total.
+ * Example: 250/day × 10 − 200 remise → 230/day, total 2300.
+ */
+export const bakeDiscountIntoDailyRate = (breakdown = {}) => {
+  const days = Math.max(1, Number(breakdown.days) || 1);
+  const fees = toMoney(
+    (Number(breakdown.pickupDeliveryFee) || 0) + (Number(breakdown.dropoffDeliveryFee) || 0),
+  );
+  const total = toMoney(breakdown.total);
+  const listDaily = toMoney(
+    breakdown.listPricePerDay ?? breakdown.pricePerDay ?? 0,
+  );
+  const discountTotal = toMoney(breakdown.discountTotal);
+
+  if (!(discountTotal > 0) || !(days > 0)) {
+    return {
+      ...breakdown,
+      listPricePerDay: listDaily,
+      effectivePricePerDay: listDaily,
+      pricePerDay: listDaily,
+      discountBakedIntoDaily: false,
+    };
+  }
+
+  const rentalAfterDiscount = toMoney(Math.max(0, total - fees));
+  const effectiveDaily = toMoney(rentalAfterDiscount / days);
+
+  const pickupFee = toMoney(breakdown.pickupDeliveryFee);
+  const dropoffFee = toMoney(breakdown.dropoffDeliveryFee);
+  const lineItems = [
+    {
+      type: LINE_TYPES.RENTAL,
+      label: 'Rental Price',
+      amount: rentalAfterDiscount,
+      meta: {
+        days,
+        pricePerDay: effectiveDaily,
+        listPricePerDay: listDaily,
+        originalDiscountTotal: discountTotal,
+      },
+    },
+  ];
+  if (pickupFee > 0 || breakdown.pickupDeliveryFee !== undefined) {
+    lineItems.push({
+      type: LINE_TYPES.PICKUP_DELIVERY,
+      label: 'Pickup Delivery Fee',
+      amount: pickupFee,
+      meta: {},
+    });
+  }
+  if (dropoffFee > 0 || breakdown.dropoffDeliveryFee !== undefined) {
+    lineItems.push({
+      type: LINE_TYPES.DROPOFF_DELIVERY,
+      label: 'Drop-off Delivery Fee',
+      amount: dropoffFee,
+      meta: {},
+    });
+  }
+
+  return {
+    ...breakdown,
+    listPricePerDay: listDaily,
+    originalPricePerDay: listDaily,
+    effectivePricePerDay: effectiveDaily,
+    pricePerDay: effectiveDaily,
+    rentalPrice: rentalAfterDiscount,
+    // Remise is reflected in the daily rate for documents; keep audit trail separately.
+    originalDiscountTotal: discountTotal,
+    originalDiscounts: Array.isArray(breakdown.discounts) ? breakdown.discounts : [],
+    discountTotal: 0,
+    discounts: [],
+    discountBakedIntoDaily: true,
+    subtotal: toMoney(rentalAfterDiscount + fees),
     total,
     lineItems,
   };

@@ -86,10 +86,9 @@ export const DEFAULT_CONTRACT_BODY = `
       <tr><td>Retour à</td><td>{{return_location}}</td></tr>
       <tr><td>Carburant (départ)</td><td>{{fuel_level_start}}</td></tr>
       <tr><td>Km départ / retour</td><td>{{km_depart}} / {{km_retour}}</td></tr>
-      <tr><td>Prix unitaire</td><td>{{price_per_day}}</td></tr>
-      <tr><td>Sous-total (avant remise)</td><td>{{rental_price}}</td></tr>
-      <tr><td>Remise</td><td>−{{discount_total}}</td></tr>
-      <tr><td>Montant T.T.C. (après remise)</td><td><strong>{{total_price}}</strong></td></tr>
+      <tr><td>Prix par jour</td><td>{{price_per_day}}</td></tr>
+      <tr><td>Montant location</td><td>{{rental_price}}</td></tr>
+      <tr><td>Montant T.T.C.</td><td><strong>{{total_price}}</strong></td></tr>
       <tr><td>Montant de la franchise</td><td>{{franchise_amount}}</td></tr>
       <tr><td>Statut paiement</td><td>{{payment_status}}</td></tr>
     </table>

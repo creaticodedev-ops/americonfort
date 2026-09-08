@@ -1,6 +1,6 @@
 /**
- * Fetch an authenticated PDF and open the system print dialog directly.
- * Avoids download → open → print.
+ * Fetch an authenticated PDF, show the real document, then open the print dialog.
+ * Avoids the blank-page / parent-page print bug caused by 0×0 hidden iframes.
  */
 export const printPdfFromApi = async (axios, url) => {
   const response = await axios.get(url, {
@@ -30,51 +30,82 @@ export const printPdfFromApi = async (axios, url) => {
   const pdfBlob = new Blob([blob], { type: 'application/pdf' })
   const objectUrl = URL.createObjectURL(pdfBlob)
 
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement('iframe')
-    iframe.setAttribute('title', 'Print document')
-    iframe.style.position = 'fixed'
-    iframe.style.right = '0'
-    iframe.style.bottom = '0'
-    iframe.style.width = '0'
-    iframe.style.height = '0'
-    iframe.style.border = '0'
-    iframe.style.opacity = '0'
-    iframe.style.pointerEvents = 'none'
+  // Real window (not a hidden iframe) so the user sees the document first.
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    URL.revokeObjectURL(objectUrl)
+    throw new Error('Popup blocked — allow popups to print documents')
+  }
 
-    const cleanup = () => {
-      window.setTimeout(() => {
-        try {
-          URL.revokeObjectURL(objectUrl)
-        } catch {
-          /* ignore */
-        }
-        iframe.remove()
-      }, 60_000)
+  const safeTitle = 'Document'
+  printWindow.document.open()
+  printWindow.document.write(`<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>${safeTitle}</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #525659; }
+    embed, iframe { display: block; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <embed id="doc" type="application/pdf" src="${objectUrl}" />
+</body>
+</html>`)
+  printWindow.document.close()
+
+  await new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (fn) => {
+      if (settled) return
+      settled = true
+      fn()
     }
 
-    iframe.onload = () => {
+    const attemptPrint = () => {
       try {
-        const frameWindow = iframe.contentWindow
-        if (!frameWindow) throw new Error('Print window unavailable')
-        frameWindow.focus()
-        frameWindow.print()
-        resolve()
+        if (printWindow.closed) {
+          finish(() => reject(new Error('Print window was closed')))
+          return
+        }
+        printWindow.focus()
+        printWindow.print()
+        finish(resolve)
       } catch (error) {
-        reject(error)
-      } finally {
-        cleanup()
+        finish(() => reject(error))
       }
     }
 
-    iframe.onerror = () => {
-      cleanup()
-      reject(new Error('Could not load PDF for printing'))
+    // Give the PDF embed time to paint the first page before printing.
+    const startedAt = Date.now()
+    const poll = () => {
+      try {
+        if (printWindow.closed) {
+          finish(() => reject(new Error('Print window was closed')))
+          return
+        }
+      } catch {
+        /* ignore */
+      }
+      if (Date.now() - startedAt >= 800) {
+        attemptPrint()
+        return
+      }
+      window.setTimeout(poll, 100)
     }
 
-    document.body.appendChild(iframe)
-    iframe.src = objectUrl
+    window.setTimeout(poll, 300)
+    window.setTimeout(attemptPrint, 2200)
   })
+
+  window.setTimeout(() => {
+    try {
+      URL.revokeObjectURL(objectUrl)
+    } catch {
+      /* ignore */
+    }
+  }, 120_000)
 }
 
 export default printPdfFromApi

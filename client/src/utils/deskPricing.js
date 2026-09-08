@@ -1,6 +1,7 @@
 /**
  * Client-side preview of Walk-in / desk pricing.
  * Mirrors server pricingEngine + deskDiscount (server remains authoritative on save).
+ * When a remise is applied, the commercial daily rate becomes the discounted daily rate.
  */
 
 const toMoney = (value) => {
@@ -22,6 +23,8 @@ export const normalizeDeskDiscountInput = (raw) => {
 /**
  * @returns {{
  *   days: number,
+ *   listPricePerDay: number,
+ *   effectivePricePerDay: number,
  *   rental: number,
  *   pickupFee: number,
  *   dropoffFee: number,
@@ -32,7 +35,7 @@ export const normalizeDeskDiscountInput = (raw) => {
  *   total: number,
  *   franchise: number,
  *   error: string|null,
- * }}
+ * } | null}
  */
 export const buildWalkInQuote = ({
   pricePerDay = 0,
@@ -50,10 +53,11 @@ export const buildWalkInQuote = ({
   }
 
   const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)))
-  const rental = toMoney(days * Number(pricePerDay || 0))
+  const listDaily = toMoney(pricePerDay)
+  const listRental = toMoney(days * listDaily)
   const pickup = toMoney(pickupFee)
   const dropoff = toMoney(dropoffFee)
-  const subtotal = toMoney(rental + pickup + dropoff)
+  const subtotal = toMoney(listRental + pickup + dropoff)
   const d = normalizeDeskDiscountInput(deskDiscount)
 
   let discountAmount = 0
@@ -71,10 +75,14 @@ export const buildWalkInQuote = ({
   }
   discountAmount = Math.min(discountAmount, subtotal)
   const total = toMoney(Math.max(0, subtotal - discountAmount))
+  const rentalAfter = toMoney(Math.max(0, total - pickup - dropoff))
+  const effectiveDaily = days > 0 ? toMoney(rentalAfter / days) : listDaily
 
   return {
     days,
-    rental,
+    listPricePerDay: listDaily,
+    effectivePricePerDay: effectiveDaily,
+    rental: rentalAfter,
     pickupFee: pickup,
     dropoffFee: dropoff,
     subtotal,

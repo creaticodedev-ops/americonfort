@@ -258,32 +258,34 @@ export const buildContractStructuredFromBooking = (booking, {
       ? bookingObj.kmRetour
       : pick(variables.km_retour),
     rentalDays: b.days ?? bookingObj.rentalDays ?? '',
-    pricePerDay: b.pricePerDay ?? car.pricePerDay ?? '',
+    pricePerDay: (() => {
+      const days = Math.max(1, Number(b.days) || 1);
+      const fees = (Number(b.pickupDeliveryFee) || 0) + (Number(b.dropoffDeliveryFee) || 0);
+      const total = Number(bookingObj.price ?? b.total) || 0;
+      const bakedDaily = Number(b.effectivePricePerDay ?? (b.discountBakedIntoDaily ? b.pricePerDay : 0));
+      if (bakedDaily > 0) return bakedDaily;
+      const storedDaily = Number(b.pricePerDay ?? car.pricePerDay) || 0;
+      const discount = Number(b.discountTotal || b.originalDiscountTotal) || 0;
+      if (discount > 0 && days > 0) {
+        return Math.round(((Math.max(0, total - fees)) / days) * 100) / 100;
+      }
+      return storedDaily;
+    })(),
     rentalPrice: (() => {
+      const days = Math.max(1, Number(b.days) || 1);
+      const fees = (Number(b.pickupDeliveryFee) || 0) + (Number(b.dropoffDeliveryFee) || 0);
+      const total = Number(bookingObj.price ?? b.total) || 0;
+      if (b.discountBakedIntoDaily || Number(b.discountTotal) > 0 || Number(b.originalDiscountTotal) > 0) {
+        return Math.round(Math.max(0, total - fees) * 100) / 100;
+      }
       const rental = Number(b.rentalPrice);
       if (Number.isFinite(rental) && rental >= 0) return rental;
-      const sub = Number(b.subtotal);
-      if (Number.isFinite(sub) && sub > 0) return sub;
-      // Never fall back to post-discount booking.price for the pre-remise line
-      return 0;
+      return Math.round((Number(b.pricePerDay || car.pricePerDay || 0) * days) * 100) / 100;
     })(),
     pickupFee: b.pickupDeliveryFee ?? 0,
     dropoffFee: b.dropoffDeliveryFee ?? 0,
-    discountTotal: (() => {
-      const fromBreakdown = Number(b.discountTotal);
-      if (Number.isFinite(fromBreakdown) && fromBreakdown > 0) return fromBreakdown;
-      const desk = bookingObj.deskDiscount;
-      const deskValue = Number(desk?.value) || 0;
-      if (!(deskValue > 0)) return 0;
-      const rental = Number(b.rentalPrice) || 0;
-      const fees = (Number(b.pickupDeliveryFee) || 0) + (Number(b.dropoffDeliveryFee) || 0);
-      const base = (Number(b.subtotal) > 0 ? Number(b.subtotal) : rental + fees);
-      if (!(base > 0)) return 0;
-      const amount = desk?.type === 'percentage'
-        ? Math.round(((base * deskValue) / 100) * 100) / 100
-        : Math.round(deskValue * 100) / 100;
-      return Math.min(amount, base);
-    })(),
+    // Remise is baked into pricePerDay — structured docs stay consistent
+    discountTotal: 0,
     // Final price after remise — must match Walk-in final client price
     price: bookingObj.price ?? b.total ?? 0,
     franchiseAmount: bookingObj.franchiseAmount ?? car.securityDeposit ?? 0,

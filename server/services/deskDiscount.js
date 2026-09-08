@@ -5,9 +5,11 @@
  * discounts recompute correctly when dates/vehicle/fees change.
  *
  * Accounting:
- * - Reduces booking.price via calculateBookingPrice (discountTotal).
- * - Gross revenue already uses booking.price (post-discount).
- * - Keep the line in priceBreakdown.discounts for audit / contracts / UI.
+ * - Reduces booking.price via calculateBookingPrice.
+ * - Remise is then baked into priceBreakdown.pricePerDay (effective daily rate)
+ *   so Contract / Invoice show consistent Prix/jour × jours = total.
+ * - Intent stays on Booking.deskDiscount for recomputation; audit snapshot in
+ *   priceBreakdown.originalDiscountTotal / originalDiscounts.
  */
 
 export const DESK_DISCOUNT_CODE = 'desk_discount';

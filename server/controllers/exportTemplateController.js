@@ -37,7 +37,7 @@ const withAbsoluteAssets = (template) => {
   };
 };
 
-const BUILTIN_CONTRACT_VERSION = 6;
+const BUILTIN_CONTRACT_VERSION = 7;
 const BUILTIN_INVOICE_VERSION = 10;
 
 /**
@@ -84,16 +84,17 @@ export const ensureDefaultTemplates = async (ownerId) => {
       await ExportTemplate.create({ owner, ...defaults });
       return;
     }
-    // Refresh seeded builtin invoice layout when we ship a newer templateVersion.
+    // Refresh seeded builtin layouts when we ship a newer templateVersion.
     // Never overwrite user-created templates (no systemKey / different key).
     if (
-      systemKey === 'builtin_invoice'
+      (systemKey === 'builtin_invoice' || systemKey === 'builtin_contract')
       && Number(doc.templateVersion || 0) < Number(defaults.templateVersion || 0)
     ) {
       doc.headerHtml = defaults.headerHtml;
       doc.bodyHtml = defaults.bodyHtml;
       doc.footerHtml = defaults.footerHtml;
       doc.customCss = defaults.customCss;
+      if (defaults.termsHtml != null) doc.termsHtml = defaults.termsHtml;
       doc.templateVersion = defaults.templateVersion;
       doc.name = defaults.name;
       await doc.save();

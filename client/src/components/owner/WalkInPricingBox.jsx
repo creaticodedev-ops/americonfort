@@ -1,7 +1,13 @@
 import React from 'react'
 
+const toMoney = (n) => {
+  const x = Number(n)
+  if (!Number.isFinite(x) || x < 0) return 0
+  return Math.round(x * 100) / 100
+}
+
 /**
- * Compact Walk-in pricing panel: original → remise → final.
+ * Compact Walk-in pricing panel: list daily → remise → effective daily + final total.
  */
 const WalkInPricingBox = ({
   quote,
@@ -23,6 +29,8 @@ const WalkInPricingBox = ({
   const value = discount?.value ?? ''
   const hasDiscount = Number(quote.discountAmount) > 0
   const formatMoney = (n) => `${currency}${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  const perDayLabel = t('admin.walkIn.perDay') || '/jour'
+  const listRental = toMoney((quote.listPricePerDay || 0) * (quote.days || 0))
 
   return (
     <div className="rounded-2xl border border-borderColor bg-gradient-to-b from-white to-sand/30 p-4 sm:p-5 space-y-4">
@@ -33,8 +41,12 @@ const WalkInPricingBox = ({
 
       <ul className="space-y-2 text-sm text-gray-600">
         <li className="flex justify-between gap-3">
+          <span>{t('admin.walkIn.listDailyPrice')}</span>
+          <span>{formatMoney(quote.listPricePerDay)} {perDayLabel}</span>
+        </li>
+        <li className="flex justify-between gap-3">
           <span>{t('admin.walkIn.days', { count: quote.days })}</span>
-          <span>{formatMoney(quote.rental)}</span>
+          <span>{formatMoney(hasDiscount ? listRental : quote.rental)}</span>
         </li>
         {quote.pickupFee > 0 && (
           <li className="flex justify-between gap-3">
@@ -122,6 +134,12 @@ const WalkInPricingBox = ({
           <span>{t('admin.walkIn.discountAmount')}</span>
           <span>{hasDiscount ? `−${formatMoney(quote.discountAmount)}` : formatMoney(0)}</span>
         </div>
+        {hasDiscount && (
+          <div className="flex justify-between gap-3 text-sm text-emerald-200">
+            <span>{t('admin.walkIn.finalDailyPrice')}</span>
+            <span>{formatMoney(quote.effectivePricePerDay)} {perDayLabel}</span>
+          </div>
+        )}
         <div className="flex justify-between gap-3 border-t border-white/15 pt-2 text-base font-semibold">
           <span>{t('admin.walkIn.finalPrice')}</span>
           <span>{formatMoney(quote.total)}</span>

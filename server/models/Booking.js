@@ -16,14 +16,28 @@ const bookingSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   priceBreakdown: {
     days: { type: Number, default: 0 },
+    /** Commercial daily rate used on Contract / Invoice (after baking remises). */
     pricePerDay: { type: Number, default: 0 },
+    /** Catalog / list daily rate before remise (audit). */
+    listPricePerDay: { type: Number, default: 0 },
+    effectivePricePerDay: { type: Number, default: 0 },
+    originalPricePerDay: { type: Number, default: 0 },
     rentalPrice: { type: Number, default: 0 },
     pickupDeliveryFee: { type: Number, default: 0 },
     dropoffDeliveryFee: { type: Number, default: 0 },
+    /** Always 0 when discountBakedIntoDaily — remise is in pricePerDay. */
     discountTotal: { type: Number, default: 0 },
+    originalDiscountTotal: { type: Number, default: 0 },
+    discountBakedIntoDaily: { type: Boolean, default: false },
     subtotal: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
     discounts: [{
+      code: { type: String, default: "" },
+      label: { type: String, default: "" },
+      amount: { type: Number, default: 0 },
+    }],
+    /** Snapshot of discount lines before baking into daily rate. */
+    originalDiscounts: [{
       code: { type: String, default: "" },
       label: { type: String, default: "" },
       amount: { type: Number, default: 0 },
@@ -37,8 +51,8 @@ const bookingSchema = new mongoose.Schema({
   },
   /**
    * Desk / Walk-in remise intent (source of truth for recomputation).
-   * Applied amount lives in priceBreakdown.discounts (code: desk_discount).
-   * booking.price is always the post-discount total.
+   * Remise is baked into priceBreakdown.pricePerDay (effective daily rate).
+   * booking.price is always the final client total.
    */
   deskDiscount: {
     type: {

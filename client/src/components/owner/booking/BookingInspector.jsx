@@ -274,9 +274,27 @@ const BookingInspector = ({
                       −{currency}{d.amount}
                     </DetailRow>
                   ))
-                : (booking.priceBreakdown.discountTotal || 0) > 0 && (
-                    <DetailRow label={t('admin.bookings.discounts')}>−{currency}{booking.priceBreakdown.discountTotal}</DetailRow>
-                  )}
+                : (booking.priceBreakdown.originalDiscounts || []).length > 0
+                  ? (booking.priceBreakdown.originalDiscounts || []).map((d, idx) => (
+                      <DetailRow
+                        key={`odisc-${idx}`}
+                        label={
+                          d.code === 'desk_discount'
+                            ? d.label || t('admin.bookings.deskDiscount')
+                            : d.label || t('admin.bookings.discounts')
+                        }
+                      >
+                        −{currency}{d.amount}
+                      </DetailRow>
+                    ))
+                  : ((booking.priceBreakdown.discountTotal || booking.priceBreakdown.originalDiscountTotal || 0) > 0 && (
+                      <DetailRow label={t('admin.bookings.discounts')}>
+                        −{currency}{booking.priceBreakdown.discountTotal || booking.priceBreakdown.originalDiscountTotal}
+                      </DetailRow>
+                    ))}
+              <DetailRow label={t('admin.walkIn.finalDailyPrice') || 'Prix / jour'}>
+                {currency}{booking.priceBreakdown.pricePerDay}
+              </DetailRow>
               <DetailRow label={t('admin.bookings.total')}>
                 <strong>{currency}{booking.price}</strong>
               </DetailRow>

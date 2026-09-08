@@ -1498,7 +1498,7 @@ export const updateBooking = async (req, res) => {
           owner: booking.owner,
         });
         const days = calcRentalDays(booking.pickupDate, booking.returnDate);
-        const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+        const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.listPricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
         const rentalPrice = Math.round((Number(pricePerDay) || 0) * days * 100) / 100;
         partnerLine = computePartnerDiscountLine({
           partner,
@@ -1508,7 +1508,7 @@ export const updateBooking = async (req, res) => {
         });
       }
 
-      const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+      const pricePerDay = booking.car.pricePerDay ?? booking.priceBreakdown?.listPricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
       const provisional = calculateBookingPrice({
         pricePerDay,
         pickupDate: booking.pickupDate,
@@ -1748,7 +1748,7 @@ export const assignBookingRelations = async (req, res) => {
       const car = booking.car?._id
         ? booking.car
         : await Car.findById(booking.car).select('pricePerDay');
-      const pricePerDay = car?.pricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
+      const pricePerDay = car?.pricePerDay ?? booking.priceBreakdown?.listPricePerDay ?? booking.priceBreakdown?.pricePerDay ?? 0;
       const pickupFee = booking.priceBreakdown?.pickupDeliveryFee ?? 0;
       const dropoffFee = booking.priceBreakdown?.dropoffDeliveryFee ?? 0;
       const days = calcRentalDays(booking.pickupDate, booking.returnDate);
