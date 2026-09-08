@@ -132,9 +132,6 @@ export const DEFAULT_CONTRACT_FOOTER = `
 export const DEFAULT_INVOICE_HEADER = `
 <div class="inv-brand-details">
   <div class="inv-company-name">{{agency_name}}</div>
-  <div class="inv-company-line">{{agency_address}}</div>
-  <div class="inv-company-line"><span>Tél</span> {{agency_phone}}</div>
-  <div class="inv-company-line"><span>Email</span> {{agency_email}}</div>
 </div>
 <div class="inv-title-block">
   <div class="inv-doc-label">FACTURE</div>
@@ -196,27 +193,33 @@ export const DEFAULT_INVOICE_BODY = `
       <div class="inv-totals-row"><span>Total TVA</span><strong>{{tax_total}}</strong></div>
       <div class="inv-totals-row inv-totals-main"><span>Montant total TTC</span><strong>{{total_price}}</strong></div>
     </div>
-    <div class="inv-stamp">{{company_signature_html}}</div>
+    <div class="inv-stamp">
+      <div class="inv-stamp-label">Cachet &amp; signature</div>
+      <div class="inv-stamp-frame">{{company_signature_html}}</div>
+    </div>
   </div>
 </div>
 `;
 
 export const DEFAULT_INVOICE_FOOTER = `
-<div class="inv-footer">
-  <div class="inv-footer-divider"></div>
-  <div class="inv-footer-bar">
-    <div class="inv-footer-item"><span class="inv-ico" aria-hidden="true"></span><span>{{agency_phone}}</span></div>
-    <div class="inv-footer-item"><span class="inv-ico inv-ico--mail" aria-hidden="true"></span><span>{{agency_email}}</span></div>
-    <div class="inv-footer-item inv-footer-item--wide"><span class="inv-ico inv-ico--pin" aria-hidden="true"></span><span>{{agency_address}}</span></div>
+<footer class="inv-footer" role="contentinfo">
+  <div class="inv-footer-rule" aria-hidden="true"></div>
+  <div class="inv-footer-shell">
+    <div class="inv-footer-brand">
+      <div class="inv-footer-name">{{agency_name}}</div>
+      <div class="inv-footer-address">{{agency_address}}</div>
+    </div>
+    <div class="inv-footer-contact">
+      <div class="inv-footer-contact-row"><span>Tél</span>{{agency_phone}}</div>
+      <div class="inv-footer-contact-row"><span>Email</span>{{agency_email}}</div>
+    </div>
+    <div class="inv-footer-ids">
+      <div class="inv-footer-id"><span>ICE</span>{{agency_ice}}</div>
+      <div class="inv-footer-id"><span>IF</span>{{agency_if}}</div>
+      <div class="inv-footer-id"><span>RC</span>{{agency_rc}}</div>
+    </div>
   </div>
-  <div class="inv-footer-legal">
-    <span>N° I.C.E : {{agency_ice}}</span>
-    <span class="inv-legal-sep">·</span>
-    <span>IF : {{agency_if}}</span>
-    <span class="inv-legal-sep">·</span>
-    <span>RC : {{agency_rc}}</span>
-  </div>
-</div>
+</footer>
 `;
 
 export const DEFAULT_INVOICE_CUSTOM_CSS = `
@@ -227,7 +230,11 @@ body.doc-invoice {
   -webkit-font-smoothing: antialiased;
 }
 body.doc-invoice .doc-page {
-  padding: 3mm 1.5mm 2mm !important;
+  display: flex !important;
+  flex-direction: column !important;
+  /* Printable A4 height with Puppeteer tight margins (~8mm each side) */
+  min-height: 277mm !important;
+  padding: 2mm 1.5mm 0 !important;
 }
 body.doc-invoice .doc-header {
   display: grid !important;
@@ -240,6 +247,11 @@ body.doc-invoice .doc-header {
   padding-bottom: 0 !important;
   margin-bottom: 16px !important;
   position: relative;
+  flex: 0 0 auto;
+}
+body.doc-invoice .doc-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 body.doc-invoice .doc-header::after {
   content: "";
@@ -262,24 +274,16 @@ body.doc-invoice .doc-logo {
   padding-top: 1px;
 }
 .inv-company-name {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: #0f172a;
-  margin: 0 0 5px;
+  margin: 0;
+  padding-top: 6px;
 }
 .inv-company-line {
-  font-size: 9.5px;
-  line-height: 1.5;
-  color: #64748b;
-  margin: 0;
-}
-.inv-company-line span {
-  color: #94a3b8;
-  margin-right: 5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  display: none;
 }
 .inv-title-block {
   grid-area: title;
@@ -457,6 +461,9 @@ body.doc-invoice .doc-logo {
   gap: 18px;
   align-items: start;
   margin-top: 14px;
+  margin-bottom: 8px;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .inv-words {
   margin: 0 0 12px;
@@ -533,69 +540,124 @@ body.doc-invoice .doc-logo {
   font-weight: 800;
 }
 .inv-stamp {
-  margin-top: 12px;
+  margin-top: 14px;
   text-align: right;
-  min-height: 54px;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
+.inv-stamp-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin: 0 0 6px;
+}
+.inv-stamp-frame {
+  min-height: 72px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 8px 10px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+.inv-stamp-frame img,
 .inv-stamp img {
   max-height: 78px !important;
   max-width: 160px !important;
   opacity: 0.96;
+  display: block;
+  margin-left: auto;
 }
 body.doc-invoice .doc-footer {
   border-top: none !important;
-  margin-top: 16px !important;
-  padding-top: 0 !important;
+  margin-top: auto !important;
+  padding-top: 18px !important;
+  padding-bottom: 0 !important;
+  flex: 0 0 auto;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
-.inv-footer { margin-top: 0; }
-.inv-footer-divider {
-  height: 1px;
-  background: #e2e8f0;
-  margin-bottom: 10px;
+.inv-footer {
+  margin: 0;
+  width: 100%;
 }
-.inv-footer-bar {
+.inv-footer-rule {
+  height: 2px;
+  margin: 0 0 10px;
+  background: linear-gradient(90deg, #8f1f1f 0%, #8f1f1f 22%, #cbd5e1 22%, #e2e8f0 100%);
+}
+.inv-footer-shell {
   display: grid;
-  grid-template-columns: 1fr 1.1fr 1.5fr;
-  gap: 10px 14px;
+  grid-template-columns: 1.4fr 1fr 1.1fr;
+  gap: 12px 18px;
   align-items: start;
-  background: #0f172a;
-  color: #e2e8f0;
-  padding: 10px 12px;
+  padding: 10px 12px 8px;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 9px;
-  line-height: 1.45;
+  background: #f8fafc;
 }
-.inv-footer-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  min-width: 0;
+.inv-footer-name {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0f172a;
+  margin: 0 0 4px;
+  line-height: 1.35;
 }
-.inv-footer-item span:last-child {
-  overflow-wrap: anywhere;
-}
-.inv-ico {
-  width: 7px;
-  height: 7px;
-  margin-top: 3px;
-  border-radius: 50%;
-  background: #8f1f1f;
-  flex-shrink: 0;
-  display: inline-block;
-}
-.inv-ico--mail { background: #dc2626; }
-.inv-ico--pin { background: #b91c1c; }
-.inv-footer-legal {
-  margin-top: 8px;
-  text-align: center;
+.inv-footer-address {
   font-size: 8.5px;
+  line-height: 1.45;
   color: #64748b;
-  letter-spacing: 0.04em;
-  line-height: 1.5;
+  margin: 0;
 }
-.inv-legal-sep { margin: 0 7px; color: #cbd5e1; }
+.inv-footer-contact {
+  display: grid;
+  gap: 4px;
+  font-size: 8.5px;
+  color: #334155;
+  line-height: 1.4;
+}
+.inv-footer-contact-row {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 6px;
+  align-items: baseline;
+}
+.inv-footer-contact-row span,
+.inv-footer-id span {
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.inv-footer-ids {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  font-size: 8.5px;
+  color: #334155;
+  line-height: 1.4;
+}
+.inv-footer-id {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 6px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
 @media print {
-  body.doc-invoice .doc-page { padding: 0 !important; }
+  body.doc-invoice .doc-page {
+    padding: 0 !important;
+    min-height: 277mm !important;
+  }
+  body.doc-invoice .doc-footer {
+    margin-top: auto !important;
+  }
 }
 `;
 

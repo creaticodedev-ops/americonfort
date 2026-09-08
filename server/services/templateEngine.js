@@ -758,13 +758,19 @@ export const buildDocumentHtml = (template, variables) => {
     .section { margin-bottom: 16px; }
     .muted { color: #666; font-size: 9pt; }
     body.doc-invoice .doc-page {
-      padding: 3mm 1.5mm 2mm;
-      min-height: auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 277mm;
+      padding: 2mm 1.5mm 0;
     }
     body.doc-invoice .doc-header {
       border-bottom: none;
       padding-bottom: 0;
       margin-bottom: 0;
+      flex: 0 0 auto;
+    }
+    body.doc-invoice .doc-body {
+      flex: 1 1 auto;
     }
     body.doc-invoice .doc-logo {
       max-height: 56px;
@@ -773,10 +779,13 @@ export const buildDocumentHtml = (template, variables) => {
     }
     body.doc-invoice .doc-footer {
       border-top: none;
-      margin-top: 16px;
+      margin-top: auto;
       padding-top: 0;
       color: inherit;
       font-size: inherit;
+      flex: 0 0 auto;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     body.doc-invoice table th,
     body.doc-invoice table td {
@@ -785,7 +794,10 @@ export const buildDocumentHtml = (template, variables) => {
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .doc-page { padding: 10mm; }
-      body.doc-invoice .doc-page { padding: 0; }
+      body.doc-invoice .doc-page {
+        padding: 0;
+        min-height: 277mm;
+      }
       .no-print { display: none !important; }
     }
     ${css}
