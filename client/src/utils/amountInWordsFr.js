@@ -60,7 +60,7 @@ const chunkToWords = (n) => {
 const currencyLabel = (code, { plural = false } = {}) => {
   const c = String(code || 'MAD').toUpperCase();
   if (c === 'MAD' || c === 'DH' || c === 'DHS') {
-    return plural ? 'dirhams marocains' : 'dirham marocain';
+    return plural ? 'dirhams' : 'dirham';
   }
   if (c === 'EUR') return plural ? 'euros' : 'euro';
   if (c === 'USD') return plural ? 'dollars américains' : 'dollar américain';

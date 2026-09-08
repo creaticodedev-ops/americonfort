@@ -62,7 +62,7 @@ const chunkToWords = (n) => {
 const currencyLabel = (code, { plural = false } = {}) => {
   const c = String(code || 'MAD').toUpperCase();
   if (c === 'MAD' || c === 'DH' || c === 'DHS') {
-    return plural ? 'dirhams marocains' : 'dirham marocain';
+    return plural ? 'dirhams' : 'dirham';
   }
   if (c === 'EUR') return plural ? 'euros' : 'euro';
   if (c === 'USD') return plural ? 'dollars américains' : 'dollar américain';
@@ -74,7 +74,7 @@ const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 /**
  * @param {number|string} amount
  * @param {string} currency
- * @returns {string} e.g. "Mille cinq cents dirhams marocains"
+ * @returns {string} e.g. "Mille cinq cents dirhams"
  */
 export const amountInWordsFr = (amount, currency = 'MAD') => {
   const n = Math.round((Number(amount) || 0) * 100) / 100;

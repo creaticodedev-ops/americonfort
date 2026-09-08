@@ -37,7 +37,7 @@ const withAbsoluteAssets = (template) => {
   };
 };
 
-const BUILTIN_CONTRACT_VERSION = 7;
+const BUILTIN_CONTRACT_VERSION = 8;
 const BUILTIN_INVOICE_VERSION = 10;
 
 /**
