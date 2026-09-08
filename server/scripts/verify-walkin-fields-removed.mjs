@@ -1,7 +1,6 @@
 /**
- * Assert Walk-in form no longer includes deliveredBy / receivedBy.
- * Run: node ../server/scripts/verify-walkin-fields-removed.mjs  (from server)
- *   or: node scripts/verify-walkin-fields-removed.mjs
+ * Assert Walk-in form has Received/Delivered by and no chauffeur selector.
+ * Run: node scripts/verify-walkin-fields-removed.mjs
  */
 import fs from 'fs';
 import path from 'path';
@@ -12,17 +11,19 @@ const walkInPath = path.resolve(__dirname, '../../client/src/pages/owner/WalkInB
 const src = fs.readFileSync(walkInPath, 'utf8');
 
 const forbidden = [
-  /deliveredBy\s*:/,
-  /receivedBy\s*:/,
-  /setField\(['"]deliveredBy['"]/,
-  /setField\(['"]receivedBy['"]/,
-  /admin\.walkIn\.deliveredBy/,
-  /admin\.walkIn\.receivedBy/,
+  /vehicleDeliveryDriverId/,
+  /driverOptions/,
+  /setChauffeurs/,
+  /admin\.walkIn\.vehicleDeliveryDriver/,
+  /\/api\/owner\/chauffeurs/,
 ];
 
 const required = [
   /brokerReferrerId/,
-  /vehicleDeliveryDriverId/,
+  /deliveredBy/,
+  /receivedBy/,
+  /admin\.walkIn\.deliveredBy/,
+  /admin\.walkIn\.receivedBy/,
   /DirectorySearchSelect/,
 ];
 
@@ -41,4 +42,4 @@ for (const re of required) {
 }
 
 if (failed) process.exit(1);
-console.log('OK: Walk-in form removed deliveredBy/receivedBy; broker + driver remain');
+console.log('OK: Walk-in has deliveredBy/receivedBy; chauffeur selector removed');

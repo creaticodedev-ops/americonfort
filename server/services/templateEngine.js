@@ -454,16 +454,43 @@ export const buildTemplateVariables = (booking, {
   const resolvedDueDate = dueDate || inv.dueDate || null;
   // Never reuse invoice number as contract number.
   const resolvedContractNumber = contractNumber || inv.contractNumber || '';
+
+  // Walk-in / booking pricing: final client price is always booking.price (post-remise).
+  // Sous-total = rental + fees (pre-remise). Remise from priceBreakdown or deskDiscount intent.
+  const rentalLine = Number(b.rentalPrice) || 0;
+  const pickupFeeLine = Number(b.pickupDeliveryFee) || 0;
+  const dropoffFeeLine = Number(b.dropoffDeliveryFee) || 0;
+  const breakdownSubtotal = Number(b.subtotal);
+  const preDiscountSubtotal = Number.isFinite(breakdownSubtotal) && breakdownSubtotal > 0
+    ? breakdownSubtotal
+    : (rentalLine + pickupFeeLine + dropoffFeeLine);
+
+  let discountNumeric = Number(inv.discountAmount ?? b.discountTotal ?? 0) || 0;
+  if (!(discountNumeric > 0) && mergedBooking?.deskDiscount) {
+    const desk = mergedBooking.deskDiscount;
+    const deskValue = Number(desk?.value) || 0;
+    if (deskValue > 0 && preDiscountSubtotal > 0) {
+      discountNumeric = desk?.type === 'percentage'
+        ? Math.round(((preDiscountSubtotal * deskValue) / 100) * 100) / 100
+        : Math.round(deskValue * 100) / 100;
+      discountNumeric = Math.min(discountNumeric, preDiscountSubtotal);
+    }
+  }
+
   const totalNumeric = Number(
-    inv.totalAmount != null ? inv.totalAmount : (mergedBooking?.price ?? b.total ?? b.rentalPrice ?? 0),
+    inv.totalAmount != null
+      ? inv.totalAmount
+      : (mergedBooking?.price ?? b.total ?? Math.max(0, preDiscountSubtotal - discountNumeric) ?? rentalLine),
   ) || 0;
   const paidNumeric = Number(inv.amountPaid ?? mergedBooking?.completion?.amountPaid ?? 0) || 0;
   const balanceNumeric = Number(
     inv.balanceDue != null ? inv.balanceDue : Math.max(0, totalNumeric - paidNumeric),
   ) || 0;
   const taxNumeric = Number(inv.taxAmount ?? b.taxTotal ?? 0) || 0;
-  const subtotalNumeric = Number(inv.subtotal ?? b.rentalPrice ?? totalNumeric) || 0;
-  const discountNumeric = Number(inv.discountAmount ?? b.discountTotal ?? 0) || 0;
+  // Invoice subtotal stays net/HT when provided; contracts use pre-discount gross of rental lines.
+  const subtotalNumeric = Number(
+    inv.subtotal != null ? inv.subtotal : (preDiscountSubtotal || totalNumeric),
+  ) || 0;
   const taxRateLabel = (() => {
     if (taxNumeric <= 0 || subtotalNumeric <= 0) return '—';
     const rate = Math.round((taxNumeric / subtotalNumeric) * 100);
@@ -524,13 +551,18 @@ export const buildTemplateVariables = (booking, {
     return_location: firstNonEmpty(mergedBooking, ['returnLocation', 'return_location']) || '—',
     rental_days: String(b.days || mergedBooking?.priceBreakdown?.days || 0),
     price_per_day: money(b.pricePerDay ?? car.pricePerDay ?? mergedBooking?.priceBreakdown?.pricePerDay, currency),
-    rental_price: money(b.rentalPrice ?? mergedBooking?.price, currency),
+    // Pre-remise total of rental lines (rental + fees). Never use final booking.price here.
+    rental_price: money(
+      preDiscountSubtotal > 0 ? preDiscountSubtotal : (b.rentalPrice ?? 0),
+      currency,
+    ),
     pickup_fee: money(b.pickupDeliveryFee, currency),
     dropoff_fee: money(b.dropoffDeliveryFee, currency),
-    discount_total: money(discountNumeric || b.discountTotal, currency),
+    discount_total: money(discountNumeric, currency),
     tax_total: money(taxNumeric, currency),
     tax_rate_label: taxRateLabel,
     subtotal: money(subtotalNumeric, currency),
+    // Final client price after remise — SSOT is booking.price / invoice.totalAmount
     total_price: money(totalNumeric, currency),
     amount_paid: money(paidNumeric, currency),
     balance_due: money(balanceNumeric, currency),

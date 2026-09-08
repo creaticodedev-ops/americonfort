@@ -12,6 +12,7 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
+import { printPdfFromApi } from '../../utils/printPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildDocumentShareWaUrl } from '../../utils/whatsapp'
 import { BRAND_NAME } from '../../constants/brand'
@@ -63,6 +64,7 @@ const Contracts = () => {
   const [filters, setFilters] = useState(() => ({ ...EMPTY_DOCUMENT_FILTERS }))
   const [loading, setLoading] = useState(true)
   const [sharingId, setSharingId] = useState(null)
+  const [printingId, setPrintingId] = useState(null)
   const generateJob = useDocumentPdfJob()
   const generating = generateJob.isRunning
   const [showGenerate, setShowGenerate] = useState(false)
@@ -159,6 +161,7 @@ const Contracts = () => {
     edit: t('admin.contracts.edit'),
     preview: t('admin.contracts.preview'),
     download: t('admin.docWorkspace.download'),
+    print: t('admin.docWorkspace.print'),
     whatsapp: t('admin.docWorkspace.whatsapp'),
     delete: t('admin.contracts.delete'),
   }), [t])
@@ -717,6 +720,17 @@ const Contracts = () => {
     }
   }
 
+  const printContract = async (contract) => {
+    setPrintingId(contract._id)
+    try {
+      await printPdfFromApi(axios, `/api/contracts/${contract._id}/pdf`)
+    } catch (error) {
+      toast.error(getErrorMessage(error, t('admin.docWorkspace.printFailed')))
+    } finally {
+      setPrintingId(null)
+    }
+  }
+
   const deleteContract = (contractId) => {
     setConfirmAction({
       type: 'delete',
@@ -1181,9 +1195,11 @@ const Contracts = () => {
                           onEdit={() => setEditingId(contract._id)}
                           onPreview={() => previewContract(contract)}
                           onDownload={() => downloadPdf(contract)}
+                          onPrint={() => printContract(contract)}
                           onWhatsApp={() => shareContractWhatsApp(contract)}
                           onDelete={() => deleteContract(contract._id)}
                           whatsappBusy={sharingId === contract._id}
+                          printBusy={printingId === contract._id}
                         />
                       </td>
                     </tr>

@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
+import { printPdfFromApi } from '../../utils/printPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildDocumentShareWaUrl } from '../../utils/whatsapp'
 import { BRAND_NAME } from '../../constants/brand'
@@ -111,6 +112,7 @@ const Invoices = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
   const [filters, setFilters] = useState(() => ({ ...EMPTY_DOCUMENT_FILTERS }))
   const [sharingId, setSharingId] = useState(null)
+  const [printingId, setPrintingId] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -175,6 +177,7 @@ const Invoices = () => {
     edit: t('admin.invoices.edit'),
     preview: t('admin.invoices.previewHtml'),
     download: t('admin.invoices.download'),
+    print: t('admin.docWorkspace.print'),
     whatsapp: t('admin.docWorkspace.whatsapp'),
     delete: t('admin.invoices.delete'),
   }), [t])
@@ -435,6 +438,17 @@ const Invoices = () => {
       )
     } catch (error) {
       toast.error(getErrorMessage(error, 'PDF not available'))
+    }
+  }
+
+  const handlePrint = async (invoice) => {
+    setPrintingId(invoice._id)
+    try {
+      await printPdfFromApi(axios, `/api/invoices/${invoice._id}/pdf`)
+    } catch (error) {
+      toast.error(getErrorMessage(error, t('admin.docWorkspace.printFailed')))
+    } finally {
+      setPrintingId(null)
     }
   }
 
@@ -703,9 +717,11 @@ const Invoices = () => {
                           onEdit={() => setEditingId(invoice._id)}
                           onPreview={() => handlePreview(invoice)}
                           onDownload={() => handleDownload(invoice)}
+                          onPrint={() => handlePrint(invoice)}
                           onWhatsApp={() => shareInvoiceWhatsApp(invoice)}
                           onDelete={() => setDeleteTarget(invoice)}
                           whatsappBusy={sharingId === invoice._id}
+                          printBusy={printingId === invoice._id}
                         />
                       </td>
                     </tr>

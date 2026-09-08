@@ -56,7 +56,8 @@ const emptyForm = {
   passportNumber: '',
   brokerReferrerType: '',
   brokerReferrerId: '',
-  vehicleDeliveryDriverId: '',
+  deliveredBy: '',
+  receivedBy: '',
   fuelLevelStart: '',
   kmDepart: '',
   kmRetour: '',
@@ -125,7 +126,6 @@ const WalkInBooking = () => {
   const [lookupBusy, setLookupBusy] = useState(false)
   const [samsars, setSamsars] = useState([])
   const [partners, setPartners] = useState([])
-  const [chauffeurs, setChauffeurs] = useState([])
   const [directoriesLoading, setDirectoriesLoading] = useState(true)
   const [stampModalOpen, setStampModalOpen] = useState(false)
 
@@ -211,10 +211,9 @@ const WalkInBooking = () => {
     ;(async () => {
       setDirectoriesLoading(true)
       try {
-        const [samsarRes, partnerRes, chauffeurRes] = await Promise.allSettled([
+        const [samsarRes, partnerRes] = await Promise.allSettled([
           axios.get('/api/owner/samsars?limit=200&status=active'),
           axios.get('/api/owner/partner-companies?limit=200&status=active'),
-          axios.get('/api/owner/chauffeurs?limit=200&status=active'),
         ])
         if (cancelled) return
         if (samsarRes.status === 'fulfilled' && samsarRes.value.data.success) {
@@ -222,9 +221,6 @@ const WalkInBooking = () => {
         }
         if (partnerRes.status === 'fulfilled' && partnerRes.value.data.success) {
           setPartners(partnerRes.value.data.items || [])
-        }
-        if (chauffeurRes.status === 'fulfilled' && chauffeurRes.value.data.success) {
-          setChauffeurs(chauffeurRes.value.data.items || [])
         }
       } finally {
         if (!cancelled) setDirectoriesLoading(false)
@@ -249,14 +245,6 @@ const WalkInBooking = () => {
       sublabel: p.contactPerson || p.phone || '',
     })),
   ], [samsars, partners, t])
-
-  const driverOptions = useMemo(() => chauffeurs.map((c) => ({
-    id: c._id,
-    type: 'chauffeur',
-    label: c.fullName,
-    group: t('admin.menu.chauffeurs'),
-    sublabel: c.phone || c.licenseNumber || '',
-  })), [chauffeurs, t])
 
   const datesReady = Boolean(form.pickupDate && form.returnDate)
 
@@ -987,21 +975,22 @@ const WalkInBooking = () => {
                   }}
                 />
               </Field>
-              <Field label={t('admin.walkIn.vehicleDeliveryDriver')}>
-                <DirectorySearchSelect
-                  value={form.vehicleDeliveryDriverId}
-                  options={driverOptions}
-                  disabled={directoriesLoading}
-                  loading={directoriesLoading}
-                  placeholder={t('admin.walkIn.vehicleDeliveryDriverPlaceholder')}
-                  emptyLabel={t('admin.walkIn.vehicleDeliveryDriverEmpty')}
-                  emptyHint={t('admin.walkIn.vehicleDeliveryDriverEmptyHint')}
-                  manageLinks={[
-                    { to: '/owner/chauffeurs', label: t('admin.menu.chauffeurs') },
-                  ]}
-                  onChange={({ id }) => {
-                    setForm((f) => ({ ...f, vehicleDeliveryDriverId: id }))
-                  }}
+              <Field label={t('admin.walkIn.deliveredBy')} hint={t('admin.walkIn.deliveredByHint')}>
+                <input
+                  className={input}
+                  value={form.deliveredBy}
+                  onChange={(e) => setField('deliveredBy', e.target.value)}
+                  placeholder={t('admin.walkIn.deliveredByPlaceholder')}
+                  autoComplete="off"
+                />
+              </Field>
+              <Field label={t('admin.walkIn.receivedBy')} hint={t('admin.walkIn.receivedByHint')}>
+                <input
+                  className={input}
+                  value={form.receivedBy}
+                  onChange={(e) => setField('receivedBy', e.target.value)}
+                  placeholder={t('admin.walkIn.receivedByPlaceholder')}
+                  autoComplete="off"
                 />
               </Field>
               <Field label={t('admin.walkIn.fuelLevel')}>

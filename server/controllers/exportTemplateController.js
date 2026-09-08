@@ -37,8 +37,8 @@ const withAbsoluteAssets = (template) => {
   };
 };
 
-const BUILTIN_CONTRACT_VERSION = 5;
-const BUILTIN_INVOICE_VERSION = 9;
+const BUILTIN_CONTRACT_VERSION = 6;
+const BUILTIN_INVOICE_VERSION = 10;
 
 /**
  * Ensure each owner has seed contract + invoice templates.

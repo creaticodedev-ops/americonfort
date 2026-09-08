@@ -87,9 +87,9 @@ export const DEFAULT_CONTRACT_BODY = `
       <tr><td>Carburant (départ)</td><td>{{fuel_level_start}}</td></tr>
       <tr><td>Km départ / retour</td><td>{{km_depart}} / {{km_retour}}</td></tr>
       <tr><td>Prix unitaire</td><td>{{price_per_day}}</td></tr>
-      <tr><td>Sous-total</td><td>{{rental_price}}</td></tr>
+      <tr><td>Sous-total (avant remise)</td><td>{{rental_price}}</td></tr>
       <tr><td>Remise</td><td>−{{discount_total}}</td></tr>
-      <tr><td>Montant T.T.C.</td><td><strong>{{total_price}}</strong></td></tr>
+      <tr><td>Montant T.T.C. (après remise)</td><td><strong>{{total_price}}</strong></td></tr>
       <tr><td>Montant de la franchise</td><td>{{franchise_amount}}</td></tr>
       <tr><td>Statut paiement</td><td>{{payment_status}}</td></tr>
     </table>
@@ -178,13 +178,13 @@ export const DEFAULT_INVOICE_BODY = `
 
 <div class="inv-bottom">
   <div class="inv-payment-block">
-    <p class="inv-words">{{amount_in_words_banner}}</p>
     <div class="inv-pay-grid">
       <div class="inv-pay-line"><span>Mode de règlement</span><strong>{{payment_method}}</strong></div>
       <div class="inv-pay-line"><span>Date d'échéance</span><strong>{{due_date}}</strong></div>
       <div class="inv-pay-line"><span>Montant déjà payé</span><strong>{{amount_paid}}</strong></div>
       <div class="inv-pay-line"><span>Solde restant</span><strong class="inv-balance">{{balance_due}}</strong></div>
     </div>
+    <p class="inv-words">{{amount_in_words_banner}}</p>
   </div>
   <div class="inv-side">
     <div class="inv-totals">
@@ -466,7 +466,7 @@ body.doc-invoice .doc-logo {
   break-inside: avoid;
 }
 .inv-words {
-  margin: 0 0 12px;
+  margin: 10px 0 0;
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-left: 3px solid #8f1f1f;

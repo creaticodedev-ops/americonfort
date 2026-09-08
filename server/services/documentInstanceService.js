@@ -259,11 +259,33 @@ export const buildContractStructuredFromBooking = (booking, {
       : pick(variables.km_retour),
     rentalDays: b.days ?? bookingObj.rentalDays ?? '',
     pricePerDay: b.pricePerDay ?? car.pricePerDay ?? '',
-    rentalPrice: b.rentalPrice ?? bookingObj.price ?? 0,
+    rentalPrice: (() => {
+      const rental = Number(b.rentalPrice);
+      if (Number.isFinite(rental) && rental >= 0) return rental;
+      const sub = Number(b.subtotal);
+      if (Number.isFinite(sub) && sub > 0) return sub;
+      // Never fall back to post-discount booking.price for the pre-remise line
+      return 0;
+    })(),
     pickupFee: b.pickupDeliveryFee ?? 0,
     dropoffFee: b.dropoffDeliveryFee ?? 0,
-    discountTotal: b.discountTotal ?? 0,
-    price: bookingObj.price ?? b.total ?? b.rentalPrice ?? 0,
+    discountTotal: (() => {
+      const fromBreakdown = Number(b.discountTotal);
+      if (Number.isFinite(fromBreakdown) && fromBreakdown > 0) return fromBreakdown;
+      const desk = bookingObj.deskDiscount;
+      const deskValue = Number(desk?.value) || 0;
+      if (!(deskValue > 0)) return 0;
+      const rental = Number(b.rentalPrice) || 0;
+      const fees = (Number(b.pickupDeliveryFee) || 0) + (Number(b.dropoffDeliveryFee) || 0);
+      const base = (Number(b.subtotal) > 0 ? Number(b.subtotal) : rental + fees);
+      if (!(base > 0)) return 0;
+      const amount = desk?.type === 'percentage'
+        ? Math.round(((base * deskValue) / 100) * 100) / 100
+        : Math.round(deskValue * 100) / 100;
+      return Math.min(amount, base);
+    })(),
+    // Final price after remise — must match Walk-in final client price
+    price: bookingObj.price ?? b.total ?? 0,
     franchiseAmount: bookingObj.franchiseAmount ?? car.securityDeposit ?? 0,
     currency: pick(variables.currency, process.env.CURRENCY, 'MAD') || 'MAD',
     paymentStatus: pick(bookingObj.paymentStatus, variables.payment_status),
