@@ -551,12 +551,6 @@ const Contracts = () => {
     return true
   }
 
-  const applyFilters = (nextFilters = filters) => {
-    setFilters(nextFilters)
-    setPagination((prev) => ({ ...prev, page: 1 }))
-    fetchContracts({ page: 1, filters: nextFilters })
-  }
-
   const shareContractWhatsApp = async (contract) => {
     setSharingId(contract._id)
     try {
