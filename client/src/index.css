@@ -3433,6 +3433,29 @@ body.nav-open {
   }
 }
 
+.admin-filter-date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.admin-filter-date > span {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-fg-muted);
+}
+
+.doc-row-actions {
+  min-width: max-content;
+}
+
+.doc-row-action {
+  flex-shrink: 0;
+}
+
 /* Client Documents / shared active-filter strip */
 .admin-docs-filters {
   border: 1px solid var(--admin-border);

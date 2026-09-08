@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { AdminPage, PageHeader, ConfirmDialog, AdminModal } from '../../components/owner/ui'
 import DocumentEditor from '../../components/owner/DocumentEditor'
+import DocumentRowActions from '../../components/owner/DocumentRowActions'
+import DocumentWorkspaceFilters, { EMPTY_DOCUMENT_FILTERS } from '../../components/owner/DocumentWorkspaceFilters'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
+import { buildDocumentShareWaUrl } from '../../utils/whatsapp'
+import { BRAND_NAME } from '../../constants/brand'
 import { buildInvoicePatch, initInvoiceForm } from '../../utils/documentFormUtils'
 import { DateField } from '../../components/date/DateField'
 import { DateTimeField } from '../../components/date/DateTimeField'
@@ -20,6 +24,34 @@ const formatDateTime = (value) => {
   if (!value) return '—'
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+}
+
+const appendInvoiceFilterParams = (params, filters = {}) => {
+  const map = {
+    search: 'search',
+    customerName: 'customerName',
+    cin: 'cin',
+    phone: 'phone',
+    documentNumber: 'invoiceNumber',
+    plate: 'plate',
+    vehicleModel: 'vehicleModel',
+    vehicleId: 'vehicleId',
+    pickupFrom: 'pickupFrom',
+    pickupTo: 'pickupTo',
+    returnFrom: 'returnFrom',
+    returnTo: 'returnTo',
+    createdFrom: 'createdFrom',
+    createdTo: 'createdTo',
+    status: 'status',
+    signatureStatus: 'signatureStatus',
+    paymentStatus: 'paymentStatus',
+    source: 'source',
+  }
+  Object.entries(map).forEach(([from, to]) => {
+    const value = String(filters[from] || '').trim()
+    if (value) params.set(to, value)
+  })
+  return params
 }
 
 const createEmptyItem = () => ({
@@ -72,12 +104,13 @@ const createEmptyForm = () => {
 }
 
 const Invoices = () => {
-  const { axios, currency } = useAppContext()
+  const { axios, currency, user, cars, fetchCars } = useAppContext()
   const { t } = useI18n()
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
-  const [filters, setFilters] = useState({ search: '', customerName: '', cin: '', phone: '' })
+  const [filters, setFilters] = useState(() => ({ ...EMPTY_DOCUMENT_FILTERS }))
+  const [sharingId, setSharingId] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -89,6 +122,62 @@ const Invoices = () => {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [suggestedNumber, setSuggestedNumber] = useState('')
+  const agencyBrand = user?.agencyName?.trim() || BRAND_NAME
+
+  const filterLabels = useMemo(() => ({
+    searchPlaceholder: t('admin.invoices.searchPlaceholder'),
+    customerName: t('admin.invoices.customerNamePlaceholder'),
+    cin: t('admin.invoices.cinPlaceholder'),
+    phone: t('admin.invoices.phonePlaceholder'),
+    documentNumber: t('admin.invoices.number'),
+    plate: t('admin.docWorkspace.plate'),
+    vehicleModel: t('admin.docWorkspace.vehicleModel'),
+    vehicle: t('admin.contracts.vehicle'),
+    allVehicles: t('admin.docWorkspace.allVehicles'),
+    pickup: t('admin.docWorkspace.pickup'),
+    return: t('admin.docWorkspace.return'),
+    created: t('admin.invoices.created'),
+    pickupFrom: t('admin.docWorkspace.pickupFrom'),
+    pickupTo: t('admin.docWorkspace.pickupTo'),
+    returnFrom: t('admin.docWorkspace.returnFrom'),
+    returnTo: t('admin.docWorkspace.returnTo'),
+    createdFrom: t('admin.docWorkspace.createdFrom'),
+    createdTo: t('admin.docWorkspace.createdTo'),
+    status: t('admin.docWorkspace.status'),
+    allStatuses: t('admin.docWorkspace.allStatuses'),
+    statusFinal: t('admin.docWorkspace.statusFinal'),
+    statusDraft: t('admin.docWorkspace.statusDraft'),
+    signatureStatus: t('admin.commonUi.signatureStatus'),
+    allSignatures: t('admin.docWorkspace.allSignatures'),
+    signed: t('admin.docWorkspace.signed'),
+    unsigned: t('admin.docWorkspace.unsigned'),
+    paymentStatus: t('admin.invoices.paymentStatus'),
+    allPayments: t('admin.bookingsUi.allPayments'),
+    pending: t('admin.invoices.pending'),
+    partial: t('admin.invoices.partial'),
+    paid: t('admin.invoices.paid'),
+    source: t('admin.docWorkspace.source'),
+    allSources: t('admin.docWorkspace.allSources'),
+    sourceBooking: t('admin.docWorkspace.sourceBooking'),
+    sourceManual: t('admin.invoices.manual'),
+    showAdvanced: t('admin.docWorkspace.showAdvanced'),
+    hideAdvanced: t('admin.docWorkspace.hideAdvanced'),
+    apply: t('admin.bookings.applyFilters'),
+    clear: t('admin.bookings.clear'),
+    clearAll: t('admin.docWorkspace.clearAll'),
+    activeFilters: t('admin.docWorkspace.activeFilters'),
+    removeFilter: t('admin.docWorkspace.removeFilter'),
+    searchChip: t('admin.docWorkspace.searchChip'),
+  }), [t])
+
+  const actionLabels = useMemo(() => ({
+    actions: t('admin.invoices.actions'),
+    edit: t('admin.invoices.edit'),
+    preview: t('admin.invoices.previewHtml'),
+    download: t('admin.invoices.download'),
+    whatsapp: t('admin.docWorkspace.whatsapp'),
+    delete: t('admin.invoices.delete'),
+  }), [t])
 
   const renderInvoiceFields = (editForm, setEditForm, fieldClass, labelClass) => {
     const update = (changes) => setEditForm((prev) => ({ ...prev, ...changes }))
@@ -270,19 +359,12 @@ const Invoices = () => {
   const fetchInvoices = async (override = {}) => {
     setLoading(true)
     try {
+      const activeFilters = override.filters ?? filters
       const params = new URLSearchParams({
         page: String(override.page ?? pagination.page),
         limit: String(override.limit ?? pagination.limit),
       })
-      const search = (override.search ?? filters.search ?? '').trim()
-      const customerName = (override.customerName ?? filters.customerName ?? '').trim()
-      const cin = (override.cin ?? filters.cin ?? '').trim()
-      const phone = (override.phone ?? filters.phone ?? '').trim()
-
-      if (search) params.set('search', search)
-      if (customerName) params.set('customerName', customerName)
-      if (cin) params.set('cin', cin)
-      if (phone) params.set('phone', phone)
+      appendInvoiceFilterParams(params, activeFilters)
 
       const { data } = await axios.get(`/api/invoices?${params}`)
       if (data.success) {
@@ -300,21 +382,48 @@ const Invoices = () => {
 
   useEffect(() => {
     fetchInvoices({ page: 1 })
+    fetchCars?.()
   }, [axios])
 
   useEffect(() => {
     fetchInvoices({ page: pagination.page })
   }, [pagination.page, pagination.limit])
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    fetchInvoices({ page: 1 })
+  const applyFilters = (nextFilters = filters) => {
+    setFilters(nextFilters)
+    setPagination((prev) => ({ ...prev, page: 1 }))
+    fetchInvoices({ page: 1, filters: nextFilters })
   }
 
-  const handleReset = () => {
-    const next = { search: '', customerName: '', cin: '', phone: '' }
-    setFilters(next)
-    fetchInvoices({ page: 1, ...next })
+  const shareInvoiceWhatsApp = async (invoice) => {
+    setSharingId(invoice._id)
+    try {
+      const { data } = await axios.get(`/api/invoices/${invoice._id}/share-link`)
+      if (!data.success || !data.shareUrl) {
+        toast.error(data.message || t('admin.docWorkspace.shareFailed'))
+        return
+      }
+      const message = t('admin.docWorkspace.whatsappInvoiceMessage', {
+        link: data.shareUrl,
+        brand: agencyBrand,
+      })
+      const result = buildDocumentShareWaUrl({
+        kind: 'invoice',
+        link: data.shareUrl,
+        brand: agencyBrand,
+        message,
+      })
+      if (result.error) {
+        toast.error(t('admin.docWorkspace.shareFailed'))
+        return
+      }
+      window.open(result.url, '_blank', 'noopener,noreferrer')
+      toast.success(t('admin.docWorkspace.whatsappOpened'))
+    } catch (error) {
+      toast.error(getErrorMessage(error, t('admin.docWorkspace.shareFailed')))
+    } finally {
+      setSharingId(null)
+    }
   }
 
   const handleDownload = async (invoice) => {
@@ -506,8 +615,9 @@ const Invoices = () => {
   const exportExcel = async () => {
     setExporting(true)
     try {
-      const params = {}
-      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v })
+      const params = Object.fromEntries(
+        appendInvoiceFilterParams(new URLSearchParams(), filters).entries(),
+      )
       await downloadXlsxFromApi(axios, '/api/invoices/export', {
         params,
         fallbackName: 'invoices.xlsx',
@@ -541,38 +651,15 @@ const Invoices = () => {
         }
       />
 
-      <form onSubmit={handleSubmit} className="rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 space-y-4">
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
-          <input
-            className="h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 rounded-[var(--admin-radius)] w-full text-sm"
-            value={filters.search}
-            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-            placeholder={t('admin.invoices.searchPlaceholder')}
-          />
-          <input
-            className="h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 rounded-[var(--admin-radius)] w-full text-sm"
-            value={filters.customerName}
-            onChange={(e) => setFilters((prev) => ({ ...prev, customerName: e.target.value }))}
-            placeholder={t('admin.invoices.customerNamePlaceholder')}
-          />
-          <input
-            className="h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 rounded-[var(--admin-radius)] w-full text-sm"
-            value={filters.cin}
-            onChange={(e) => setFilters((prev) => ({ ...prev, cin: e.target.value }))}
-            placeholder={t('admin.invoices.cinPlaceholder')}
-          />
-          <input
-            className="border border-borderColor px-3 py-2 rounded-lg w-full text-sm"
-            value={filters.phone}
-            onChange={(e) => setFilters((prev) => ({ ...prev, phone: e.target.value }))}
-            placeholder={t('admin.invoices.phonePlaceholder')}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-white text-sm">{t('admin.bookings.applyFilters')}</button>
-          <button type="button" onClick={handleReset} className="px-4 py-2 rounded-xl border border-borderColor text-sm">{t('admin.bookings.clear')}</button>
-        </div>
-      </form>
+      <DocumentWorkspaceFilters
+        mode="invoices"
+        value={filters}
+        onChange={setFilters}
+        onApply={applyFilters}
+        onClear={applyFilters}
+        labels={filterLabels}
+        vehicles={cars || []}
+      />
 
       <div className="rounded-2xl border border-borderColor bg-white overflow-hidden">
         {loading ? (
@@ -611,20 +698,15 @@ const Invoices = () => {
                       <td className="px-4 py-3">{invoice.totalAmount != null ? `${invoice.currency || currency}${Number(invoice.totalAmount).toFixed(2)}` : (booking.price != null ? `${currency}${booking.price}` : '—')}</td>
                       <td className="px-4 py-3">{formatDateTime(invoice.createdAt)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => setEditingId(invoice._id)} className="text-primary text-xs font-medium">
-                            {t('admin.invoices.edit')}
-                          </button>
-                          <button type="button" onClick={() => handlePreview(invoice)} className="text-gray-700 text-xs font-medium">
-                            {t('admin.invoices.previewHtml')}
-                          </button>
-                          <button type="button" onClick={() => handleDownload(invoice)} className="text-gray-700 text-xs font-medium">
-                            {t('admin.invoices.download')}
-                          </button>
-                          <button type="button" onClick={() => setDeleteTarget(invoice)} className="text-red-600 text-xs font-medium">
-                            {t('admin.invoices.delete')}
-                          </button>
-                        </div>
+                        <DocumentRowActions
+                          labels={actionLabels}
+                          onEdit={() => setEditingId(invoice._id)}
+                          onPreview={() => handlePreview(invoice)}
+                          onDownload={() => handleDownload(invoice)}
+                          onWhatsApp={() => shareInvoiceWhatsApp(invoice)}
+                          onDelete={() => setDeleteTarget(invoice)}
+                          whatsappBusy={sharingId === invoice._id}
+                        />
                       </td>
                     </tr>
                   )

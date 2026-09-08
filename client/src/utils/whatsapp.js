@@ -50,6 +50,27 @@ export const buildWaMeUrl = (text, dial = getEnvAgencyWhatsAppDial()) => {
   return `https://wa.me/${to}?text=${encodeURIComponent(text)}`
 }
 
+/**
+ * Open WhatsApp contact picker (no preselected number) with a prepared message.
+ * Use for operator-chosen recipients (contracts / invoices).
+ */
+export const buildWaMePickerUrl = (text) =>
+  `https://wa.me/?text=${encodeURIComponent(String(text || '').trim())}`
+
+/** Short professional document share messages — dial intentionally omitted. */
+export const buildDocumentShareWaUrl = ({ kind = 'contract', link, brand = BRAND_NAME, message } = {}) => {
+  const url = String(link || '').trim()
+  if (!url) return { error: 'missing_link', url: null }
+
+  const text = String(message || '').trim() || (
+    kind === 'invoice'
+      ? `Hello, please find your invoice below:\n${url}\n\nThank you, ${brand}.`
+      : `Hello, please find your rental contract below:\n${url}\n\nThank you, ${brand}.`
+  )
+
+  return { error: null, url: buildWaMePickerUrl(text) }
+}
+
 /** Customer phone from reservation — no fallback to agency/owner number. */
 export const resolveCustomerWhatsAppDial = (booking) => {
   const dial = normalizeWhatsAppDial(booking?.customerPhone || booking?.phone)
@@ -172,6 +193,8 @@ export default {
   buildCustomerConfirmationWaUrl,
   buildCustomerSignatureWaUrl,
   buildOwnerCompletionWaUrl,
+  buildDocumentShareWaUrl,
+  buildWaMePickerUrl,
   buildWaMeUrl,
   getAgencyWhatsAppDial,
   getEnvAgencyWhatsAppDial,

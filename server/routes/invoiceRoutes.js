@@ -16,6 +16,7 @@ import {
   restoreInvoiceVersion,
   previewInvoice,
   downloadInvoicePdf,
+  getInvoiceShareLink,
 } from '../controllers/invoiceController.js';
 import { exportInvoicesXlsx } from '../controllers/xlsxExportController.js';
 
@@ -37,6 +38,7 @@ router.get('/:id/versions', ...gate('contracts', 'invoices'), listInvoiceVersion
 router.post('/:id/restore/:version', ...gate('contracts', 'invoices'), restoreInvoiceVersion);
 router.get('/:id/preview', ...gate('contracts', 'invoices'), previewInvoice);
 router.get('/:id/pdf', ...gate('contracts', 'invoices'), downloadInvoicePdf);
+router.get('/:id/share-link', ...gate('contracts', 'invoices'), getInvoiceShareLink);
 router.patch('/:id', ...gate('contracts', 'invoices'), updateInvoice);
 router.delete('/:id', ...gate('contracts', 'invoices'), deleteInvoice);
 router.get('/:id', ...gate('contracts', 'invoices'), getInvoice);

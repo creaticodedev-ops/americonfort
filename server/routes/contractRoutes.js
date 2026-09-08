@@ -13,6 +13,7 @@ import {
   previewContract,
   previewContractFromBooking,
   downloadContractPdf,
+  getContractShareLink,
   listBookingsForContracts,
   deleteContract,
   deleteContractsBulk,
@@ -38,6 +39,7 @@ router.get('/:id/versions', ...gate('contracts', 'contracts'), listContractVersi
 router.post('/:id/restore/:version', ...gate('contracts', 'contracts'), restoreContractVersion);
 router.get('/:id/preview', ...gate('contracts', 'contracts'), previewContract);
 router.get('/:id/pdf', ...gate('contracts', 'contracts'), downloadContractPdf);
+router.get('/:id/share-link', ...gate('contracts', 'contracts'), getContractShareLink);
 router.patch('/:id', ...gate('contracts', 'contracts'), updateContract);
 router.get('/:id', ...gate('contracts', 'contracts'), getContract);
 

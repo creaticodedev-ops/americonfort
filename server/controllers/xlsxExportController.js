@@ -884,19 +884,64 @@ export const exportInvoicesXlsx = async (req, res) => {
 
 export const exportContractsXlsx = async (req, res) => {
   try {
-    const { search = '', customerName = '', phone = '' } = req.query;
+    const {
+      search = '',
+      customerName = '',
+      phone = '',
+      cin = '',
+      contractNumber = '',
+      plate = '',
+      vehicleModel = '',
+      vehicleId = '',
+      pickupFrom = '',
+      pickupTo = '',
+      returnFrom = '',
+      returnTo = '',
+      createdFrom = '',
+      createdTo = '',
+      status = '',
+      signatureStatus = '',
+    } = req.query;
     const query = { owner: req.user._id };
+    const and = [];
     if (search?.trim()) {
       const term = search.trim();
-      query.$or = [
-        { contractNumber: { $regex: term, $options: 'i' } },
-        { customerName: { $regex: term, $options: 'i' } },
-        { customerPhone: { $regex: term, $options: 'i' } },
-        { customerEmail: { $regex: term, $options: 'i' } },
-      ];
+      and.push({
+        $or: [
+          { contractNumber: { $regex: term, $options: 'i' } },
+          { customerName: { $regex: term, $options: 'i' } },
+          { customerPhone: { $regex: term, $options: 'i' } },
+          { customerEmail: { $regex: term, $options: 'i' } },
+        ],
+      });
     }
-    if (customerName?.trim()) query.customerName = { $regex: customerName.trim(), $options: 'i' };
-    if (phone?.trim()) query.customerPhone = { $regex: phone.trim(), $options: 'i' };
+    if (customerName?.trim()) and.push({ customerName: { $regex: customerName.trim(), $options: 'i' } });
+    if (phone?.trim()) and.push({ customerPhone: { $regex: phone.trim(), $options: 'i' } });
+    if (contractNumber?.trim()) and.push({ contractNumber: { $regex: contractNumber.trim(), $options: 'i' } });
+    if (status === 'draft' || status === 'final') and.push({ status });
+
+    const { resolveBookingIdsForDocumentFilters, applyCreatedAtRange } = await import('../utils/documentListQuery.js');
+    applyCreatedAtRange(query, createdFrom, createdTo);
+    const bookingIds = await resolveBookingIdsForDocumentFilters(req.user._id, {
+      cin, plate, vehicleModel, vehicleId, pickupFrom, pickupTo, returnFrom, returnTo, signatureStatus,
+    });
+    if (bookingIds) {
+      if (!bookingIds.length) {
+        return respondXlsx(req, res, {
+          reportKey: 'contracts',
+          title: 'Contracts Register',
+          subtitle: 'Active rental contracts',
+          filters: filterLines({ Search: search, Customer: customerName, Phone: phone }),
+          columns: [
+            { key: 'contractNumber', header: 'Contract #', width: 16 },
+            { key: 'customer', header: 'Customer', width: 22 },
+          ],
+          rows: [],
+        });
+      }
+      and.push({ booking: { $in: bookingIds } });
+    }
+    if (and.length) query.$and = and;
 
     const contracts = await Contract.find(query)
       .populate({

@@ -33,6 +33,12 @@ import {
   templateFromSnapshot,
 } from '../services/documentInstanceService.js';
 
+import {
+  resolveBookingIdsForDocumentFilters,
+  applyCreatedAtRange,
+  escapeRegex,
+} from '../utils/documentListQuery.js';
+
 const tryRemoveLocalPdf = (invoice) => {
   const filePath = invoice?.pdfPath;
   if (!filePath || !fs.existsSync(filePath)) return;
@@ -365,48 +371,124 @@ const generateInvoiceDocument = async ({
 
 export const listInvoices = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '', customerName = '', cin = '', phone = '' } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      search = '',
+      customerName = '',
+      cin = '',
+      phone = '',
+      invoiceNumber = '',
+      plate = '',
+      vehicleModel = '',
+      vehicleId = '',
+      pickupFrom = '',
+      pickupTo = '',
+      returnFrom = '',
+      returnTo = '',
+      createdFrom = '',
+      createdTo = '',
+      status = '',
+      paymentStatus = '',
+      source = '',
+      signatureStatus = '',
+    } = req.query;
     const pg = Math.max(1, parseInt(page, 10) || 1);
     const lim = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pg - 1) * lim;
 
     const query = { owner: req.user._id };
-    const invoiceFilters = [];
+    const and = [];
 
     if (search?.trim()) {
-      const term = search.trim();
-      invoiceFilters.push(
-        { invoiceNumber: { $regex: term, $options: 'i' } },
-        { customerName: { $regex: term, $options: 'i' } },
-        { customerEmail: { $regex: term, $options: 'i' } },
-        { customerPhone: { $regex: term, $options: 'i' } },
-      );
+      const term = escapeRegex(search.trim());
+      and.push({
+        $or: [
+          { invoiceNumber: { $regex: term, $options: 'i' } },
+          { customerName: { $regex: term, $options: 'i' } },
+          { customerEmail: { $regex: term, $options: 'i' } },
+          { customerPhone: { $regex: term, $options: 'i' } },
+          { customerTaxId: { $regex: term, $options: 'i' } },
+          { vehiclePlate: { $regex: term, $options: 'i' } },
+          { vehicleBrand: { $regex: term, $options: 'i' } },
+          { vehicleModel: { $regex: term, $options: 'i' } },
+        ],
+      });
     }
 
     if (customerName?.trim()) {
-      invoiceFilters.push({ customerName: { $regex: customerName.trim(), $options: 'i' } });
-    }
-
-    if (cin?.trim()) {
-      const term = cin.trim();
-      invoiceFilters.push({ customerTaxId: { $regex: term, $options: 'i' } });
+      and.push({ customerName: { $regex: escapeRegex(customerName.trim()), $options: 'i' } });
     }
 
     if (phone?.trim()) {
-      invoiceFilters.push({ customerPhone: { $regex: phone.trim(), $options: 'i' } });
+      and.push({ customerPhone: { $regex: escapeRegex(phone.trim()), $options: 'i' } });
     }
 
-    if (invoiceFilters.length) {
-      query.$or = invoiceFilters;
+    if (cin?.trim()) {
+      and.push({ customerTaxId: { $regex: escapeRegex(cin.trim()), $options: 'i' } });
     }
+
+    if (invoiceNumber?.trim()) {
+      and.push({ invoiceNumber: { $regex: escapeRegex(invoiceNumber.trim()), $options: 'i' } });
+    }
+
+    if (status === 'draft' || status === 'final') {
+      and.push({ status });
+    }
+
+    if (paymentStatus?.trim()) {
+      and.push({ paymentStatus: paymentStatus.trim() });
+    }
+
+    if (source === 'manual' || source === 'booking') {
+      and.push({ source });
+    }
+
+    if (plate?.trim()) {
+      and.push({ vehiclePlate: { $regex: escapeRegex(plate.trim()), $options: 'i' } });
+    }
+
+    if (vehicleModel?.trim()) {
+      const term = escapeRegex(vehicleModel.trim());
+      and.push({
+        $or: [
+          { vehicleBrand: { $regex: term, $options: 'i' } },
+          { vehicleModel: { $regex: term, $options: 'i' } },
+        ],
+      });
+    }
+
+    applyCreatedAtRange(query, createdFrom, createdTo);
+
+    const bookingSideIds = await resolveBookingIdsForDocumentFilters(req.user._id, {
+      vehicleId,
+      pickupFrom,
+      pickupTo,
+      returnFrom,
+      returnTo,
+      signatureStatus,
+    });
+
+    if (bookingSideIds) {
+      if (!bookingSideIds.length) {
+        return res.json({
+          success: true,
+          invoices: [],
+          pagination: { total: 0, page: pg, limit: lim, totalPages: 1 },
+        });
+      }
+      and.push({ booking: { $in: bookingSideIds } });
+    }
+
+    if (and.length) query.$and = and;
 
     const [invoices, total] = await Promise.all([
       Invoice.find(query)
         .select('-renderedHtml -versions.sourceData -versions.renderedHtml -versions.templateSnapshot')
         .populate({
           path: 'booking',
-          select: 'reservationId customerName customerPhone pickupDate returnDate price status car',
-          populate: { path: 'car', select: 'brand model year' },
+          select: 'reservationId customerName customerPhone pickupDate returnDate price status car completion.signatureComplete completion.signatureRequestStatus',
+          populate: { path: 'car', select: 'brand model year licensePlate' },
         })
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -1037,6 +1119,53 @@ export const downloadInvoicePdf = async (req, res) => {
   }
 };
 
+export const getInvoiceShareLink = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
+    }
+
+    const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    let filePath = resolveExistingPdfPath(invoice);
+    if (!filePath) {
+      await hydrateLegacyDocument(invoice, { type: 'invoice', owner: req.user });
+      try {
+        await renderAndStorePdf({ type: 'invoice', doc: invoice, owner: req.user });
+        await invoice.save();
+      } catch (renderError) {
+        console.error('[invoice share] render failed:', renderError?.message || renderError);
+        return res.status(500).json({
+          success: false,
+          message: renderError?.message || 'Failed to prepare invoice PDF for sharing',
+        });
+      }
+      filePath = invoice.pdfPath;
+    }
+
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: 'PDF not available' });
+    }
+
+    const shareUrl = invoice.pdfUrl || publicUploadUrl(filePath);
+    if (!shareUrl) {
+      return res.status(404).json({ success: false, message: 'Share link not available' });
+    }
+
+    return res.json({
+      success: true,
+      shareUrl,
+      invoiceNumber: invoice.invoiceNumber || '',
+    });
+  } catch (error) {
+    console.error('[invoice share]', error?.message || error);
+    return res.status(500).json({ success: false, message: 'Failed to prepare share link' });
+  }
+};
+
 export default {
   listInvoices,
   getInvoice,
@@ -1050,4 +1179,5 @@ export default {
   restoreInvoiceVersion,
   previewInvoice,
   downloadInvoicePdf,
+  getInvoiceShareLink,
 };

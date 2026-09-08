@@ -26,6 +26,12 @@ import {
   versionSummary,
   templateFromSnapshot,
 } from '../services/documentInstanceService.js';
+import {
+  resolveBookingIdsForDocumentFilters,
+  applyCreatedAtRange,
+  escapeRegex,
+} from '../utils/documentListQuery.js';
+import { publicUploadUrl } from '../services/pdfDocuments.js';
 
 const syncBookingCompletionPdfUrl = async (contract) => {
   if (!contract?.booking || !contract.pdfUrl) return;
@@ -141,59 +147,97 @@ export const upsertContractFromBooking = async ({
 
 export const listContracts = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '', customerName = '', cin = '', phone = '' } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      search = '',
+      customerName = '',
+      cin = '',
+      phone = '',
+      contractNumber = '',
+      plate = '',
+      vehicleModel = '',
+      vehicleId = '',
+      pickupFrom = '',
+      pickupTo = '',
+      returnFrom = '',
+      returnTo = '',
+      createdFrom = '',
+      createdTo = '',
+      status = '',
+      signatureStatus = '',
+    } = req.query;
     const pg = Math.max(1, parseInt(page, 10) || 1);
     const lim = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pg - 1) * lim;
 
     const query = { owner: req.user._id };
-    const bookingQuery = [];
+    const and = [];
 
     if (search?.trim()) {
-      const term = search.trim();
-      query.$or = [
-        { contractNumber: { $regex: term, $options: 'i' } },
-        { customerName: { $regex: term, $options: 'i' } },
-        { customerPhone: { $regex: term, $options: 'i' } },
-        { customerEmail: { $regex: term, $options: 'i' } },
-      ];
-    }
-
-    if (customerName?.trim()) {
-      query.customerName = { $regex: customerName.trim(), $options: 'i' };
-    }
-
-    if (cin?.trim()) {
-      const term = cin.trim();
-      bookingQuery.push({
+      const term = escapeRegex(search.trim());
+      and.push({
         $or: [
-          { identityDocumentNumber: { $regex: term, $options: 'i' } },
-          { passportNumber: { $regex: term, $options: 'i' } },
-          { driverLicenseNumber: { $regex: term, $options: 'i' } },
+          { contractNumber: { $regex: term, $options: 'i' } },
+          { customerName: { $regex: term, $options: 'i' } },
+          { customerPhone: { $regex: term, $options: 'i' } },
+          { customerEmail: { $regex: term, $options: 'i' } },
+          { reservationId: { $regex: term, $options: 'i' } },
+          { vehicleSummary: { $regex: term, $options: 'i' } },
         ],
       });
     }
 
-    if (phone?.trim()) {
-      query.customerPhone = { $regex: phone.trim(), $options: 'i' };
+    if (customerName?.trim()) {
+      and.push({ customerName: { $regex: escapeRegex(customerName.trim()), $options: 'i' } });
     }
 
-    let bookingIds = [];
-    if (bookingQuery.length) {
-      bookingIds = (await Booking.find({ owner: req.user._id, $or: bookingQuery }).select('_id').lean()).map((b) => b._id);
-      if (!bookingIds.length) {
-        return res.json({ success: true, contracts: [], pagination: { total: 0, page: pg, limit: lim, totalPages: 1 } });
-      }
-      query.booking = { $in: bookingIds };
+    if (phone?.trim()) {
+      and.push({ customerPhone: { $regex: escapeRegex(phone.trim()), $options: 'i' } });
     }
+
+    if (contractNumber?.trim()) {
+      and.push({ contractNumber: { $regex: escapeRegex(contractNumber.trim()), $options: 'i' } });
+    }
+
+    if (status === 'draft' || status === 'final') {
+      and.push({ status });
+    }
+
+    applyCreatedAtRange(query, createdFrom, createdTo);
+
+    const bookingIds = await resolveBookingIdsForDocumentFilters(req.user._id, {
+      cin,
+      plate,
+      vehicleModel,
+      vehicleId,
+      pickupFrom,
+      pickupTo,
+      returnFrom,
+      returnTo,
+      signatureStatus,
+    });
+
+    if (bookingIds) {
+      if (!bookingIds.length) {
+        return res.json({
+          success: true,
+          contracts: [],
+          pagination: { total: 0, page: pg, limit: lim, totalPages: 1 },
+        });
+      }
+      and.push({ booking: { $in: bookingIds } });
+    }
+
+    if (and.length) query.$and = and;
 
     const [contracts, total] = await Promise.all([
       Contract.find(query)
         .select('-renderedHtml -versions.sourceData -versions.renderedHtml -versions.templateSnapshot')
         .populate({
           path: 'booking',
-          select: 'reservationId customerName customerPhone pickupDate returnDate price status car',
-          populate: { path: 'car', select: 'brand model year' },
+          select: 'reservationId customerName customerPhone pickupDate returnDate price status car completion.signatureComplete completion.signatureRequestStatus',
+          populate: { path: 'car', select: 'brand model year licensePlate' },
         })
         .populate('template', 'name type')
         .sort({ createdAt: -1 })
@@ -768,6 +812,53 @@ export const deleteContractsBulk = async (req, res) => {
   }
 };
 
+export const getContractShareLink = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid contract ID' });
+    }
+
+    const contract = await Contract.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+
+    let filePath = resolveExistingPdfPath(contract);
+    if (!filePath) {
+      await hydrateLegacyDocument(contract, { type: 'contract', owner: req.user });
+      try {
+        await renderAndStorePdf({ type: 'contract', doc: contract, owner: req.user });
+        await contract.save();
+      } catch (renderError) {
+        console.error('[contract share] render failed:', renderError?.message || renderError);
+        return res.status(500).json({
+          success: false,
+          message: renderError?.message || 'Failed to prepare contract PDF for sharing',
+        });
+      }
+      filePath = contract.pdfPath;
+    }
+
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: 'PDF not available' });
+    }
+
+    const shareUrl = contract.pdfUrl || publicUploadUrl(filePath);
+    if (!shareUrl) {
+      return res.status(404).json({ success: false, message: 'Share link not available' });
+    }
+
+    return res.json({
+      success: true,
+      shareUrl,
+      contractNumber: contract.contractNumber || '',
+    });
+  } catch (error) {
+    console.error('[contract share]', error?.message || error);
+    return res.status(500).json({ success: false, message: 'Failed to prepare share link' });
+  }
+};
+
 export default {
   listContracts,
   getContract,
@@ -778,6 +869,7 @@ export default {
   previewContract,
   previewContractFromBooking,
   downloadContractPdf,
+  getContractShareLink,
   listBookingsForContracts,
   deleteContract,
   deleteContractsBulk,

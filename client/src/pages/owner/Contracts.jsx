@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { AdminPage, PageHeader, ConfirmDialog } from '../../components/owner/ui'
 import BulkSelectionBar from '../../components/owner/BulkSelectionBar'
 import DocumentEditor from '../../components/owner/DocumentEditor'
+import DocumentRowActions from '../../components/owner/DocumentRowActions'
+import DocumentWorkspaceFilters, { EMPTY_DOCUMENT_FILTERS } from '../../components/owner/DocumentWorkspaceFilters'
 import DocumentPdfProgress, { buildPdfJobStages } from '../../components/DocumentPdfProgress'
 import { useDocumentPdfJob } from '../../hooks/useDocumentPdfJob'
 import { useAppContext } from '../../context/AppContext'
@@ -11,6 +13,8 @@ import toast from 'react-hot-toast'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadPdfFromApi } from '../../utils/downloadPdf'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
+import { buildDocumentShareWaUrl } from '../../utils/whatsapp'
+import { BRAND_NAME } from '../../constants/brand'
 import { buildContractPatch, initContractForm, toDateInput, toDateTimeLocal } from '../../utils/documentFormUtils'
 import { DateField } from '../../components/date/DateField'
 import { DateTimeField } from '../../components/date/DateTimeField'
@@ -21,8 +25,34 @@ const formatDateTime = (value) => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
 }
 
+const appendDocumentFilterParams = (params, filters = {}) => {
+  const map = {
+    search: 'search',
+    customerName: 'customerName',
+    cin: 'cin',
+    phone: 'phone',
+    documentNumber: 'contractNumber',
+    plate: 'plate',
+    vehicleModel: 'vehicleModel',
+    vehicleId: 'vehicleId',
+    pickupFrom: 'pickupFrom',
+    pickupTo: 'pickupTo',
+    returnFrom: 'returnFrom',
+    returnTo: 'returnTo',
+    createdFrom: 'createdFrom',
+    createdTo: 'createdTo',
+    status: 'status',
+    signatureStatus: 'signatureStatus',
+  }
+  Object.entries(map).forEach(([from, to]) => {
+    const value = String(filters[from] || '').trim()
+    if (value) params.set(to, value)
+  })
+  return params
+}
+
 const Contracts = () => {
-  const { axios, currency } = useAppContext()
+  const { axios, currency, user, cars, fetchCars } = useAppContext()
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
   const prefilledBookingId = searchParams.get('bookingId') || ''
@@ -30,11 +60,9 @@ const Contracts = () => {
   const [bookings, setBookings] = useState([])
   const [templates, setTemplates] = useState([])
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
-  const [search, setSearch] = useState('')
-  const [customerName, setCustomerName] = useState('')
-  const [cin, setCin] = useState('')
-  const [phone, setPhone] = useState('')
+  const [filters, setFilters] = useState(() => ({ ...EMPTY_DOCUMENT_FILTERS }))
   const [loading, setLoading] = useState(true)
+  const [sharingId, setSharingId] = useState(null)
   const generateJob = useDocumentPdfJob()
   const generating = generateJob.isRunning
   const [showGenerate, setShowGenerate] = useState(false)
@@ -87,6 +115,53 @@ const Contracts = () => {
   const [confirmBusy, setConfirmBusy] = useState(false)
 
   const inputClass = 'h-9 border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-fg)] px-3 rounded-[var(--admin-radius)] w-full text-sm outline-none focus:shadow-[var(--admin-focus)]'
+  const agencyBrand = user?.agencyName?.trim() || BRAND_NAME
+
+  const filterLabels = useMemo(() => ({
+    searchPlaceholder: t('admin.contracts.searchPlaceholder'),
+    customerName: t('admin.contracts.customerName'),
+    cin: t('admin.contracts.cin'),
+    phone: t('admin.contracts.phone'),
+    documentNumber: t('admin.contracts.number'),
+    plate: t('admin.docWorkspace.plate'),
+    vehicleModel: t('admin.docWorkspace.vehicleModel'),
+    vehicle: t('admin.contracts.vehicle'),
+    allVehicles: t('admin.docWorkspace.allVehicles'),
+    pickup: t('admin.docWorkspace.pickup'),
+    return: t('admin.docWorkspace.return'),
+    created: t('admin.contracts.created'),
+    pickupFrom: t('admin.docWorkspace.pickupFrom'),
+    pickupTo: t('admin.docWorkspace.pickupTo'),
+    returnFrom: t('admin.docWorkspace.returnFrom'),
+    returnTo: t('admin.docWorkspace.returnTo'),
+    createdFrom: t('admin.docWorkspace.createdFrom'),
+    createdTo: t('admin.docWorkspace.createdTo'),
+    status: t('admin.docWorkspace.status'),
+    allStatuses: t('admin.docWorkspace.allStatuses'),
+    statusFinal: t('admin.docWorkspace.statusFinal'),
+    statusDraft: t('admin.docWorkspace.statusDraft'),
+    signatureStatus: t('admin.commonUi.signatureStatus'),
+    allSignatures: t('admin.docWorkspace.allSignatures'),
+    signed: t('admin.docWorkspace.signed'),
+    unsigned: t('admin.docWorkspace.unsigned'),
+    showAdvanced: t('admin.docWorkspace.showAdvanced'),
+    hideAdvanced: t('admin.docWorkspace.hideAdvanced'),
+    apply: t('admin.bookings.applyFilters'),
+    clear: t('admin.bookings.clear'),
+    clearAll: t('admin.docWorkspace.clearAll'),
+    activeFilters: t('admin.docWorkspace.activeFilters'),
+    removeFilter: t('admin.docWorkspace.removeFilter'),
+    searchChip: t('admin.docWorkspace.searchChip'),
+  }), [t])
+
+  const actionLabels = useMemo(() => ({
+    actions: t('admin.contracts.actions'),
+    edit: t('admin.contracts.edit'),
+    preview: t('admin.contracts.preview'),
+    download: t('admin.docWorkspace.download'),
+    whatsapp: t('admin.docWorkspace.whatsapp'),
+    delete: t('admin.contracts.delete'),
+  }), [t])
 
   const visibleIds = useMemo(() => contracts.map((c) => c._id), [contracts])
   const selectedCount = selectedIds.size
@@ -267,14 +342,12 @@ const Contracts = () => {
     try {
       const page = override.page ?? pagination.page
       const limit = override.limit ?? pagination.limit
+      const activeFilters = override.filters ?? filters
       const params = new URLSearchParams({
         page: String(page),
         limit: String(limit),
       })
-      if (search.trim()) params.set('search', search.trim())
-      if (customerName.trim()) params.set('customerName', customerName.trim())
-      if (cin.trim()) params.set('cin', cin.trim())
-      if (phone.trim()) params.set('phone', phone.trim())
+      appendDocumentFilterParams(params, activeFilters)
       const { data } = await axios.get(`/api/contracts?${params}`)
       if (data.success) {
         setContracts(data.contracts || [])
@@ -327,7 +400,7 @@ const Contracts = () => {
 
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [pagination.page, pagination.limit, search, customerName, cin, phone])
+  }, [pagination.page, pagination.limit, filters])
 
   useEffect(() => {
     axios.get('/api/contracts/bookings')
@@ -336,8 +409,14 @@ const Contracts = () => {
     axios.get('/api/export-templates?type=contract')
       .then(({ data }) => { if (data.success) setTemplates(data.templates || []) })
       .catch(() => {})
-  }, [axios])
+    fetchCars?.()
+  }, [axios, fetchCars])
 
+  const applyFilters = (nextFilters = filters) => {
+    setFilters(nextFilters)
+    setPagination((prev) => ({ ...prev, page: 1 }))
+    fetchContracts({ page: 1, filters: nextFilters })
+  }
   const openGenerate = () => {
     setGenerateForm({
       bookingId: '',
@@ -472,12 +551,42 @@ const Contracts = () => {
     return true
   }
 
-  const runSearch = (e) => {
-    e?.preventDefault()
+  const applyFilters = (nextFilters = filters) => {
+    setFilters(nextFilters)
     setPagination((prev) => ({ ...prev, page: 1 }))
-    fetchContracts({ page: 1 })
+    fetchContracts({ page: 1, filters: nextFilters })
   }
 
+  const shareContractWhatsApp = async (contract) => {
+    setSharingId(contract._id)
+    try {
+      const { data } = await axios.get(`/api/contracts/${contract._id}/share-link`)
+      if (!data.success || !data.shareUrl) {
+        toast.error(data.message || t('admin.docWorkspace.shareFailed'))
+        return
+      }
+      const message = t('admin.docWorkspace.whatsappContractMessage', {
+        link: data.shareUrl,
+        brand: agencyBrand,
+      })
+      const result = buildDocumentShareWaUrl({
+        kind: 'contract',
+        link: data.shareUrl,
+        brand: agencyBrand,
+        message,
+      })
+      if (result.error) {
+        toast.error(t('admin.docWorkspace.shareFailed'))
+        return
+      }
+      window.open(result.url, '_blank', 'noopener,noreferrer')
+      toast.success(t('admin.docWorkspace.whatsappOpened'))
+    } catch (error) {
+      toast.error(getErrorMessage(error, t('admin.docWorkspace.shareFailed')))
+    } finally {
+      setSharingId(null)
+    }
+  }
   const previewFromBooking = async () => {
     if (!generateForm.bookingId) {
       toast.error(t('admin.contracts.bookingRequired'))
@@ -691,12 +800,9 @@ const Contracts = () => {
                 setExporting(true)
                 try {
                   await downloadXlsxFromApi(axios, '/api/contracts/export', {
-                    params: {
-                      search: search || undefined,
-                      customerName: customerName || undefined,
-                      phone: phone || undefined,
-                      cin: cin || undefined,
-                    },
+                    params: Object.fromEntries(
+                      appendDocumentFilterParams(new URLSearchParams(), filters).entries(),
+                    ),
                     fallbackName: 'contracts.xlsx',
                   })
                   toast.success(t('admin.exportUi.success'))
@@ -717,53 +823,15 @@ const Contracts = () => {
         }
       />
 
-      <form onSubmit={runSearch} className="rounded-[var(--admin-radius-lg)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 space-y-4">
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
-          <input
-            className={inputClass}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('admin.contracts.searchPlaceholder')}
-          />
-          <input
-            className={inputClass}
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder={t('admin.contracts.customerName')}
-          />
-          <input
-            className={inputClass}
-            value={cin}
-            onChange={(e) => setCin(e.target.value)}
-            placeholder={t('admin.contracts.cin')}
-          />
-          <input
-            className={inputClass}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder={t('admin.contracts.phone')}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-white text-sm whitespace-nowrap">
-            {t('admin.bookings.applyFilters')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSearch('')
-              setCustomerName('')
-              setCin('')
-              setPhone('')
-              setPagination((prev) => ({ ...prev, page: 1 }))
-              fetchContracts({ page: 1 })
-            }}
-            className="px-4 py-2 rounded-xl border border-borderColor text-sm whitespace-nowrap"
-          >
-            {t('admin.bookings.clear')}
-          </button>
-        </div>
-      </form>
+      <DocumentWorkspaceFilters
+        mode="contracts"
+        value={filters}
+        onChange={setFilters}
+        onApply={applyFilters}
+        onClear={applyFilters}
+        labels={filterLabels}
+        vehicles={cars || []}
+      />
 
       <BulkSelectionBar
         count={selectedCount}
@@ -1114,24 +1182,15 @@ const Contracts = () => {
                       <td className="px-4 py-3">{totalLabel}</td>
                       <td className="px-4 py-3">{formatDateTime(contract.createdAt)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => setEditingId(contract._id)} className="text-primary text-xs font-medium">
-                            {t('admin.contracts.edit')}
-                          </button>
-                          <button type="button" onClick={() => previewContract(contract)} className="text-primary text-xs font-medium">
-                            {t('admin.contracts.preview')}
-                          </button>
-                          <button type="button" onClick={() => downloadPdf(contract)} className="text-gray-700 text-xs font-medium">
-                            PDF
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteContract(contract._id)}
-                            className="text-red-700 text-xs font-medium"
-                          >
-                            {t('admin.contracts.delete')}
-                          </button>
-                        </div>
+                        <DocumentRowActions
+                          labels={actionLabels}
+                          onEdit={() => setEditingId(contract._id)}
+                          onPreview={() => previewContract(contract)}
+                          onDownload={() => downloadPdf(contract)}
+                          onWhatsApp={() => shareContractWhatsApp(contract)}
+                          onDelete={() => deleteContract(contract._id)}
+                          whatsappBusy={sharingId === contract._id}
+                        />
                       </td>
                     </tr>
                   )
