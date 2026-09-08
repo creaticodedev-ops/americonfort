@@ -21,6 +21,7 @@ export const DEFAULT_CONTRACT_CUSTOM_CSS = `
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .check-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 8px; font-size: 7.5pt; }
   .check-item::before { content: "☐ "; color: #E62117; }
+  .check-item.checked::before { content: "☑"; color: #E62117; font-weight: bold; margin-right: 6px; }
   .sign-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
   .sign-box { border: 1px solid #E62117; border-radius: 4px; min-height: 48px; padding: 4px 6px; font-size: 7.5pt; }
   .legal { font-size: 7.5pt; margin: 8px 0 4px; }
@@ -98,22 +99,46 @@ export const DEFAULT_CONTRACT_BODY = `
 <h2>Check-list état du véhicule</h2>
 <p class="muted">Cocher les éléments présents à la prise en charge. Zone AVANT / APRÈS à compléter sur place.</p>
 <div class="check-grid">
-  <span class="check-item">Carte grise</span>
-  <span class="check-item">Vignette / talon</span>
-  <span class="check-item">Visite technique</span>
-  <span class="check-item">Autorisation</span>
-  <span class="check-item">Assurance</span>
-  <span class="check-item">Contrat</span>
-  <span class="check-item">Radio</span>
-  <span class="check-item">Antenne</span>
-  <span class="check-item">Roue de secours + cric</span>
-  <span class="check-item">Rétroviseur G</span>
-  <span class="check-item">Rétroviseur D</span>
-  <span class="check-item">Enjoliveurs (4)</span>
-  <span class="check-item">Pneus (4)</span>
-  <span class="check-item">Feux antibrouillard</span>
-  <span class="check-item">Triangle</span>
-  <span class="check-item">Gilet</span>
+  <span class="check-item checked">Radio</span>
+  <span class="check-item checked">Secour + cric + manivelle</span>
+  <span class="check-item checked">Antenne</span>
+  <span class="check-item checked">Housse</span>
+  <span class="check-item checked">Phare et feux</span>
+  <span class="check-item checked">Rétroviseur droite</span>
+  <span class="check-item checked">Rétroviseur gauche</span>
+  <span class="check-item checked">Miroir droit</span>
+  <span class="check-item checked">Miroir gauche</span>
+  <span class="check-item checked">Enjoliveur AVD</span>
+  <span class="check-item checked">Enjoliveur AVG</span>
+  <span class="check-item checked">Enjoliveur ARD</span>
+  <span class="check-item checked">Enjoliveur ARG</span>
+  <span class="check-item checked">Cache roue AVD</span>
+  <span class="check-item checked">Cache roue AVG</span>
+  <span class="check-item checked">Cache roue ARD</span>
+  <span class="check-item checked">Cache roue ARG</span>
+  <span class="check-item checked">Essuie-glace arrière</span>
+  <span class="check-item checked">Pare-brise</span>
+  <span class="check-item checked">Pneu AVD</span>
+  <span class="check-item checked">Pneu AVG</span>
+  <span class="check-item checked">Pneu ARD</span>
+  <span class="check-item checked">Pneu ARG</span>
+  <span class="check-item checked">Calandre</span>
+  <span class="check-item checked">Antibrouillard droite</span>
+  <span class="check-item checked">Antibrouillard gauche</span>
+  <span class="check-item checked">Feu rouge droit</span>
+  <span class="check-item checked">Feux rouge gauche</span>
+  <span class="check-item checked">Parabole droite</span>
+  <span class="check-item checked">Parabole gauche</span>
+  <span class="check-item checked">Signale AV droit</span>
+  <span class="check-item checked">Signale AV gauche</span>
+  <span class="check-item checked">Gonfleur</span>
+  <span class="check-item checked">Antivol</span>
+  <span class="check-item checked">Table pneu de secours</span>
+  <span class="check-item checked">Baguette pour AV droite</span>
+  <span class="check-item checked">Baguette pour AV gauche</span>
+  <span class="check-item checked">Baguette pour AR droite</span>
+  <span class="check-item checked">Baguette pour AR gauche</span>
+  <span class="check-item checked">La signe</span>
 </div>
 
 <p class="legal">Je reconnais avoir pris connaissance des conditions générales de location au verso du contrat et j'accepte de m'y conformer. Le locataire est seul responsable des infractions au code de la route.</p>
