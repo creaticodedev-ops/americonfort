@@ -434,6 +434,188 @@ export const getClientDocumentDetail = async ({ ownerId, id }) => {
   };
 };
 
+const normalizeStoredUrl = (url) => String(url || '').trim().split('?')[0];
+
+const BOOKING_DOC_URL_FIELDS = [
+  'combinedDocumentUrl',
+  'combinedUrl',
+  'documentUrl',
+  'drivingLicenseUrl',
+  'drivingLicenceUrl',
+  'licenseUrl',
+  'identityDocumentUrl',
+  'identityUrl',
+  'nationalIdUrl',
+  'passportUrl',
+];
+
+const clearMatchingUrlFields = (target, url) => {
+  if (!target || !url) return false;
+  const needle = normalizeStoredUrl(url);
+  if (!needle) return false;
+  let changed = false;
+  for (const field of BOOKING_DOC_URL_FIELDS) {
+    if (normalizeStoredUrl(target[field]) === needle) {
+      target[field] = '';
+      changed = true;
+    }
+  }
+  return changed;
+};
+
+const isUrlStillReferenced = async ({ ownerId, url, excludeClientDocumentId, excludeFileId }) => {
+  const needle = normalizeStoredUrl(url);
+  if (!needle) return false;
+  const owner = asObjectId(ownerId);
+
+  const otherDocs = await ClientDocument.find({
+    owner,
+    _id: { $ne: excludeClientDocumentId },
+    $or: [
+      { documentUrl: needle },
+      { 'files.url': needle },
+    ],
+  }).select('_id').limit(1).lean();
+  if (otherDocs.length) return true;
+
+  const sameDoc = await ClientDocument.findOne({ _id: excludeClientDocumentId, owner }).lean();
+  if (sameDoc) {
+    if (normalizeStoredUrl(sameDoc.documentUrl) === needle) return true;
+    const stillInFiles = (sameDoc.files || []).some(
+      (f) => String(f._id) !== String(excludeFileId) && normalizeStoredUrl(f.url) === needle,
+    );
+    if (stillInFiles) return true;
+  }
+
+  const bookingHit = await Booking.findOne({
+    owner,
+    $or: BOOKING_DOC_URL_FIELDS.flatMap((field) => ([
+      { [`customerDocuments.${field}`]: needle },
+      { [`completion.${field}`]: needle },
+    ])),
+  }).select('_id').lean();
+
+  return Boolean(bookingHit);
+};
+
+/**
+ * Delete one archived identity file from a ClientDocument.
+ * Safe for contracts / reservations: keeps booking + customer records;
+ * only clears matching image URL references and removes the stored file
+ * when nothing else references it.
+ */
+export const deleteClientDocumentFile = async ({ ownerId, documentId, fileId }) => {
+  const owner = asObjectId(ownerId);
+  if (!owner || !mongoose.isValidObjectId(documentId)) {
+    return { ok: false, status: 400, message: 'Invalid document ID' };
+  }
+
+  const doc = await ClientDocument.findOne({ _id: documentId, owner });
+  if (!doc) {
+    return { ok: false, status: 404, message: 'Client document not found' };
+  }
+
+  doc.files = doc.files || [];
+  let removedFile = null;
+  let removedFileId = null;
+
+  if (fileId === 'primary' || fileId === 'documentUrl') {
+    const url = normalizeStoredUrl(doc.documentUrl);
+    if (!url) {
+      return { ok: false, status: 404, message: 'Document file not found' };
+    }
+    const byUrlIdx = doc.files.findIndex((f) => normalizeStoredUrl(f.url) === url);
+    if (byUrlIdx >= 0) {
+      removedFile = doc.files[byUrlIdx].toObject?.() || { ...doc.files[byUrlIdx] };
+      removedFileId = doc.files[byUrlIdx]._id;
+      doc.files.splice(byUrlIdx, 1);
+    } else {
+      removedFile = { type: doc.documentType || 'combined', url: doc.documentUrl, uploadedAt: doc.uploadedAt };
+      removedFileId = 'primary';
+    }
+    doc.documentUrl = '';
+  } else {
+    if (!mongoose.isValidObjectId(fileId)) {
+      return { ok: false, status: 400, message: 'Invalid file ID' };
+    }
+    const file = doc.files.id(fileId);
+    if (!file) {
+      return { ok: false, status: 404, message: 'Document file not found' };
+    }
+    removedFile = file.toObject?.() || { type: file.type, url: file.url, uploadedAt: file.uploadedAt };
+    removedFileId = file._id;
+    file.deleteOne();
+  }
+
+  const removedUrl = normalizeStoredUrl(removedFile?.url);
+  if (removedUrl && normalizeStoredUrl(doc.documentUrl) === removedUrl) {
+    doc.documentUrl = '';
+  }
+  if (!doc.documentUrl && doc.files.length > 0) {
+    doc.documentUrl = doc.files[doc.files.length - 1].url || '';
+    doc.documentType = doc.files[doc.files.length - 1].type || doc.documentType;
+  }
+  if (!doc.files.length) {
+    doc.documentUrl = '';
+    doc.uploadedAt = null;
+  }
+
+  await doc.save();
+
+  // Clear matching image URLs on linked bookings only — never delete bookings/contracts.
+  if (removedUrl) {
+    const bookingFilter = {
+      owner,
+      $or: [
+        { clientDocument: doc._id },
+        ...(doc.bookingIds?.length ? [{ _id: { $in: doc.bookingIds } }] : []),
+        ...BOOKING_DOC_URL_FIELDS.flatMap((field) => ([
+          { [`customerDocuments.${field}`]: removedUrl },
+          { [`completion.${field}`]: removedUrl },
+        ])),
+      ],
+    };
+    const bookings = await Booking.find(bookingFilter);
+    for (const booking of bookings) {
+      let changed = false;
+      if (!booking.customerDocuments) booking.customerDocuments = {};
+      if (!booking.completion) booking.completion = {};
+      if (clearMatchingUrlFields(booking.customerDocuments, removedUrl)) {
+        booking.markModified('customerDocuments');
+        changed = true;
+      }
+      if (clearMatchingUrlFields(booking.completion, removedUrl)) {
+        booking.markModified('completion');
+        changed = true;
+      }
+      if (changed) await booking.save();
+    }
+
+    const stillUsed = await isUrlStillReferenced({
+      ownerId: owner,
+      url: removedUrl,
+      excludeClientDocumentId: doc._id,
+      excludeFileId: removedFileId,
+    });
+    if (!stillUsed) {
+      const { deleteStoredDocumentUrl } = await import('./documentStore.js');
+      await deleteStoredDocumentUrl(removedUrl);
+    }
+  }
+
+  const detail = await getClientDocumentDetail({ ownerId: owner, id: doc._id });
+  return {
+    ok: true,
+    removedFile: {
+      _id: removedFileId,
+      type: removedFile?.type || 'other',
+      url: removedUrl,
+      uploadedAt: removedFile?.uploadedAt || null,
+    },
+    document: detail,
+  };
+};
+
 export default {
   ensureClientDocumentsSynced,
   findClientDocumentMatch,
@@ -443,4 +625,5 @@ export default {
   listClientDocuments,
   getClientDocumentDetail,
   getClientDocumentStats,
+  deleteClientDocumentFile,
 };

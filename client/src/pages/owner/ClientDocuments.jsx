@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AdminPage, PageHeader, FilterBar, SearchInput, AdminModal } from '../../components/owner/ui';
+import { AdminPage, PageHeader, FilterBar, SearchInput, AdminModal, Icon } from '../../components/owner/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../i18n/I18nContext';
 import { getErrorMessage } from '../../utils/apiError';
@@ -32,6 +32,12 @@ const emptyFilters = {
   sortBy: 'updated',
 };
 
+const resolveFileKey = (file, idx) => {
+  if (file?._id) return String(file._id);
+  if (file?.url) return `primary`;
+  return `idx-${idx}`;
+};
+
 const ClientDocuments = () => {
   const { axios } = useAppContext();
   const { t } = useI18n();
@@ -47,6 +53,8 @@ const ClientDocuments = () => {
   const [replacing, setReplacing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -140,6 +148,15 @@ const ClientDocuments = () => {
     [filters, applied],
   );
 
+  const detailFiles = useMemo(() => {
+    if (!detail) return [];
+    if (detail.files?.length) return detail.files;
+    if (detail.documentUrl) {
+      return [{ type: 'combined', url: detail.documentUrl, uploadedAt: detail.uploadedAt }];
+    }
+    return [];
+  }, [detail]);
+
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
     try {
@@ -221,6 +238,64 @@ const ClientDocuments = () => {
       toast.error(getErrorMessage(err));
     } finally {
       setReplacing(false);
+    }
+  };
+
+  const requestDeleteFile = (file, idx) => {
+    if (!selected?._id || !file) return;
+    setPendingDelete({
+      clientId: selected._id,
+      fileId: resolveFileKey(file, idx),
+      type: file.type || 'other',
+      url: file.url || '',
+      uploadedAt: file.uploadedAt || null,
+      customerName: detail?.customerName || selected?.customerName || '—',
+      customerPhone: detail?.customerPhone || selected?.customerPhone || '',
+    });
+  };
+
+  const confirmDeleteFile = async () => {
+    if (!pendingDelete?.clientId || !pendingDelete?.fileId) return;
+    setDeleting(true);
+    try {
+      const { data } = await axios.delete(
+        `/api/owner/client-documents/${pendingDelete.clientId}/files/${pendingDelete.fileId}`,
+      );
+      if (!data.success) {
+        toast.error(data.message || t('admin.clientDocuments.deleteFailed'));
+        return;
+      }
+
+      toast.success(data.message || t('admin.clientDocuments.deleteSuccess'));
+      setPendingDelete(null);
+
+      if (data.document) {
+        setDetail(data.document);
+        const remaining = data.document.documentCount ?? (
+          data.document.files?.length || (data.document.documentUrl ? 1 : 0)
+        );
+        if (remaining <= 0) {
+          setDrawerOpen(false);
+          setSelected(null);
+          setDetail(null);
+        } else {
+          setSelected((prev) => (prev ? {
+            ...prev,
+            documentCount: remaining,
+            files: data.document.files,
+            documentUrl: data.document.documentUrl,
+            updatedAt: data.document.updatedAt || prev.updatedAt,
+          } : prev));
+        }
+      }
+
+      // Refresh list + KPIs without a full page reload
+      fetchList();
+      fetchStats();
+    } catch (err) {
+      toast.error(getErrorMessage(err, t('admin.clientDocuments.deleteFailed')));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -479,18 +554,29 @@ const ClientDocuments = () => {
               <p><span className="text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.colReservations')}:</span> {detail.reservationCount || 0}</p>
             </div>
 
-            {(detail.files?.length ? detail.files : detail.documentUrl ? [{ type: 'combined', url: detail.documentUrl, uploadedAt: detail.uploadedAt }] : []).map((file, idx) => (
-              <div key={file._id || idx} className="rounded-xl border border-[var(--admin-border)] overflow-hidden">
+            {detailFiles.map((file, idx) => (
+              <div key={file._id || `${file.url}-${idx}`} className="rounded-xl border border-[var(--admin-border)] overflow-hidden">
                 <div className="flex items-center justify-between gap-2 border-b border-[var(--admin-border)] px-3 py-2 bg-[var(--admin-bg-subtle)]">
                   <div>
                     <p className="text-sm font-medium">{t(DOC_TYPE_LABELS[file.type] || DOC_TYPE_LABELS.other)}</p>
                     <p className="text-xs text-[var(--admin-fg-muted)]">{formatDate(file.uploadedAt)}</p>
                   </div>
-                  {file.url && (
-                    <a href={file.url} target="_blank" rel="noreferrer" className="admin-btn admin-btn--ghost admin-btn--sm">
-                      {t('admin.clientDocuments.download')}
-                    </a>
-                  )}
+                  <div className="admin-doc-file-actions">
+                    {file.url && (
+                      <a href={file.url} target="_blank" rel="noreferrer" className="admin-btn admin-btn--ghost admin-btn--sm">
+                        {t('admin.clientDocuments.download')}
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      className="admin-icon-btn admin-icon-btn--danger"
+                      title={t('admin.clientDocuments.deleteDocument')}
+                      aria-label={t('admin.clientDocuments.deleteDocument')}
+                      onClick={() => requestDeleteFile(file, idx)}
+                    >
+                      <Icon name="trash" className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
                 {file.url && (
                   <img src={file.url} alt="" className="max-h-64 w-full object-contain bg-[var(--admin-bg)]" />
@@ -530,6 +616,68 @@ const ClientDocuments = () => {
           </div>
         ) : (
           <p className="text-sm text-[var(--admin-fg-muted)]">{t('admin.clientDocuments.loadFailed')}</p>
+        )}
+      </AdminModal>
+
+      <AdminModal
+        open={Boolean(pendingDelete)}
+        onClose={() => { if (!deleting) setPendingDelete(null); }}
+        title={t('admin.clientDocuments.deleteTitle')}
+        size="sm"
+        variant="center"
+        closeOnBackdrop={!deleting}
+        footer={
+          <>
+            <button
+              type="button"
+              className="admin-btn admin-btn--secondary admin-modal-action"
+              onClick={() => setPendingDelete(null)}
+              disabled={deleting}
+            >
+              {t('admin.common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn--danger admin-modal-action"
+              onClick={confirmDeleteFile}
+              disabled={deleting}
+            >
+              {deleting ? t('admin.commonUi.working') : t('admin.clientDocuments.deleteConfirm')}
+            </button>
+          </>
+        }
+      >
+        {pendingDelete && (
+          <div className="admin-doc-delete-confirm">
+            <div className="admin-doc-delete-confirm__card">
+              {pendingDelete.url ? (
+                <img
+                  src={pendingDelete.url}
+                  alt=""
+                  className="admin-doc-delete-confirm__thumb"
+                />
+              ) : (
+                <span className="admin-doc-delete-confirm__thumb admin-doc-delete-confirm__thumb--empty">
+                  <Icon name="file" className="h-5 w-5" />
+                </span>
+              )}
+              <div className="admin-doc-delete-confirm__meta">
+                <p className="admin-doc-delete-confirm__type">
+                  {t(DOC_TYPE_LABELS[pendingDelete.type] || DOC_TYPE_LABELS.other)}
+                </p>
+                <p className="admin-doc-delete-confirm__sub">
+                  {t('admin.clientDocuments.deleteCustomer')}: {pendingDelete.customerName}
+                  {pendingDelete.customerPhone ? ` · ${pendingDelete.customerPhone}` : ''}
+                </p>
+                <p className="admin-doc-delete-confirm__sub">
+                  {t('admin.clientDocuments.deleteUploaded')}: {formatDate(pendingDelete.uploadedAt)}
+                </p>
+              </div>
+            </div>
+            <p className="admin-doc-delete-confirm__note">
+              {t('admin.clientDocuments.deleteMessage')}
+            </p>
+          </div>
         )}
       </AdminModal>
     </AdminPage>

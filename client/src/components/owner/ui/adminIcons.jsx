@@ -141,6 +141,15 @@ export const Icon = ({ name, className = 'h-4 w-4', ...props }) => {
           <path d="M6 6l12 12M18 6L6 18" />
         </svg>
       )
+    case 'trash':
+      return (
+        <svg {...common}>
+          <path d="M4 7h16" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" />
+          <path d="M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2" />
+        </svg>
+      )
     case 'alert':
       return (
         <svg {...common}>

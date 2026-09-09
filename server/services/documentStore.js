@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import imagekit from "../configs/imageKit.js";
 import { cleanupUploadedFile } from "../middleware/multer.js";
-import { toRelativeUploadUrl } from "../utils/uploadPaths.js";
+import { toRelativeUploadUrl, resolveLocalUploadPath } from "../utils/uploadPaths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_ASSET_DIR = path.join(__dirname, "..", "uploads", "templates");
@@ -131,4 +131,54 @@ export const storeTemplateAsset = async (file, { kind = "logo", templateId = "te
   return localUrl;
 };
 
-export default { storeDocumentImage, storeDataUrlImage, storeTemplateAsset };
+/**
+ * Best-effort delete of a stored document image (local disk and/or ImageKit).
+ * Never throws — callers treat DB cleanup as the source of truth.
+ */
+export const deleteStoredDocumentUrl = async (publicUrl) => {
+  const raw = String(publicUrl || '').trim();
+  if (!raw || raw.startsWith('data:')) return { deleted: false, reason: 'invalid' };
+
+  const canonical = raw.split('?')[0];
+  let deleted = false;
+
+  const localPath = resolveLocalUploadPath(canonical);
+  if (localPath) {
+    try {
+      fs.unlinkSync(localPath);
+      deleted = true;
+    } catch (error) {
+      console.warn('[documentStore] Local file delete failed:', error.message);
+    }
+  }
+
+  if (imageKitConfigured() && imagekit) {
+    try {
+      const endpoint = String(process.env.IMAGEKIT_URL_ENDPOINT || '').replace(/\/$/, '');
+      if (endpoint && canonical.startsWith(endpoint)) {
+        const filePath = canonical.slice(endpoint.length);
+        const fileName = path.posix.basename(filePath);
+        const folder = path.posix.dirname(filePath) || '/';
+        const listed = await imagekit.listFiles({
+          path: folder === '.' ? '/' : folder,
+          searchQuery: `name="${fileName}"`,
+          limit: 5,
+        });
+        const match = (Array.isArray(listed) ? listed : []).find((f) => {
+          const p = String(f.filePath || '');
+          return p === filePath || p.endsWith(filePath) || f.name === fileName;
+        }) || listed?.[0];
+        if (match?.fileId) {
+          await imagekit.deleteFile(match.fileId);
+          deleted = true;
+        }
+      }
+    } catch (error) {
+      console.warn('[documentStore] ImageKit file delete failed:', error.message);
+    }
+  }
+
+  return { deleted, reason: deleted ? 'ok' : 'not_found' };
+};
+
+export default { storeDocumentImage, storeDataUrlImage, storeTemplateAsset, deleteStoredDocumentUrl };

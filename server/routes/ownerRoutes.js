@@ -64,6 +64,7 @@ import {
   getOwnerClientDocument,
   getOwnerClientDocumentStats,
   replaceClientDocument,
+  deleteOwnerClientDocumentFile,
 } from "../controllers/clientDocumentController.js";
 
 const ownerRouter = express.Router();
@@ -101,6 +102,11 @@ ownerRouter.get('/client-documents/stats', ...gate('customers', 'customers'), ge
 ownerRouter.get('/client-documents/export', ...gate('customers', 'customers'), exportClientDocumentsXlsx);
 ownerRouter.get('/client-documents', ...gate('customers', 'customers'), listOwnerClientDocuments);
 ownerRouter.get('/client-documents/:id', ...gate('customers', 'customers'), getOwnerClientDocument);
+ownerRouter.delete(
+  '/client-documents/:id/files/:fileId',
+  ...gate('customers', 'customers'),
+  deleteOwnerClientDocumentFile,
+);
 ownerRouter.post(
   '/client-documents/:id/replace',
   ...gate('customers', 'customers'),

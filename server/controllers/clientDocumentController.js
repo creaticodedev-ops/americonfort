@@ -6,6 +6,7 @@ import {
   listClientDocuments,
   getClientDocumentDetail,
   getClientDocumentStats,
+  deleteClientDocumentFile,
 } from '../services/clientDocumentService.js';
 import { cleanupUploadedFile } from '../middleware/multer.js';
 import { signDocumentAccessUrl } from '../middleware/uploadAccess.js';
@@ -139,9 +140,47 @@ export const replaceClientDocument = async (req, res) => {
   }
 };
 
+export const deleteOwnerClientDocumentFile = async (req, res) => {
+  try {
+    const { id, fileId } = req.params;
+    const result = await deleteClientDocumentFile({
+      ownerId: req.user._id,
+      documentId: id,
+      fileId,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 400).json({
+        success: false,
+        message: result.message || 'Failed to delete document',
+      });
+    }
+
+    await logAudit({
+      owner: req.user._id,
+      actor: req.user._id,
+      action: 'client_document.delete_file',
+      entityType: 'ClientDocument',
+      entityId: id,
+      details: `Deleted ${result.removedFile?.type || 'document'} for ${result.document?.customerName || result.document?.customerPhone || id}`,
+    });
+
+    res.json({
+      success: true,
+      message: 'Document deleted',
+      removedFile: result.removedFile,
+      document: result.document ? mapClientDetail(result.document) : null,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ success: false, message: 'Failed to delete document' });
+  }
+};
+
 export default {
   getOwnerClientDocumentStats,
   listOwnerClientDocuments,
   getOwnerClientDocument,
   replaceClientDocument,
+  deleteOwnerClientDocumentFile,
 };

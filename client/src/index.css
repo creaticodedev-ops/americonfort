@@ -3281,6 +3281,80 @@ body.nav-open {
   box-shadow: var(--admin-focus);
 }
 
+.admin-icon-btn--danger {
+  color: var(--admin-danger);
+  border-color: color-mix(in srgb, var(--admin-danger) 28%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-danger) 6%, var(--admin-surface));
+}
+
+.admin-icon-btn--danger:hover {
+  color: #fff;
+  background: var(--admin-danger);
+  border-color: var(--admin-danger);
+}
+
+.admin-doc-file-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-doc-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.admin-doc-delete-confirm__card {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg-subtle, var(--admin-surface-hover));
+}
+
+.admin-doc-delete-confirm__thumb {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  flex-shrink: 0;
+}
+
+.admin-doc-delete-confirm__thumb--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--admin-fg-muted);
+}
+
+.admin-doc-delete-confirm__meta {
+  min-width: 0;
+}
+
+.admin-doc-delete-confirm__type {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--admin-fg);
+}
+
+.admin-doc-delete-confirm__sub {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--admin-fg-muted);
+}
+
+.admin-doc-delete-confirm__note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--admin-fg-secondary);
+}
+
 /* Stats */
 .admin-stat {
   display: flex;
