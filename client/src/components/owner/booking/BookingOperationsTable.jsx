@@ -2,7 +2,6 @@ import React from 'react'
 import ChannelBadge from '../ChannelBadge'
 import StatusBadge from '../StatusBadge'
 import BookingActionsMenu from './BookingActionsMenu'
-import BookingAttentionIndicators from './BookingAttentionIndicators'
 import {
   formatDateTimeCompact,
   getBookingAttention,
@@ -11,6 +10,9 @@ import {
   vehicleTitle,
 } from './bookingUtils'
 
+/**
+ * Desktop reservations table — fixed layout, sticky actions, no horizontal scroll.
+ */
 const BookingOperationsTable = ({
   bookings,
   loading,
@@ -32,6 +34,16 @@ const BookingOperationsTable = ({
   return (
     <div className="admin-booking-table-scroll">
       <table className="admin-table admin-booking-ops-table">
+        <colgroup>
+          <col className="admin-booking-ops-table__col-check" />
+          <col className="admin-booking-ops-table__col-res" />
+          <col className="admin-booking-ops-table__col-client" />
+          <col className="admin-booking-ops-table__col-vehicle" />
+          <col className="admin-booking-ops-table__col-schedule" />
+          <col className="admin-booking-ops-table__col-status" />
+          <col className="admin-booking-ops-table__col-total" />
+          <col className="admin-booking-ops-table__col-actions" />
+        </colgroup>
         <thead>
           <tr>
             <th className="admin-booking-ops-table__check" scope="col">
@@ -47,13 +59,15 @@ const BookingOperationsTable = ({
                 />
               </label>
             </th>
-            <th>{t('admin.bookings.reservation')}</th>
-            <th>{t('admin.bookings.customer')}</th>
-            <th>{t('admin.bookings.vehicle')}</th>
-            <th>{t('admin.bookings.schedule')}</th>
-            <th>{t('admin.bookings.status')}</th>
-            <th className="text-end">{t('admin.bookings.total')}</th>
-            <th className="text-end">{t('admin.bookings.actions')}</th>
+            <th scope="col">{t('admin.bookings.reservation')}</th>
+            <th scope="col">{t('admin.bookings.customer')}</th>
+            <th scope="col">{t('admin.bookings.vehicle')}</th>
+            <th scope="col">{t('admin.bookings.schedule')}</th>
+            <th scope="col">{t('admin.bookings.status')}</th>
+            <th className="text-end" scope="col">{t('admin.bookings.total')}</th>
+            <th className="admin-booking-ops-table__actions text-end" scope="col">
+              <span className="sr-only">{t('admin.bookings.actions')}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -93,15 +107,17 @@ const BookingOperationsTable = ({
                       />
                     </label>
                   </td>
+
                   <td>
                     <div className="admin-booking-cell-ref">
                       <span className="admin-booking-cell-ref__id">{resId(booking)}</span>
-                      <div className="admin-booking-cell-ref__meta">
-                        <ChannelBadge channel={booking.channel || 'online'} />
-                        <BookingAttentionIndicators booking={booking} compact />
-                      </div>
+                      <ChannelBadge
+                        channel={booking.channel || 'online'}
+                        className="admin-booking-cell-ref__channel"
+                      />
                     </div>
                   </td>
+
                   <td>
                     <div className="admin-booking-cell-person">
                       <span className="admin-booking-cell-person__name">
@@ -112,6 +128,7 @@ const BookingOperationsTable = ({
                       </span>
                     </div>
                   </td>
+
                   <td>
                     <div className="admin-booking-cell-vehicle">
                       <span className="admin-booking-cell-vehicle__title">{vehicleTitle(booking.car)}</span>
@@ -120,50 +137,62 @@ const BookingOperationsTable = ({
                       ) : null}
                     </div>
                   </td>
+
                   <td>
                     <div className="admin-booking-cell-schedule">
                       <div className="admin-booking-cell-schedule__row">
-                        <span className="admin-booking-cell-schedule__tag is-out">
+                        <span className="admin-booking-cell-schedule__tag is-out" title={t('admin.bookings.outShort')}>
                           {t('admin.bookings.outShort')}
                         </span>
-                        <span className="admin-booking-cell-schedule__when">
-                          {formatDateTimeCompact(booking.pickupDate)}
-                        </span>
-                        <span className="admin-booking-cell-schedule__loc">
-                          {locationShort(booking.pickupLocation)}
-                        </span>
+                        <div className="admin-booking-cell-schedule__body">
+                          <span className="admin-booking-cell-schedule__when">
+                            {formatDateTimeCompact(booking.pickupDate)}
+                          </span>
+                          <span className="admin-booking-cell-schedule__loc">
+                            {locationShort(booking.pickupLocation)}
+                          </span>
+                        </div>
                       </div>
                       <div className="admin-booking-cell-schedule__row">
-                        <span className="admin-booking-cell-schedule__tag is-in">
+                        <span className="admin-booking-cell-schedule__tag is-in" title={t('admin.bookings.inShort')}>
                           {t('admin.bookings.inShort')}
                         </span>
-                        <span className="admin-booking-cell-schedule__when">
-                          {formatDateTimeCompact(booking.returnDate)}
-                        </span>
-                        <span className="admin-booking-cell-schedule__loc">
-                          {locationShort(booking.returnLocation)}
-                        </span>
+                        <div className="admin-booking-cell-schedule__body">
+                          <span className="admin-booking-cell-schedule__when">
+                            {formatDateTimeCompact(booking.returnDate)}
+                          </span>
+                          <span className="admin-booking-cell-schedule__loc">
+                            {locationShort(booking.returnLocation)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
+
                   <td>
                     <div className="admin-booking-cell-status">
-                      <StatusBadge status={booking.status} />
-                      <div className="admin-booking-cell-status__row">
-                        <StatusBadge status={booking.paymentStatus} />
-                        <StatusBadge status={sigStatus} />
+                      <StatusBadge status={booking.status} className="admin-badge--compact" />
+                      <div className="admin-booking-cell-status__row" aria-label={t('admin.bookings.status')}>
+                        <StatusBadge status={booking.paymentStatus} className="admin-badge--compact" />
+                        <StatusBadge status={sigStatus} className="admin-badge--compact" />
                       </div>
                     </div>
                   </td>
+
                   <td className="text-end">
                     <span className="admin-booking-cell-total tabular-nums">
-                      {currency}
+                      <span className="admin-booking-cell-total__currency">{currency}</span>
                       {Number(booking.price || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </span>
                   </td>
-                  <td className="align-middle text-end" onClick={(e) => e.stopPropagation()}>
+
+                  <td
+                    className="admin-booking-ops-table__actions"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <BookingActionsMenu
                       t={t}
+                      size="sm"
                       onView={() => onSelect(booking)}
                       items={buildMoreItems(booking)}
                     />
