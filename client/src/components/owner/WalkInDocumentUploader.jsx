@@ -64,19 +64,32 @@ const FileGlyph = ({ mime, className = '' }) => {
 }
 
 /**
- * Premium multi-file customer document uploader for Walk-in desk.
+ * Premium multi-file customer document uploader (Walk-in + Reservation inspector).
  */
 const WalkInDocumentUploader = ({
   items = [],
   onChange,
   disabled = false,
   t,
+  /** Optional subset of DOC_TYPES ids (e.g. omit combined for online bookings). */
+  allowedTypes = null,
 }) => {
   const inputId = useId()
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
-  const [defaultType, setDefaultType] = useState('combined')
+  const typeOptions = useMemo(() => {
+    if (!Array.isArray(allowedTypes) || !allowedTypes.length) return DOC_TYPES
+    const set = new Set(allowedTypes)
+    return DOC_TYPES.filter((d) => set.has(d.id))
+  }, [allowedTypes])
+  const [defaultType, setDefaultType] = useState(() => typeOptions[0]?.id || 'combined')
   const dragDepth = useRef(0)
+
+  useEffect(() => {
+    if (!typeOptions.some((d) => d.id === defaultType)) {
+      setDefaultType(typeOptions[0]?.id || 'combined')
+    }
+  }, [typeOptions, defaultType])
 
   const typeLabel = useCallback(
     (id) => {
@@ -182,7 +195,7 @@ const WalkInDocumentUploader = ({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        {DOC_TYPES.map((type) => {
+        {typeOptions.map((type) => {
           const active = defaultType === type.id
           return (
             <button
@@ -347,7 +360,7 @@ const WalkInDocumentUploader = ({
                       onChange={(e) => updateItem(item.id, { docType: e.target.value })}
                       className="h-8 max-w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-2)] px-2 text-[11px] font-medium text-[var(--admin-fg)] outline-none focus:shadow-[var(--admin-focus)] disabled:opacity-60"
                     >
-                      {DOC_TYPES.map((type) => (
+                      {typeOptions.map((type) => (
                         <option key={type.id} value={type.id}>
                           {t(type.labelKey)}
                         </option>

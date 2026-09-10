@@ -6,6 +6,7 @@ import BookingRelationAssigners from '../BookingRelationAssigners'
 import { DetailSection, DetailRow } from '../ui/DetailSection'
 import { useI18n } from '../../../i18n/I18nContext'
 import { useAppContext } from '../../../context/AppContext'
+import WalkInDocumentUploader from '../WalkInDocumentUploader'
 import BookingSignaturePanel from './BookingSignaturePanel'
 import BookingActionsMenu from './BookingActionsMenu'
 import BookingMoneySummary from './BookingMoneySummary'
@@ -22,6 +23,9 @@ const formatCompactDate = (value) => {
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+
+const WALK_IN_DOC_TYPES = ['combined', 'national_id', 'driving_license', 'passport']
+const ONLINE_DOC_TYPES = ['national_id', 'driving_license', 'passport']
 
 /**
  * Reservation detail inspector — compact overview + collapsible secondary sections.
@@ -47,6 +51,7 @@ const BookingInspector = ({
   onAssignVehicle,
   onDownloadDoc,
   onUploadDoc,
+  onUploadDocuments,
   onResendLink,
   onConfirmWhatsApp,
   onGenerateInvoice,
@@ -63,9 +68,19 @@ const BookingInspector = ({
   const moreItems = useMemo(() => buildMoreItems?.(booking) || [], [booking, buildMoreItems])
   const { contractMissing, sigStatus } = getBookingAttention(booking)
   const [sigOpen, setSigOpen] = useState(false)
+  const [docItems, setDocItems] = useState([])
+  const uploadingBusy = Boolean(uploadingDoc)
+  const pendingDocCount = docItems.filter((d) => d.file && d.status !== 'success').length
+  const allowedDocTypes = isWalkIn ? WALK_IN_DOC_TYPES : ONLINE_DOC_TYPES
 
   useEffect(() => {
     setSigOpen(false)
+    setDocItems((prev) => {
+      prev.forEach((d) => {
+        if (d.previewUrl) URL.revokeObjectURL(d.previewUrl)
+      })
+      return []
+    })
   }, [booking._id])
 
   const goToSignature = () => {
@@ -316,71 +331,65 @@ const BookingInspector = ({
         </DetailSection>
 
         <DetailSection title={t('admin.details.documents')} collapsible defaultOpen={false}>
-          {isWalkIn ? (
-            <>
-              <div className="admin-booking-signature-actions mb-1">
+          <div className="space-y-4">
+            <div className="admin-booking-signature-actions flex flex-wrap gap-2">
+              {isWalkIn ? (
                 <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('combined')}>
                   ↓ {t('admin.walkIn.uploadCombined')}
                 </button>
-              </div>
-              <label className={labelClass}>{t('admin.walkIn.uploadCombined')}</label>
-              <input
-                type="file"
-                accept="image/*"
-                disabled={uploadingDoc === 'combined'}
-                onChange={(e) => {
-                  onUploadDoc(e.target.files?.[0], 'combined')
-                  e.target.value = ''
+              ) : null}
+              <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('driving_license')}>
+                ↓ {t('admin.bookings.downloadLicense')}
+              </button>
+              <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('identity')}>
+                ↓ {t('admin.bookings.downloadId')}
+              </button>
+              <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('passport')}>
+                ↓ {t('admin.bookings.downloadPassport')}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-[var(--admin-fg-muted)] leading-relaxed">
+              {t('admin.walkIn.uploadDocumentsHintMulti')}
+            </p>
+
+            <WalkInDocumentUploader
+              items={docItems}
+              onChange={setDocItems}
+              disabled={uploadingBusy}
+              allowedTypes={allowedDocTypes}
+              t={t}
+            />
+
+            {pendingDocCount > 0 && (
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary admin-btn--sm"
+                disabled={uploadingBusy || !onUploadDocuments}
+                onClick={async () => {
+                  if (!onUploadDocuments) return
+                  const result = await onUploadDocuments(docItems, {
+                    onItemUpdate: (id, patch) => {
+                      setDocItems((list) => list.map((d) => (d.id === id ? { ...d, ...patch } : d)))
+                    },
+                  })
+                  if (result?.clearOnSuccess) {
+                    setDocItems((list) => {
+                      const keep = list.filter((d) => d.status !== 'success')
+                      list.forEach((d) => {
+                        if (d.status === 'success' && d.previewUrl) URL.revokeObjectURL(d.previewUrl)
+                      })
+                      return keep
+                    })
+                  }
                 }}
-                className="admin-booking-file-input"
-              />
-              <p className="mt-1 text-[11px] text-[var(--admin-fg-muted)]">
-                {t('admin.walkIn.uploadCombinedHint')}
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="admin-booking-signature-actions mb-1">
-                <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('driving_license')}>
-                  ↓ {t('admin.bookings.downloadLicense')}
-                </button>
-                <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('identity')}>
-                  ↓ {t('admin.bookings.downloadId')}
-                </button>
-                <button type="button" className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => onDownloadDoc('passport')}>
-                  ↓ {t('admin.bookings.downloadPassport')}
-                </button>
-              </div>
-              <label className={labelClass}>{t('admin.bookings.uploadLicense')}</label>
-              <input
-                type="file"
-                accept="image/*"
-                disabled={uploadingDoc === 'driving_license'}
-                onChange={(e) => {
-                  onUploadDoc(e.target.files?.[0], 'driving_license')
-                  e.target.value = ''
-                }}
-                className="admin-booking-file-input"
-              />
-              <div className="mt-2">
-                <select className={inputClass} value={identityType} onChange={(e) => onIdentityTypeChange(e.target.value)}>
-                  <option value="national_id">{t('admin.bookings.nationalId')}</option>
-                  <option value="passport">{t('admin.bookings.passport')}</option>
-                </select>
-              </div>
-              <label className={`${labelClass} mt-2`}>{t('admin.bookings.uploadIdentity')}</label>
-              <input
-                type="file"
-                accept="image/*"
-                disabled={uploadingDoc === 'identity'}
-                onChange={(e) => {
-                  onUploadDoc(e.target.files?.[0], 'identity')
-                  e.target.value = ''
-                }}
-                className="admin-booking-file-input"
-              />
-            </>
-          )}
+              >
+                {uploadingBusy
+                  ? t('admin.commonUi.working')
+                  : t('admin.bookings.uploadPendingDocs', { count: pendingDocCount })}
+              </button>
+            )}
+          </div>
         </DetailSection>
 
         <DetailSection title={t('admin.details.notes')} collapsible defaultOpen={false}>

@@ -226,6 +226,8 @@ export const appendTypedClientDocumentFile = async ({
     }
   }
   if (!doc) {
+    const channel = booking.channel || 'online';
+    const walkIn = channel === 'walk_in' || channel === 'walk-in';
     doc = new ClientDocument({
       owner,
       customerKey: buildCustomerKey(identity),
@@ -237,7 +239,11 @@ export const appendTypedClientDocumentFile = async ({
       files: [],
       syncedLegacyKeys: [],
       bookingIds: [],
-      channelFlags: { walkIn: true, online: false, channels: ['walk_in'] },
+      channelFlags: {
+        walkIn: Boolean(walkIn),
+        online: !walkIn,
+        channels: [channel],
+      },
     });
   }
 
@@ -251,7 +257,7 @@ export const appendTypedClientDocumentFile = async ({
     url: documentUrl,
     uploadedAt: now,
     sourceBookingId: bookingId,
-    channel: booking.channel || 'walk_in',
+    channel: booking.channel || 'online',
   });
   if (!doc.documentUrl) {
     doc.documentUrl = documentUrl;

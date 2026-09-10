@@ -103,28 +103,26 @@ export const uploadBookingDocuments = async (req, res) => {
     await booking.save();
 
     let clientDocumentId = null;
-    if (isWalkInChannel(booking.channel)) {
-      const archiveType =
-        docType === 'driving_license'
-          ? 'driving_license'
-          : docType === 'passport'
+    const archiveType =
+      docType === 'driving_license'
+        ? 'driving_license'
+        : docType === 'passport'
+          ? 'passport'
+          : identityType === 'passport'
             ? 'passport'
-            : identityType === 'passport'
-              ? 'passport'
-              : 'national_id';
-      const clientDoc = await appendTypedClientDocumentFile({
-        ownerId: req.user._id,
-        booking,
-        fileType: archiveType,
-        documentUrl: url,
-        uploadedBy: req.user._id,
-        existingClientDocumentId: booking.clientDocument || null,
-      });
-      clientDocumentId = clientDoc?._id || null;
-      if (clientDocumentId && !booking.clientDocument) {
-        booking.clientDocument = clientDocumentId;
-        await booking.save();
-      }
+            : 'national_id';
+    const clientDoc = await appendTypedClientDocumentFile({
+      ownerId: req.user._id,
+      booking,
+      fileType: archiveType,
+      documentUrl: url,
+      uploadedBy: req.user._id,
+      existingClientDocumentId: booking.clientDocument || null,
+    });
+    clientDocumentId = clientDoc?._id || null;
+    if (clientDocumentId && !booking.clientDocument) {
+      booking.clientDocument = clientDocumentId;
+      await booking.save();
     }
 
     await logAudit({

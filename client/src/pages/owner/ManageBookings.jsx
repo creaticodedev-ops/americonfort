@@ -480,26 +480,87 @@ const ManageBookings = () => {
     }
   }
 
-  const uploadDocument = async (bookingId, file, docType) => {
-    if (!file) return
-    setUploadingDoc(docType)
+  const uploadDocument = async (bookingId, file, docType, { identityType: idType } = {}) => {
+    if (!file) return { success: false }
+    setUploadingDoc(docType || 'batch')
     try {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('docType', docType)
-      if (docType === 'identity') formData.append('identityType', identityType)
+      if (docType === 'identity') {
+        formData.append('identityType', idType || identityType || 'national_id')
+      }
+      if (docType === 'combined') {
+        formData.append('replaceExisting', 'false')
+      }
 
       const { data } = await axios.post(`/api/bookings/owner/${bookingId}/documents`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       if (data.success) {
-        toast.success(data.message)
-        fetchOwnerBookings()
-      } else {
-        toast.error(data.message)
+        return data
       }
+      toast.error(data.message)
+      return data
     } catch (error) {
       toast.error(getErrorMessage(error))
+      return { success: false, message: getErrorMessage(error) }
+    } finally {
+      setUploadingDoc('')
+    }
+  }
+
+  const mapDocTypeToApi = (docType) => {
+    if (docType === 'driving_license') return { docType: 'driving_license' }
+    if (docType === 'passport') return { docType: 'passport' }
+    if (docType === 'national_id') return { docType: 'identity', identityType: 'national_id' }
+    return { docType: 'combined' }
+  }
+
+  const uploadDocumentsBatch = async (items, { onItemUpdate } = {}) => {
+    if (!selectedBooking?._id || !Array.isArray(items)) return { clearOnSuccess: false }
+    const pending = items.filter((d) => d.file && d.status !== 'success')
+    if (!pending.length) return { clearOnSuccess: false }
+
+    setUploadingDoc('batch')
+    let okCount = 0
+    try {
+      for (const item of pending) {
+        onItemUpdate?.(item.id, { status: 'uploading', error: null })
+        const mapped = mapDocTypeToApi(item.docType)
+        try {
+          const formData = new FormData()
+          formData.append('file', item.file)
+          formData.append('docType', mapped.docType)
+          if (mapped.identityType) formData.append('identityType', mapped.identityType)
+          if (mapped.docType === 'combined') formData.append('replaceExisting', 'false')
+
+          const { data } = await axios.post(
+            `/api/bookings/owner/${selectedBooking._id}/documents`,
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+          )
+          if (data?.success) {
+            okCount += 1
+            onItemUpdate?.(item.id, { status: 'success' })
+          } else {
+            onItemUpdate?.(item.id, {
+              status: 'error',
+              error: data?.message || t('admin.walkIn.docUploadFailed'),
+            })
+          }
+        } catch (error) {
+          onItemUpdate?.(item.id, {
+            status: 'error',
+            error: getErrorMessage(error, t('admin.walkIn.docUploadFailed')),
+          })
+        }
+      }
+      if (okCount > 0) {
+        toast.success(t('admin.walkIn.docUploadSuccess', { count: okCount }))
+        fetchOwnerBookings()
+      }
+      return { clearOnSuccess: okCount > 0 }
     } finally {
       setUploadingDoc('')
     }
@@ -685,6 +746,7 @@ const ManageBookings = () => {
         onAssignVehicle: (carId) => assignVehicle(selectedBooking._id, carId),
         onDownloadDoc: (docType) => downloadDocument(selectedBooking._id, docType),
         onUploadDoc: (file, docType) => uploadDocument(selectedBooking._id, file, docType),
+        onUploadDocuments: uploadDocumentsBatch,
         onResendLink: () => resendCompletionLink(selectedBooking._id),
         onConfirmWhatsApp: () => confirmViaWhatsApp(selectedBooking),
         onGenerateInvoice: () => openGenerateInvoice(selectedBooking),
