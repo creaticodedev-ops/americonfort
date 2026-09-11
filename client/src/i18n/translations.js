@@ -77,6 +77,13 @@ export const en = {
     next: 'Next review',
     progress: 'Review slides',
     slide: 'Review {{n}}',
+    trustEyebrow: 'Americonfort',
+    trustTitle: 'Book with a real local agency',
+    trustSubtitle:
+      'Clear pricing, visible fleet, and direct contact. Reserve online or reach us before you travel — we confirm every request.',
+    seeOnGoogle: 'Find us on Google →',
+    contactUs: 'Contact Americonfort →',
+    browseFleet: 'Browse the fleet →',
   },
   whatsappHelp: {
     eyebrow: 'Need help?',
@@ -103,6 +110,7 @@ export const en = {
     categoryLabel: 'Category',
     categoryCount: '{{count}} vehicles',
     airportLink: 'Airport rental — Casablanca Mohammed V',
+    casablancaLink: 'Car rental in Casablanca',
   },
   carDetails: {
     back: 'Back to all cars',
@@ -201,6 +209,7 @@ export const en = {
     home: 'Home',
     browseCars: 'Browse Cars',
     airportRental: 'Casablanca airport',
+    casablancaRental: 'Car rental Casablanca',
     aboutUs: 'About Us',
     helpCenter: 'Help Center',
     termsOfService: 'Terms of Service',
@@ -402,6 +411,13 @@ export const fr = {
     next: 'Avis suivant',
     progress: 'Diapositives d’avis',
     slide: 'Avis {{n}}',
+    trustEyebrow: 'Americonfort',
+    trustTitle: 'Réservez avec une agence locale réelle',
+    trustSubtitle:
+      'Tarifs clairs, flotte visible et contact direct. Réservez en ligne ou écrivez-nous avant le voyage — chaque demande est confirmée.',
+    seeOnGoogle: 'Nous trouver sur Google →',
+    contactUs: 'Contacter Americonfort →',
+    browseFleet: 'Voir la flotte →',
   },
   whatsappHelp: {
     eyebrow: 'Besoin d’aide ?',
@@ -428,6 +444,7 @@ export const fr = {
     categoryLabel: 'Catégorie',
     categoryCount: '{{count}} véhicules',
     airportLink: 'Location aéroport — Casablanca Mohammed V',
+    casablancaLink: 'Location de voiture à Casablanca',
   },
   carDetails: {
     back: 'Retour aux voitures',
@@ -525,6 +542,7 @@ export const fr = {
     home: 'Accueil',
     browseCars: 'Parcourir les voitures',
     airportRental: 'Aéroport Casablanca',
+    casablancaRental: 'Location Casablanca',
     aboutUs: 'À propos',
     helpCenter: 'Centre d\'aide',
     termsOfService: 'Conditions d\'utilisation',
@@ -726,6 +744,13 @@ export const es = {
     next: 'Reseña siguiente',
     progress: 'Diapositivas de reseñas',
     slide: 'Reseña {{n}}',
+    trustEyebrow: 'Americonfort',
+    trustTitle: 'Reserve con una agencia local real',
+    trustSubtitle:
+      'Precios claros, flota visible y contacto directo. Reserve en línea o escríbanos antes del viaje — confirmamos cada solicitud.',
+    seeOnGoogle: 'Encuéntrenos en Google →',
+    contactUs: 'Contactar Americonfort →',
+    browseFleet: 'Ver la flota →',
   },
   whatsappHelp: {
     eyebrow: '¿Necesita ayuda?',
@@ -752,6 +777,7 @@ export const es = {
     categoryLabel: 'Categoría',
     categoryCount: '{{count}} vehículos',
     airportLink: 'Alquiler aeropuerto — Casablanca Mohammed V',
+    casablancaLink: 'Alquiler de coche en Casablanca',
   },
   carDetails: {
     back: 'Volver a todos los coches',
@@ -849,6 +875,7 @@ export const es = {
     home: 'Inicio',
     browseCars: 'Ver coches',
     airportRental: 'Aeropuerto Casablanca',
+    casablancaRental: 'Alquiler Casablanca',
     aboutUs: 'Sobre nosotros',
     helpCenter: 'Centro de ayuda',
     termsOfService: 'Términos de servicio',

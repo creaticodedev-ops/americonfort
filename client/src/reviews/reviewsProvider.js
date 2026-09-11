@@ -15,7 +15,7 @@
  * @property {number|null} [time]
  *
  * @typedef {Object} ReviewsPayload
- * @property {'demo'|'google'} source
+ * @property {'demo'|'google'|'none'} source
  * @property {number} rating
  * @property {number} totalReviews
  * @property {ReviewItem[]} reviews
@@ -23,8 +23,15 @@
  * @property {string|null} writeReviewUrl
  */
 
-/** @type {'demo'|'google'} */
-export const REVIEWS_SOURCE = 'demo'
+/**
+ * Production never ships fabricated testimonials to Google/users.
+ * Demo data is for local UI preview only (`npm run dev`).
+ * Set VITE_REVIEWS_SOURCE=google when a real GBP integration is wired.
+ * @type {'demo'|'google'|'none'}
+ */
+export const REVIEWS_SOURCE =
+  import.meta.env.VITE_REVIEWS_SOURCE?.trim() ||
+  (import.meta.env.PROD ? 'none' : 'demo')
 
 const DEMO_AVATARS = {
   lea: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&h=96&q=80',
@@ -292,6 +299,18 @@ export function getDemoReviewsPayload(language = 'en') {
   }
 }
 
+/** Empty payload — no fabricated ratings or quotes. */
+export function getEmptyReviewsPayload() {
+  return {
+    source: 'none',
+    rating: null,
+    totalReviews: null,
+    reviews: [],
+    mapsUrl: import.meta.env.VITE_GOOGLE_MAPS_URL?.trim() || null,
+    writeReviewUrl: import.meta.env.VITE_GOOGLE_WRITE_REVIEW_URL?.trim() || null,
+  }
+}
+
 /**
  * Single entry point for the Reviews section.
  * Later: if REVIEWS_SOURCE === 'google', fetch from API and normalize to this shape.
@@ -303,6 +322,9 @@ export async function getReviewsPayload({ language = 'en' } = {}) {
     // Placeholder for future Google Business Profile integration.
     // return fetchGoogleReviewsPayload({ language })
     throw new Error('Google reviews provider is not configured yet.')
+  }
+  if (REVIEWS_SOURCE === 'none') {
+    return getEmptyReviewsPayload()
   }
   return getDemoReviewsPayload(language)
 }

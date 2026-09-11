@@ -18,10 +18,12 @@ export const BUSINESS = {
 }
 
 export const AIRPORT_LANDING_PATH = '/location-voiture-casablanca-aeroport'
+export const CASABLANCA_LANDING_PATH = '/location-voiture-casablanca'
 
 export const PUBLIC_INDEXABLE_PATHS = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
   { path: '/cars', changefreq: 'daily', priority: '0.9' },
+  { path: CASABLANCA_LANDING_PATH, changefreq: 'weekly', priority: '0.92' },
   { path: AIRPORT_LANDING_PATH, changefreq: 'weekly', priority: '0.95' },
   { path: '/about', changefreq: 'monthly', priority: '0.6' },
   { path: '/contact', changefreq: 'monthly', priority: '0.7' },

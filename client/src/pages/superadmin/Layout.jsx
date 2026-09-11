@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { NavLink, Outlet, Navigate } from 'react-router-dom'
 import { useSuperAdmin } from '../../context/SuperAdminContext'
 import { BRAND_NAME } from '../../constants/brand'
+import Seo from '../../components/Seo'
 
 const links = [
   { to: '/superadmin', end: true, label: 'Overview' },
@@ -35,6 +36,7 @@ const SuperAdminLayout = () => {
 
   return (
     <div className="min-h-svh flex flex-col bg-[#0c1219] text-slate-100">
+      <Seo title="Super admin" path="/superadmin" noindex />
       <header className="border-b border-white/10 bg-[#0a0f14]/90 backdrop-blur sticky top-0 z-20">
         <div className="page-pad py-3 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-4 min-w-0">

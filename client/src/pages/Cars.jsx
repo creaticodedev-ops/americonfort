@@ -10,7 +10,7 @@ import { useI18n } from '../i18n/I18nContext'
 import { getErrorMessage } from '../utils/apiError'
 import { VEHICLE_CATEGORIES, groupCarsByCategory } from '../utils/vehicleCategories'
 import { getCarLocations } from '../utils/carLocations'
-import { AIRPORT_LANDING_PATH } from '../constants/site'
+import { AIRPORT_LANDING_PATH, CASABLANCA_LANDING_PATH } from '../constants/site'
 import { buildBreadcrumbList, buildOrganization } from '../seo/structuredData'
 import { trackSearchCars, trackViewItemList } from '../utils/ga'
 
@@ -166,6 +166,14 @@ const Cars = () => {
 
   const showGrouped = !activeCategory && !input.trim() && sections.length > 1
   const loading = (carsLoading || searchLoading) && !filteredCars.length
+  const hasFilterQuery = Boolean(
+    pickupLocation ||
+      urlPickupDate ||
+      urlReturnDate ||
+      categoryParam ||
+      searchParams.get('q') ||
+      [...searchParams.keys()].length > 0,
+  )
 
   return (
     <div className="ac-home pb-16 sm:pb-24">
@@ -173,6 +181,7 @@ const Cars = () => {
         title={t('cars.seoTitle')}
         description={t('cars.seoDescription')}
         path="/cars"
+        noindex={hasFilterQuery}
         jsonLd={jsonLd}
       />
 
@@ -236,7 +245,10 @@ const Cars = () => {
             </nav>
           ) : null}
 
-          <p className="mt-5 text-center">
+          <p className="mt-5 text-center flex flex-wrap justify-center gap-x-4 gap-y-2">
+            <Link to={CASABLANCA_LANDING_PATH} className="ac-text-link">
+              {t('cars.casablancaLink')}
+            </Link>
             <Link to={AIRPORT_LANDING_PATH} className="ac-text-link">
               {t('cars.airportLink')}
             </Link>

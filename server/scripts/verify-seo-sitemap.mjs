@@ -11,6 +11,7 @@ const CANONICAL = 'https://www.americonfort.com'
 const requiredPaths = [
   '/',
   '/cars',
+  '/location-voiture-casablanca',
   '/location-voiture-casablanca-aeroport',
   '/about',
   '/contact',

@@ -18,6 +18,7 @@ const CompleteBooking = lazyWithRetry(() => import('./pages/CompleteBooking'))
 const NotFound = lazyWithRetry(() => import('./pages/NotFound'))
 const Login = lazyWithRetry(() => import('./components/Login'))
 const AirportLanding = lazyWithRetry(() => import('./pages/AirportLanding'))
+const CasablancaLanding = lazyWithRetry(() => import('./pages/CasablancaLanding'))
 const About = lazyWithRetry(() => import('./pages/About'))
 const Contact = lazyWithRetry(() => import('./pages/Contact'))
 const Faq = lazyWithRetry(() => import('./pages/Faq'))
@@ -179,6 +180,7 @@ const App = () => {
                 <Route path="/car-details/:id" element={<CarDetails />} />
                 <Route path="/cars" element={<Cars />} />
                 <Route path="/location-voiture-casablanca-aeroport" element={<AirportLanding />} />
+                <Route path="/location-voiture-casablanca" element={<CasablancaLanding />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/faq" element={<Faq />} />

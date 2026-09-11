@@ -166,27 +166,33 @@ app.get("/health", async (_req, res) => {
 });
 
 const { getPublicSitemap } = await import("./controllers/sitemapController.js");
+const { applySpaSeoToHtml, isPrivatePath } = await import("./utils/spaSeo.js");
 app.get("/sitemap.xml", getPublicSitemap);
 
-/** Prerendered local SEO landing — crawlable HTML without the SPA shell. */
-const airportStaticHtml = path.join(
-  clientDistPath,
-  "location-voiture-casablanca-aeroport",
-  "index.html"
-);
-const sendAirportLanding = (_req, res, next) => {
-  const file = fs.existsSync(airportStaticHtml)
-    ? airportStaticHtml
-    : path.join(
-        __dirname,
-        "../client/public/location-voiture-casablanca-aeroport/index.html"
-      );
+/** Prerendered local SEO landings — crawlable HTML without the SPA shell. */
+const sendStaticLanding = (distSubdir, publicFallback) => (_req, res, next) => {
+  const distFile = path.join(clientDistPath, distSubdir, "index.html");
+  const file = fs.existsSync(distFile)
+    ? distFile
+    : path.join(__dirname, publicFallback);
   if (!fs.existsSync(file)) return next();
   res.setHeader("Cache-Control", "public, max-age=3600");
   return res.sendFile(path.resolve(file));
 };
+
+const sendAirportLanding = sendStaticLanding(
+  "location-voiture-casablanca-aeroport",
+  "../client/public/location-voiture-casablanca-aeroport/index.html"
+);
+const sendCasablancaLanding = sendStaticLanding(
+  "location-voiture-casablanca",
+  "../client/public/location-voiture-casablanca/index.html"
+);
+
 app.get("/location-voiture-casablanca-aeroport", sendAirportLanding);
 app.get("/location-voiture-casablanca-aeroport/", sendAirportLanding);
+app.get("/location-voiture-casablanca", sendCasablancaLanding);
+app.get("/location-voiture-casablanca/", sendCasablancaLanding);
 
 if (hasBuiltClient) {
   app.use(express.static(clientDistPath, { index: false }));
@@ -203,6 +209,15 @@ app.use("/api/contracts", contractRouter);
 app.use("/api/invoices", invoiceRouter);
 app.use("/api/export-templates", exportTemplateRouter);
 
+const indexFile = hasBuiltClient ? path.join(clientDistPath, "index.html") : clientIndexPath;
+let cachedSpaHtml = null;
+const readSpaHtml = () => {
+  if (cachedSpaHtml && hasBuiltClient) return cachedSpaHtml;
+  const html = fs.readFileSync(indexFile, "utf8");
+  if (hasBuiltClient) cachedSpaHtml = html;
+  return html;
+};
+
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/")) {
     return next();
@@ -212,14 +227,29 @@ app.use((req, res, next) => {
     return next();
   }
 
-  const indexFile = hasBuiltClient ? path.join(clientDistPath, "index.html") : clientIndexPath;
+  const pathname = String(req.path || "/").split("?")[0] || "/";
+  const hasQuery = Boolean(req.url && String(req.url).includes("?"));
+
+  if (isPrivatePath(pathname)) {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  } else if (pathname.startsWith("/cars") && hasQuery) {
+    res.setHeader("X-Robots-Tag", "noindex, follow");
+  }
+
   if (fs.existsSync(indexFile)) {
     res.setHeader(
       "Cache-Control",
       "no-store, no-cache, must-revalidate, max-age=0",
     );
     res.setHeader("Pragma", "no-cache");
-    return res.sendFile(indexFile);
+    try {
+      const injected = applySpaSeoToHtml(readSpaHtml(), { pathname, hasQuery });
+      res.type("html").send(injected);
+      return;
+    } catch (err) {
+      console.warn("[spa-seo]", err?.message || err);
+      return res.sendFile(indexFile);
+    }
   }
 
   return next();

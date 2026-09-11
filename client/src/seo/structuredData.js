@@ -55,6 +55,18 @@ export const buildAutoRental = ({ url = SITE_URL, description = BUSINESS.descrip
   parentOrganization: { '@id': orgId },
 })
 
+/** Sitewide WebSite entity — no SearchAction until a public search URL exists. */
+export const buildWebSite = () => ({
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': `${SITE_URL}/#website`,
+  name: BUSINESS.name,
+  url: SITE_URL,
+  description: BUSINESS.description,
+  publisher: { '@id': orgId },
+  inLanguage: ['en', 'fr', 'es'],
+})
+
 export const buildBreadcrumbList = (items = []) => ({
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',

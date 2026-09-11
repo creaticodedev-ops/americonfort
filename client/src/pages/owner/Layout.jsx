@@ -7,6 +7,10 @@ import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../i18n/I18nContext'
 import { AdminThemeProvider, useAdminTheme } from '../../context/AdminThemeContext'
 import { OWNER_SIDEBAR_COLLAPSED_KEY } from '../../components/owner/ownerNavConfig'
+import Seo from '../../components/Seo'
+
+// Owner-only dashboard CSS — keep it out of the public marketing bundle.
+import '../../styles/admin-dash.css'
 
 const readCollapsed = () => {
   try {
@@ -61,6 +65,7 @@ const AdminShell = () => {
   if (licenseLocked) {
     return (
       <div className="admin-app admin-shell" data-theme={resolved} data-rtl={isRtl ? 'true' : 'false'} dir={dir}>
+        <Seo title="Owner portal" path="/owner" noindex />
         <NavbarOwner />
         <TrialExpired />
       </div>
@@ -69,6 +74,7 @@ const AdminShell = () => {
 
   return (
     <div className="admin-app admin-shell" data-theme={resolved} data-rtl={isRtl ? 'true' : 'false'} dir={dir}>
+      <Seo title="Owner portal" path="/owner" noindex />
       <NavbarOwner
         onOpenNav={() => setMobileNavOpen(true)}
         navOpen={mobileNavOpen}

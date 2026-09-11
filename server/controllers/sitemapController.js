@@ -7,6 +7,7 @@ const CANONICAL_SITE = 'https://www.americonfort.com';
 const STATIC_PATHS = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
   { path: '/cars', changefreq: 'daily', priority: '0.9' },
+  { path: '/location-voiture-casablanca', changefreq: 'weekly', priority: '0.92' },
   { path: '/location-voiture-casablanca-aeroport', changefreq: 'weekly', priority: '0.95' },
   { path: '/about', changefreq: 'monthly', priority: '0.6' },
   { path: '/contact', changefreq: 'monthly', priority: '0.7' },

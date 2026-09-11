@@ -5,6 +5,7 @@ import {
   buildAutoRental,
   buildOrganization,
   buildBreadcrumbList,
+  buildWebSite,
 } from '../seo/structuredData'
 import { lazyWithRetry } from '../utils/lazyWithRetry'
 
@@ -21,6 +22,7 @@ const Home = () => {
   const jsonLd = useMemo(
     () => [
       buildOrganization(),
+      buildWebSite(),
       buildAutoRental(),
       buildBreadcrumbList([{ name: 'Home', path: '/' }]),
     ],

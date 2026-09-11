@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Title from './Title'
 import { useI18n } from '../i18n/I18nContext'
 import { getReviewsPayload } from '../reviews/reviewsProvider'
@@ -68,7 +69,14 @@ const ReviewsSection = () => {
         setPayload(data)
         setIndex(0)
       } catch {
-        if (!cancelled) setPayload(null)
+        if (!cancelled) setPayload({
+          source: 'none',
+          rating: null,
+          totalReviews: null,
+          reviews: [],
+          mapsUrl: null,
+          writeReviewUrl: null,
+        })
       }
     })()
     return () => {
@@ -80,6 +88,7 @@ const ReviewsSection = () => {
   const count = reviews.length
   const ratingLabel = formatRating(payload?.rating)
   const isDemo = payload?.source === 'demo'
+  const isEmptyTrust = payload?.source === 'none' || (!isDemo && count === 0 && payload?.rating == null)
 
   const goTo = useCallback(
     (next) => {
@@ -131,6 +140,50 @@ const ReviewsSection = () => {
       : null
 
   const trackOffset = isRtl ? index * 100 : -index * 100
+
+  /* Production: no fabricated quotes — legitimate contact / GBP CTA only. */
+  if (isEmptyTrust) {
+    return (
+      <section className="ac-section g-reviews g-reviews--trust" aria-label={t('testimonials.trustTitle')}>
+        <div className="page-pad page-shell">
+          <Title
+            align="left"
+            eyebrow={t('testimonials.trustEyebrow')}
+            title={t('testimonials.trustTitle')}
+            subTitle={t('testimonials.trustSubtitle')}
+          />
+          <div className="g-reviews-actions" style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <Link to="/contact" className="ac-text-link">
+              {t('testimonials.contactUs')}
+            </Link>
+            <Link to="/cars" className="ac-text-link">
+              {t('testimonials.browseFleet')}
+            </Link>
+            {payload.mapsUrl ? (
+              <a
+                className="ac-text-link"
+                href={payload.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t('testimonials.seeOnGoogle')}
+              </a>
+            ) : null}
+            {payload.writeReviewUrl ? (
+              <a
+                className="ac-text-link"
+                href={payload.writeReviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t('testimonials.shareExperience')}
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="ac-section g-reviews" aria-label={t('testimonials.title')}>

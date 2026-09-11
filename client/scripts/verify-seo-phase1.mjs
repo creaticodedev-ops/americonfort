@@ -47,6 +47,7 @@ if (!fs.existsSync(airportHtmlPath)) {
     ['AutoRental JSON-LD', /"@type":\s*"AutoRental"/],
     ['BreadcrumbList JSON-LD', /"@type":\s*"BreadcrumbList"/],
     ['fleet link', /href="\/cars"/],
+    ['city cross-link', /href="\/location-voiture-casablanca"/],
     ['no SPA root required', /<div id="root">/],
   ]
   for (const [label, re] of checks) {
@@ -57,6 +58,30 @@ if (!fs.existsSync(airportHtmlPath)) {
     }
     if (re.test(html)) ok(`airport static: ${label}`)
     else bad(`airport static: ${label}`)
+  }
+}
+
+const casaHtmlPath = path.join(dist, 'location-voiture-casablanca', 'index.html')
+if (!fs.existsSync(casaHtmlPath)) {
+  bad('Casablanca prerender HTML missing in dist')
+} else {
+  const html = fs.readFileSync(casaHtmlPath, 'utf8')
+  const checks = [
+    ['title', /<title>Location voiture Casablanca/i],
+    ['canonical', /rel="canonical"[^>]+location-voiture-casablanca"/i],
+    ['H1', /<h1>Location de voiture à Casablanca<\/h1>/],
+    ['FAQPage JSON-LD', /"@type":\s*"FAQPage"/],
+    ['airport cross-link', /location-voiture-casablanca-aeroport/],
+    ['no SPA root', /<div id="root">/],
+  ]
+  for (const [label, re] of checks) {
+    if (label === 'no SPA root') {
+      if (re.test(html)) bad(label, 'casablanca page should be static')
+      else ok(`casablanca static: ${label}`)
+      continue
+    }
+    if (re.test(html)) ok(`casablanca static: ${label}`)
+    else bad(`casablanca static: ${label}`)
   }
 }
 
@@ -71,10 +96,21 @@ if (fs.existsSync(path.join(dist, 'sitemap.xml'))) {
 }
 
 const indexHtml = fs.readFileSync(path.join(dist, 'index.html'), 'utf8')
-if (indexHtml.includes('"@type": "AutoRental"') && indexHtml.includes('"@type": "Organization"')) {
-  ok('index.html Organization + AutoRental JSON-LD')
+if (
+  indexHtml.includes('"@type": "AutoRental"') &&
+  indexHtml.includes('"@type": "Organization"') &&
+  indexHtml.includes('"@type": "WebSite"')
+) {
+  ok('index.html Organization + AutoRental + WebSite JSON-LD')
 } else {
-  bad('index.html Organization + AutoRental JSON-LD')
+  bad('index.html Organization + AutoRental + WebSite JSON-LD')
+}
+
+const reviewsProvider = fs.readFileSync(path.join(clientRoot, 'src/reviews/reviewsProvider.js'), 'utf8')
+if (reviewsProvider.includes("PROD ? 'none'") || (reviewsProvider.includes('REVIEWS_SOURCE') && reviewsProvider.includes("'none'"))) {
+  ok('demo reviews disabled in production path')
+} else {
+  bad('demo reviews should not ship as default in production')
 }
 
 const carCard = fs.readFileSync(path.join(clientRoot, 'src/components/CarCard.jsx'), 'utf8')
@@ -101,6 +137,7 @@ if (apiBase) {
     if (text.includes('www.americonfort.com')) ok('sitemap uses www canonical host')
     else bad('sitemap uses www canonical host')
     for (const p of [
+      '/location-voiture-casablanca',
       '/location-voiture-casablanca-aeroport',
       '/about',
       '/contact',

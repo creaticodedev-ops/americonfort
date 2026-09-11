@@ -48,6 +48,16 @@ export const airportLanding = {
       ],
       categories: VEHICLE_CATEGORIES.filter((c) => c !== 'Other'),
     },
+    {
+      id: 'city',
+      h2: 'Location de voiture à Casablanca (ville)',
+      paragraphs: [
+        'Pour une recherche orientée ville plutôt qu’aéroport, consultez aussi notre page dédiée à la location de voiture à Casablanca.',
+      ],
+      links: [
+        { href: '/location-voiture-casablanca', label: 'Location voiture Casablanca' },
+      ],
+    },
   ],
   faq: [
     {

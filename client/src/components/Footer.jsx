@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/I18nContext'
 import { Link } from 'react-router-dom'
 import { BRAND_NAME } from '../constants/brand'
 import { FACEBOOK_URL, INSTAGRAM_URL, TWITTER_URL } from '../constants/social'
-import { AIRPORT_LANDING_PATH, BUSINESS } from '../constants/site'
+import { AIRPORT_LANDING_PATH, BUSINESS, CASABLANCA_LANDING_PATH } from '../constants/site'
 import { trackContactSubmit, trackPhoneClick } from '../utils/ga'
 
 const Footer = () => {
@@ -56,6 +56,7 @@ const Footer = () => {
               <ul className="ac-footer__list">
                 <li><Link to="/">{t('footer.home')}</Link></li>
                 <li><Link to="/cars">{t('footer.browseCars')}</Link></li>
+                <li><Link to={CASABLANCA_LANDING_PATH}>{t('footer.casablancaRental')}</Link></li>
                 <li><Link to={AIRPORT_LANDING_PATH}>{t('footer.airportRental')}</Link></li>
                 <li><Link to="/about">{t('footer.aboutUs')}</Link></li>
                 <li><Link to="/contact">{t('footer.contact')}</Link></li>
