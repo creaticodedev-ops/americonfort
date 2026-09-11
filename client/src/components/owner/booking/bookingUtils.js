@@ -80,25 +80,30 @@ export const getBookingAttention = (booking) => {
  * Other filter fields are preserved when applying a scope.
  */
 export const OPS_SCOPES = [
-  { id: 'all', clear: ['status', 'paymentStatus', 'pickupDateFrom', 'pickupDateTo', 'returnDateFrom', 'returnDateTo'] },
-  { id: 'attention', patch: { status: 'pending', paymentStatus: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
-  { id: 'pickupToday', patch: (today) => ({ status: '', paymentStatus: '', pickupDateFrom: today, pickupDateTo: today, returnDateFrom: '', returnDateTo: '' }) },
-  { id: 'returnToday', patch: (today) => ({ status: '', paymentStatus: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: today, returnDateTo: today }) },
-  { id: 'onRent', patch: { status: 'active', paymentStatus: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
-  { id: 'ready', patch: { status: 'ready_for_pickup', paymentStatus: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
-  { id: 'unpaid', patch: { status: '', paymentStatus: 'pending', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
+  { id: 'all', clear: ['status', 'paymentStatus', 'opsScope', 'pickupDateFrom', 'pickupDateTo', 'returnDateFrom', 'returnDateTo'] },
+  { id: 'attention', patch: { status: 'pending', paymentStatus: '', opsScope: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
+  { id: 'pickupToday', patch: (today) => ({ status: '', paymentStatus: '', opsScope: '', pickupDateFrom: today, pickupDateTo: today, returnDateFrom: '', returnDateTo: '' }) },
+  { id: 'returnToday', patch: (today) => ({ status: '', paymentStatus: '', opsScope: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: today, returnDateTo: today }) },
+  /**
+   * On rent = currently out: pipeline statuses with pickup already reached.
+   * Matches ops dashboard / fleet “en location” (not only status === active).
+   */
+  { id: 'onRent', patch: { status: '', paymentStatus: '', opsScope: 'onRent', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
+  { id: 'ready', patch: { status: 'ready_for_pickup', paymentStatus: '', opsScope: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
+  { id: 'unpaid', patch: { status: '', paymentStatus: 'pending', opsScope: '', pickupDateFrom: '', pickupDateTo: '', returnDateFrom: '', returnDateTo: '' } },
 ]
 
 export const resolveOpsScope = (filters) => {
   const today = isoDateLocal()
   const f = filters || {}
-  if (f.status === 'pending' && !f.paymentStatus && !f.pickupDateFrom && !f.returnDateFrom) return 'attention'
-  if (f.status === 'active' && !f.pickupDateFrom && !f.returnDateFrom) return 'onRent'
-  if (f.status === 'ready_for_pickup' && !f.pickupDateFrom && !f.returnDateFrom) return 'ready'
-  if (f.paymentStatus === 'pending' && !f.status && !f.pickupDateFrom && !f.returnDateFrom) return 'unpaid'
-  if (f.pickupDateFrom === today && f.pickupDateTo === today && !f.returnDateFrom) return 'pickupToday'
-  if (f.returnDateFrom === today && f.returnDateTo === today && !f.pickupDateFrom) return 'returnToday'
-  if (!f.status && !f.paymentStatus && !f.pickupDateFrom && !f.returnDateFrom) return 'all'
+  if (f.opsScope === 'onRent' && !f.status && !f.pickupDateFrom && !f.returnDateFrom) return 'onRent'
+  if (f.status === 'pending' && !f.paymentStatus && !f.opsScope && !f.pickupDateFrom && !f.returnDateFrom) return 'attention'
+  if (f.status === 'active' && !f.opsScope && !f.pickupDateFrom && !f.returnDateFrom) return 'onRent'
+  if (f.status === 'ready_for_pickup' && !f.opsScope && !f.pickupDateFrom && !f.returnDateFrom) return 'ready'
+  if (f.paymentStatus === 'pending' && !f.status && !f.opsScope && !f.pickupDateFrom && !f.returnDateFrom) return 'unpaid'
+  if (f.pickupDateFrom === today && f.pickupDateTo === today && !f.returnDateFrom && !f.opsScope) return 'pickupToday'
+  if (f.returnDateFrom === today && f.returnDateTo === today && !f.pickupDateFrom && !f.opsScope) return 'returnToday'
+  if (!f.status && !f.paymentStatus && !f.opsScope && !f.pickupDateFrom && !f.returnDateFrom) return 'all'
   return 'custom'
 }
 

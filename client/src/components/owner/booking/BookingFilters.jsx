@@ -25,7 +25,14 @@ const BookingFilters = ({
   const { t } = useI18n()
   const activeScope = resolveOpsScope(filters)
 
-  const set = (key, value) => onChange({ ...filters, [key]: value })
+  const set = (key, value) => {
+    const next = { ...filters, [key]: value }
+    // Manual advanced filters supersede the ops chip semantics
+    if (key !== 'opsScope' && filters.opsScope) {
+      next.opsScope = ''
+    }
+    onChange(next)
+  }
 
   const applyQuick = (e) => {
     e?.preventDefault()

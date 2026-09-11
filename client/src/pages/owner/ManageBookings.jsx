@@ -52,6 +52,7 @@ const emptyFilters = {
   pickupDateTo: '',
   returnDateFrom: '',
   returnDateTo: '',
+  opsScope: '',
 }
 
 const emptyEdit = {

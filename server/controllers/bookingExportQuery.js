@@ -28,12 +28,24 @@ export const parseOwnerBookingFilters = (query = {}) => ({
   createdTo: query.createdTo,
   category: query.category,
   licensePlate: query.licensePlate,
+  opsScope: query.opsScope,
 });
 
+/**
+ * Shared owner reservation list/export query builder.
+ * Keep list API + Excel export in lockstep.
+ */
 export const buildOwnerBookingQuery = (ownerId, filters = {}) => {
   const query = { owner: ownerId };
 
-  if (filters.status) query.status = filters.status;
+  // “En location / On rent”: currently out (aligned with ops dashboard).
+  if (filters.opsScope === 'onRent') {
+    query.status = { $in: ['confirmed', 'ready_for_pickup', 'active'] };
+    query.pickupDate = { ...(query.pickupDate || {}), $lte: new Date() };
+  } else if (filters.status) {
+    query.status = filters.status;
+  }
+
   if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
   if (filters.channel) {
     const channelMatch = channelQuery(filters.channel);
@@ -41,12 +53,13 @@ export const buildOwnerBookingQuery = (ownerId, filters = {}) => {
   }
 
   if (filters.pickupDateFrom || filters.pickupDateTo) {
-    query.pickupDate = {};
+    query.pickupDate = { ...(query.pickupDate || {}) };
     if (filters.pickupDateFrom) query.pickupDate.$gte = new Date(filters.pickupDateFrom);
     if (filters.pickupDateTo) {
       const end = new Date(filters.pickupDateTo);
       end.setHours(23, 59, 59, 999);
-      query.pickupDate.$lte = end;
+      const existingLte = query.pickupDate.$lte;
+      query.pickupDate.$lte = existingLte && existingLte < end ? existingLte : end;
     }
   }
 
@@ -71,7 +84,6 @@ export const buildOwnerBookingQuery = (ownerId, filters = {}) => {
   }
 
   const regexFields = [
-    ['pickupLocation', 'pickupLocation'],
     ['dropoffLocation', 'returnLocation'],
     ['customerName', 'customerName'],
     ['phone', 'customerPhone'],
@@ -85,14 +97,36 @@ export const buildOwnerBookingQuery = (ownerId, filters = {}) => {
     }
   }
 
+  const andClauses = [];
+
+  if (filters.pickupLocation) {
+    const locTerm = { $regex: escapeRegex(String(filters.pickupLocation).trim()), $options: 'i' };
+    andClauses.push({
+      $or: [
+        { pickupLocation: locTerm },
+        { returnLocation: locTerm },
+      ],
+    });
+  }
+
   if (filters.search) {
-    const term = escapeRegex(filters.search);
-    query.$or = [
-      { customerName: { $regex: term, $options: 'i' } },
-      { customerEmail: { $regex: term, $options: 'i' } },
-      { customerPhone: { $regex: term, $options: 'i' } },
-      { reservationId: { $regex: term, $options: 'i' } },
-    ];
+    const term = escapeRegex(String(filters.search).trim());
+    andClauses.push({
+      $or: [
+        { customerName: { $regex: term, $options: 'i' } },
+        { customerEmail: { $regex: term, $options: 'i' } },
+        { customerPhone: { $regex: term, $options: 'i' } },
+        { reservationId: { $regex: term, $options: 'i' } },
+        { pickupLocation: { $regex: term, $options: 'i' } },
+        { returnLocation: { $regex: term, $options: 'i' } },
+      ],
+    });
+  }
+
+  if (andClauses.length === 1) {
+    Object.assign(query, andClauses[0]);
+  } else if (andClauses.length > 1) {
+    query.$and = andClauses;
   }
 
   return query;
