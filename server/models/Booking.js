@@ -300,6 +300,10 @@ bookingSchema.index({ owner: 1, createdAt: -1 });
 bookingSchema.index({ owner: 1, customerEmail: 1 });
 bookingSchema.index({ owner: 1, channel: 1, createdAt: -1 });
 bookingSchema.index({ owner: 1, status: 1, createdAt: 1 });
+bookingSchema.index({ owner: 1, status: 1, pickupDate: 1, returnDate: 1 });
+bookingSchema.index({ owner: 1, status: 1, returnDate: 1 });
+bookingSchema.index({ owner: 1, customerPhone: 1 });
+bookingSchema.index({ owner: 1, reservationId: 1 });
 bookingSchema.index({ "completion.tokenHash": 1 });
 
 const Booking = mongoose.model("Booking", bookingSchema);

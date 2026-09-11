@@ -273,6 +273,15 @@ app.listen(PORT, async () => {
   } catch (err) {
     console.error('[pending-expiry] failed to start job:', err.message);
   }
+  // Warm Chromium so the first contract/invoice PDF is not paying cold-start latency.
+  if (String(process.env.PDF_BROWSER_WARMUP || 'true').toLowerCase() !== 'false') {
+    setTimeout(() => {
+      import('./utils/launchPdfBrowser.js')
+        .then(({ launchPdfBrowser }) => launchPdfBrowser())
+        .then(() => console.log('[pdf] Chromium warm and ready'))
+        .catch((err) => console.warn('[pdf] warmup skipped:', err.message));
+    }, 1500);
+  }
 });
 
 export default app;

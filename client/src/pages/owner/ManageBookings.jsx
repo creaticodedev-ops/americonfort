@@ -153,7 +153,11 @@ const ManageBookings = () => {
   }
 
   useEffect(() => {
-    fetchOwnerBookings()
+    const timer = window.setTimeout(() => {
+      fetchOwnerBookings()
+    }, 180)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryString])
 
   useEffect(() => {

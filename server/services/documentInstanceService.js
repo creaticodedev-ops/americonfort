@@ -330,12 +330,16 @@ export const buildContractSourceData = async (booking, {
   template,
   includeCompanyStamp = true,
   agency = {},
+  /** Reuse variables from PDF generation to skip a second signature/asset embed pass. */
+  variables: providedVariables = null,
 } = {}) => {
-  const bookingObj = await embedCompletionSignatures(
-    booking?.toObject ? booking.toObject() : booking,
-  );
+  const bookingObj = providedVariables
+    ? (booking?.toObject ? booking.toObject() : booking)
+    : await embedCompletionSignatures(
+      booking?.toObject ? booking.toObject() : booking,
+    );
   const templateObj = template?.toObject ? template.toObject() : template;
-  const variables = buildTemplateVariables(bookingObj, {
+  const variables = providedVariables || buildTemplateVariables(bookingObj, {
     contractNumber,
     owner,
     template: templateObj,

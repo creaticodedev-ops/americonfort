@@ -85,6 +85,7 @@ export const upsertContractFromBooking = async ({
     owner,
     template: templateObj,
     includeCompanyStamp,
+    variables,
   });
   // Prefer variables returned from PDF gen (same stamp/signature embeds)
   sourceData.variables = variables || sourceData.variables;
@@ -307,23 +308,25 @@ export const generateContract = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid booking ID' });
     }
 
-    const ownerUser = await User.findById(req.user._id).select('documentSettings agencyName email');
+    const [ownerUser, booking, existing] = await Promise.all([
+      User.findById(req.user._id).select('documentSettings agencyName email'),
+      Booking.findOne({
+        _id: bookingId,
+        owner: req.user._id,
+      }).populate('car'),
+      Contract.findOne({ owner: req.user._id, booking: bookingId }).select('_id contractNumber sourceLocked'),
+    ]);
+
     const includeCompanyStamp = resolveIncludeCompanyStamp({
       bodyValue: req.body?.includeCompanyStamp,
       owner: ownerUser || req.user,
       documentType: 'contracts',
     });
 
-    const booking = await Booking.findOne({
-      _id: bookingId,
-      owner: req.user._id,
-    }).populate('car');
-
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    const existing = await Contract.findOne({ owner: req.user._id, booking: bookingId }).select('_id contractNumber sourceLocked');
     if (existing?.sourceLocked && !forceFromBooking) {
       return res.status(409).json({
         success: false,

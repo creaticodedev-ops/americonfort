@@ -8,7 +8,7 @@ import {
   renderTemplate,
 } from './templateEngine.js';
 import { publicUploadUrl } from './pdfDocuments.js';
-import { launchPdfBrowser } from '../utils/launchPdfBrowser.js';
+import { withPdfPage } from '../utils/launchPdfBrowser.js';
 import { resolveImageAsDataUri } from '../utils/uploadPaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -86,11 +86,9 @@ const embedTemplateAssetUrls = async (template = {}, { includeCompanyStamp = tru
 
 const renderHtmlToPdf = async (html, filePath, pageSize = 'A4', { tightMargins = false } = {}) => {
   const preparedHtml = await embedRemoteImagesAsDataUris(html);
-  const browser = await launchPdfBrowser();
+  ensureDir(path.dirname(filePath));
 
-  try {
-    const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(45_000);
+  await withPdfPage(async (page) => {
     // Prefer load over networkidle0 — remote beacons/CDNs must not block PDF generation.
     await page.setContent(preparedHtml, { waitUntil: 'load', timeout: 45_000 });
     await page.emulateMediaType('print');
@@ -103,15 +101,24 @@ const renderHtmlToPdf = async (html, filePath, pageSize = 'A4', { tightMargins =
       printBackground: true,
       margin,
     });
-  } finally {
-    await browser.close();
-  }
+  });
 };
 
-export const generatePdfFromTemplate = async ({ template, variables, filePath, title = 'Document' }) => {
+export const generatePdfFromTemplate = async ({
+  template,
+  variables,
+  filePath,
+  title = 'Document',
+  /** When true, skip a second logo/stamp embed (caller already prepared the template). */
+  assetsReady = false,
+  /** Optional prebuilt HTML — skips buildDocumentHtml when provided. */
+  html: providedHtml = null,
+}) => {
   ensureDir(path.dirname(filePath));
-  const readyTemplate = await embedTemplateAssetUrls(template);
-  const fullHtml = buildDocumentHtml(readyTemplate, variables);
+  const readyTemplate = assetsReady
+    ? (template?.toObject ? template.toObject() : template)
+    : await embedTemplateAssetUrls(template);
+  const fullHtml = providedHtml || buildDocumentHtml(readyTemplate, variables);
   const html = fullHtml.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
   const isInvoice = String(readyTemplate?.type || template?.type || '').toLowerCase() === 'invoice';
   await renderHtmlToPdf(html, filePath, readyTemplate?.pageSize || 'A4', { tightMargins: isInvoice });
@@ -159,6 +166,8 @@ export const generateContractPdf = async ({ template, booking, contractNumber, o
     variables,
     filePath,
     title: `Contract ${contractNumber}`,
+    assetsReady: true,
+    html: fullHtml,
   });
 
   return {
@@ -207,6 +216,8 @@ export const generateDocumentFromTemplate = async ({
     variables,
     filePath,
     title: documentTitle || readyTemplate.name || template.name,
+    assetsReady: true,
+    html: fullHtml,
   });
 
   return {

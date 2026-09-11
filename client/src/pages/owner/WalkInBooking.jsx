@@ -19,6 +19,10 @@ import { isPhoneValid } from '../../utils/phoneValidation'
 import { buildWalkInQuote, normalizeDeskDiscountInput } from '../../utils/deskPricing'
 import { useWalkInDraft } from '../../hooks/useWalkInDraft'
 import { buildWalkInVehicleOptions } from '../../utils/walkInVehicleOptions'
+import {
+  getCachedOwnerDirectory,
+  setCachedOwnerDirectory,
+} from '../../utils/ownerDirectoryCache'
 
 const emptySecondDriver = {
   enabled: false,
@@ -107,7 +111,7 @@ const Section = ({ title, subtitle, children }) => (
 )
 
 const WalkInBooking = () => {
-  const { axios, currency, pickupLocations } = useAppContext()
+  const { axios, currency, pickupLocations, user } = useAppContext()
   const { t, language } = useI18n()
   const [cars, setCars] = useState([])
   const [fleetSummary, setFleetSummary] = useState(null)
@@ -209,25 +213,43 @@ const WalkInBooking = () => {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      const ownerKey = user?._id || 'owner'
+      const cachedSamsars = getCachedOwnerDirectory(ownerKey, 'samsars')
+      const cachedPartners = getCachedOwnerDirectory(ownerKey, 'partners')
+      if (cachedSamsars) setSamsars(cachedSamsars)
+      if (cachedPartners) setPartners(cachedPartners)
+      if (cachedSamsars && cachedPartners) {
+        setDirectoriesLoading(false)
+        return
+      }
+
       setDirectoriesLoading(true)
       try {
         const [samsarRes, partnerRes] = await Promise.allSettled([
-          axios.get('/api/owner/samsars?limit=200&status=active'),
-          axios.get('/api/owner/partner-companies?limit=200&status=active'),
+          cachedSamsars
+            ? Promise.resolve({ data: { success: true, items: cachedSamsars } })
+            : axios.get('/api/owner/samsars?limit=200&status=active'),
+          cachedPartners
+            ? Promise.resolve({ data: { success: true, items: cachedPartners } })
+            : axios.get('/api/owner/partner-companies?limit=200&status=active'),
         ])
         if (cancelled) return
         if (samsarRes.status === 'fulfilled' && samsarRes.value.data.success) {
-          setSamsars(samsarRes.value.data.items || [])
+          const items = samsarRes.value.data.items || []
+          setSamsars(items)
+          setCachedOwnerDirectory(ownerKey, 'samsars', items)
         }
         if (partnerRes.status === 'fulfilled' && partnerRes.value.data.success) {
-          setPartners(partnerRes.value.data.items || [])
+          const items = partnerRes.value.data.items || []
+          setPartners(items)
+          setCachedOwnerDirectory(ownerKey, 'partners', items)
         }
       } finally {
         if (!cancelled) setDirectoriesLoading(false)
       }
     })()
     return () => { cancelled = true }
-  }, [axios])
+  }, [axios, user?._id])
 
   const brokerOptions = useMemo(() => [
     ...samsars.map((s) => ({

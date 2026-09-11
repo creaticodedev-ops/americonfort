@@ -78,15 +78,38 @@ export const logoToDataUri = (logoUrl) => {
 /**
  * Resolve any stored image URL (local, ImageKit, absolute) to a data URI.
  * Used before Puppeteer so PDF generation does not depend on live network/CDN.
+ * In-memory LRU cache avoids re-fetching the same logo/stamp on every PDF.
  */
+const IMAGE_URI_CACHE = new Map();
+const IMAGE_URI_CACHE_MAX = 48;
+
+const cacheImageUri = (key, value) => {
+  if (!key || !value) return value;
+  if (IMAGE_URI_CACHE.has(key)) IMAGE_URI_CACHE.delete(key);
+  IMAGE_URI_CACHE.set(key, value);
+  while (IMAGE_URI_CACHE.size > IMAGE_URI_CACHE_MAX) {
+    const oldest = IMAGE_URI_CACHE.keys().next().value;
+    IMAGE_URI_CACHE.delete(oldest);
+  }
+  return value;
+};
+
 export const resolveImageAsDataUri = async (imageUrl, { timeoutMs = 12_000 } = {}) => {
   if (!imageUrl) return null;
   const raw = String(imageUrl).trim();
   if (!raw) return null;
   if (raw.startsWith('data:image')) return raw;
 
+  const cached = IMAGE_URI_CACHE.get(raw);
+  if (cached) {
+    // Refresh LRU order
+    IMAGE_URI_CACHE.delete(raw);
+    IMAGE_URI_CACHE.set(raw, cached);
+    return cached;
+  }
+
   const local = logoToDataUri(raw);
-  if (local) return local;
+  if (local) return cacheImageUri(raw, local);
 
   const src = signDocumentAccessUrl(raw, 60 * 60);
   if (!src || !/^https?:\/\//i.test(src)) return null;
@@ -104,7 +127,7 @@ export const resolveImageAsDataUri = async (imageUrl, { timeoutMs = 12_000 } = {
     if (!contentType.startsWith('image/')) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (!buf.length || buf.length > 8 * 1024 * 1024) return null;
-    return `data:${contentType};base64,${buf.toString('base64')}`;
+    return cacheImageUri(raw, `data:${contentType};base64,${buf.toString('base64')}`);
   } catch (error) {
     console.warn('[IMAGE] Could not resolve remote image:', src.slice(0, 120), error.message);
     return null;

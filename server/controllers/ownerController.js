@@ -237,9 +237,15 @@ export const getOwnerCars = async (req, res) => {
       ];
     }
 
-    const cars = await Car.find(filter).sort({ fleetId: 1, createdAt: -1 }).lean();
-    const branches = await Car.distinct('branch', { owner: _id, branch: { $nin: ['', null] } });
-    const { operationalStatusFor } = await resolveFleetOperationalMap(_id);
+    const carsPromise = Car.find(filter).sort({ fleetId: 1, createdAt: -1 }).lean();
+    const branchesPromise = Car.distinct('branch', { owner: _id, branch: { $nin: ['', null] } });
+    const opsPromise = resolveFleetOperationalMap(_id);
+
+    const [cars, branches, { operationalStatusFor }] = await Promise.all([
+      carsPromise,
+      branchesPromise,
+      opsPromise,
+    ]);
 
     const enriched = cars.map((car) => {
       const operationalStatus = operationalStatusFor(car);
@@ -512,24 +518,41 @@ export const getDashboardData = async (req, res) => {
 
     const [
       cars,
-      totalBookings,
-      pendingBookings,
-      confirmedBookings,
-      activeBookings,
-      completedBookings,
-      todayBookings,
+      bookingStatsAgg,
       upcomingPickups,
       upcomingReturns,
       recentBookings,
-      monthlyRevenueAgg,
     ] = await Promise.all([
       Car.find({ owner: _id }).select('isAvaliable').lean(),
-      Booking.countDocuments({ owner: _id }),
-      Booking.countDocuments({ owner: _id, status: 'pending' }),
-      Booking.countDocuments({ owner: _id, status: 'confirmed' }),
-      Booking.countDocuments({ owner: _id, status: 'active' }),
-      Booking.countDocuments({ owner: _id, status: 'completed' }),
-      Booking.countDocuments({ owner: _id, createdAt: { $gte: today } }),
+      Booking.aggregate([
+        { $match: { owner: ownerOid } },
+        {
+          $facet: {
+            counts: [
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: 1 },
+                  pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+                  confirmed: { $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] } },
+                  active: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
+                  completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                  today: { $sum: { $cond: [{ $gte: ['$createdAt', today] }, 1, 0] } },
+                },
+              },
+            ],
+            monthlyRevenue: [
+              {
+                $match: {
+                  status: { $in: ['confirmed', 'active', 'completed'] },
+                  createdAt: { $gte: startOfMonth },
+                },
+              },
+              { $group: { _id: null, total: { $sum: '$price' } } },
+            ],
+          },
+        },
+      ]),
       Booking.find({
         owner: _id,
         status: { $in: ['confirmed', 'active'] },
@@ -545,34 +568,25 @@ export const getDashboardData = async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(5)
         .lean(),
-      Booking.aggregate([
-        {
-          $match: {
-            owner: ownerOid,
-            status: { $in: ['confirmed', 'active', 'completed'] },
-            createdAt: { $gte: startOfMonth },
-          },
-        },
-        { $group: { _id: null, total: { $sum: '$price' } } },
-      ]),
     ]);
 
+    const counts = bookingStatsAgg[0]?.counts?.[0] || {};
+    const monthlyRevenue = bookingStatsAgg[0]?.monthlyRevenue?.[0]?.total || 0;
     const totalCars = cars.length;
     const availableVehicles = cars.filter((car) => car.isAvaliable).length;
     const rentedVehicles = totalCars - availableVehicles;
     const occupancyRate = totalCars > 0 ? Math.round((rentedVehicles / totalCars) * 100) : 0;
-    const monthlyRevenue = monthlyRevenueAgg[0]?.total || 0;
 
     res.json({
       success: true,
       dashboardData: {
         totalCars,
-        totalBookings,
-        pendingBookings,
-        confirmedBookings,
-        activeBookings,
-        completedBookings,
-        todayBookings,
+        totalBookings: counts.total || 0,
+        pendingBookings: counts.pending || 0,
+        confirmedBookings: counts.confirmed || 0,
+        activeBookings: counts.active || 0,
+        completedBookings: counts.completed || 0,
+        todayBookings: counts.today || 0,
         availableVehicles,
         rentedVehicles,
         occupancyRate,

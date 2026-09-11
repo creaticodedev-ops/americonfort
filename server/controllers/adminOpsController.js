@@ -44,8 +44,6 @@ const weekKey = (date) => {
   return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
 };
 
-const sumPrice = (rows) => (rows[0]?.total || 0);
-
 const bookedDaysFromRows = (rows, monthStart, dayEnd) =>
   rows.reduce((sum, b) => {
     const start = new Date(Math.max(new Date(b.pickupDate), monthStart));
@@ -73,22 +71,10 @@ export const getOpsDashboard = async (req, res) => {
     const listFields = 'reservationId customerName pickupDate returnDate status channel price createdAt car';
     const now = new Date();
 
-    const walkInMatch = { channel: 'walk_in' };
-    const onlineMatch = { channel: { $ne: 'walk_in' } };
-
     const [
       cars,
-      totalBookings,
-      onlineBookings,
-      walkInBookings,
-      todayBookings,
-      onlineBookingsToday,
-      walkInBookingsToday,
+      bookingStatsAgg,
       onRentBookings,
-      pendingBookings,
-      monthlyRevenueAgg,
-      onlineRevenueMonthAgg,
-      walkInRevenueMonthAgg,
       upcomingPickups,
       upcomingReturns,
       overdueRentals,
@@ -96,12 +82,86 @@ export const getOpsDashboard = async (req, res) => {
       utilizationRows,
     ] = await Promise.all([
       Car.find({ owner: ownerId }).select('isAvaliable status').lean(),
-      Booking.countDocuments({ owner: ownerId }),
-      Booking.countDocuments({ owner: ownerId, ...onlineMatch }),
-      Booking.countDocuments({ owner: ownerId, ...walkInMatch }),
-      Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today } }),
-      Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today }, ...onlineMatch }),
-      Booking.countDocuments({ owner: ownerId, createdAt: { $gte: today }, ...walkInMatch }),
+      // One collection scan replaces many countDocuments + revenue aggregates
+      Booking.aggregate([
+        { $match: { owner: ownerOid } },
+        {
+          $facet: {
+            counts: [
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: 1 },
+                  online: {
+                    $sum: { $cond: [{ $ne: ['$channel', 'walk_in'] }, 1, 0] },
+                  },
+                  walkIn: {
+                    $sum: { $cond: [{ $eq: ['$channel', 'walk_in'] }, 1, 0] },
+                  },
+                  pending: {
+                    $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] },
+                  },
+                  today: {
+                    $sum: { $cond: [{ $gte: ['$createdAt', today] }, 1, 0] },
+                  },
+                  onlineToday: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            { $gte: ['$createdAt', today] },
+                            { $ne: ['$channel', 'walk_in'] },
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                  walkInToday: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            { $gte: ['$createdAt', today] },
+                            { $eq: ['$channel', 'walk_in'] },
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+            monthlyRevenue: [
+              {
+                $match: {
+                  status: { $in: revenueStatuses },
+                  createdAt: { $gte: monthStart },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: '$price' },
+                  online: {
+                    $sum: {
+                      $cond: [{ $ne: ['$channel', 'walk_in'] }, '$price', 0],
+                    },
+                  },
+                  walkIn: {
+                    $sum: {
+                      $cond: [{ $eq: ['$channel', 'walk_in'] }, '$price', 0],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ]),
       // Vehicles currently out: pickup reached, status still on-rent (includes overdue returns)
       Booking.find({
         owner: ownerId,
@@ -110,19 +170,6 @@ export const getOpsDashboard = async (req, res) => {
       })
         .select('car')
         .lean(),
-      Booking.countDocuments({ owner: ownerId, status: 'pending' }),
-      Booking.aggregate([
-        { $match: { owner: ownerOid, status: { $in: revenueStatuses }, createdAt: { $gte: monthStart } } },
-        { $group: { _id: null, total: { $sum: '$price' } } },
-      ]),
-      Booking.aggregate([
-        { $match: { owner: ownerOid, status: { $in: revenueStatuses }, createdAt: { $gte: monthStart }, ...onlineMatch } },
-        { $group: { _id: null, total: { $sum: '$price' } } },
-      ]),
-      Booking.aggregate([
-        { $match: { owner: ownerOid, status: { $in: revenueStatuses }, createdAt: { $gte: monthStart }, ...walkInMatch } },
-        { $group: { _id: null, total: { $sum: '$price' } } },
-      ]),
       Booking.find({
         owner: ownerId,
         status: { $in: operationalStatuses },
@@ -151,6 +198,7 @@ export const getOpsDashboard = async (req, res) => {
         .select(listFields)
         .populate('car', 'brand model')
         .sort({ returnDate: 1 })
+        .limit(50)
         .lean(),
       Booking.find({ owner: ownerId })
         .select(listFields)
@@ -167,9 +215,18 @@ export const getOpsDashboard = async (req, res) => {
         .lean(),
     ]);
 
-    const monthlyRevenue = sumPrice(monthlyRevenueAgg);
-    const onlineRevenueMonth = sumPrice(onlineRevenueMonthAgg);
-    const walkInRevenueMonth = sumPrice(walkInRevenueMonthAgg);
+    const counts = bookingStatsAgg[0]?.counts?.[0] || {};
+    const revenueRow = bookingStatsAgg[0]?.monthlyRevenue?.[0] || {};
+    const totalBookings = counts.total || 0;
+    const onlineBookings = counts.online || 0;
+    const walkInBookings = counts.walkIn || 0;
+    const todayBookings = counts.today || 0;
+    const onlineBookingsToday = counts.onlineToday || 0;
+    const walkInBookingsToday = counts.walkInToday || 0;
+    const pendingBookings = counts.pending || 0;
+    const monthlyRevenue = revenueRow.total || 0;
+    const onlineRevenueMonth = revenueRow.online || 0;
+    const walkInRevenueMonth = revenueRow.walkIn || 0;
 
     const rentedCarIds = new Set(
       onRentBookings.map((b) => (b.car ? String(b.car) : '')).filter(Boolean),

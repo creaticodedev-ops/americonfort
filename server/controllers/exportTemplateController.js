@@ -40,6 +40,10 @@ const withAbsoluteAssets = (template) => {
 const BUILTIN_CONTRACT_VERSION = 9;
 const BUILTIN_INVOICE_VERSION = 10;
 
+/** Skip repeated seed work for warm owners (templates rarely change mid-session). */
+const TEMPLATE_SEED_CACHE = new Map();
+const TEMPLATE_SEED_TTL_MS = 10 * 60 * 1000;
+
 /**
  * Ensure each owner has seed contract + invoice templates.
  * Admin Export Templates are the single source of truth: never overwrite
@@ -48,6 +52,12 @@ const BUILTIN_INVOICE_VERSION = 10;
 export const ensureDefaultTemplates = async (ownerId) => {
   const owner = resolveOwnerId(ownerId);
   if (!owner) return;
+
+  const cacheKey = String(owner);
+  const cachedAt = TEMPLATE_SEED_CACHE.get(cacheKey);
+  if (cachedAt && Date.now() - cachedAt < TEMPLATE_SEED_TTL_MS) {
+    return;
+  }
 
   const contractDefaults = {
     name: 'Contrat de Location',
@@ -138,6 +148,7 @@ export const ensureDefaultTemplates = async (ownerId) => {
 
   await normalizeDefaults('contract', 'builtin_contract');
   await normalizeDefaults('invoice', 'builtin_invoice');
+  TEMPLATE_SEED_CACHE.set(cacheKey, Date.now());
 };
 
 export const listExportTemplates = async (req, res) => {
