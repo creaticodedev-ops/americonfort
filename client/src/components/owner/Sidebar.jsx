@@ -67,29 +67,33 @@ const SidebarNav = ({
   }
 
   return (
-    <nav className="flex-1 overflow-y-auto overscroll-contain py-2" aria-label={t('admin.menu.navigation')}>
+    <nav className="admin-sidebar-nav" aria-label={t('admin.menu.navigation')}>
       {groups.map((group) => {
         const isOpen = collapsed ? true : expanded[group.id] !== false
+        const isActiveGroup = activeGroupId === group.id
         return (
-          <div key={group.id} className="mb-1">
+          <section
+            key={group.id}
+            className={`admin-nav-group${isActiveGroup ? ' is-active-group' : ''}${isOpen ? ' is-open' : ''}`}
+          >
             {!collapsed ? (
               <button
                 type="button"
-                className="admin-nav-group-label w-full flex items-center justify-between gap-2 text-start cursor-pointer hover:text-[var(--admin-fg)]"
+                className="admin-nav-group-label"
                 onClick={() => toggleGroup(group.id)}
                 aria-expanded={isOpen}
               >
-                <span>{t(group.labelKey)}</span>
+                <span className="admin-nav-group-label__text">{t(group.labelKey)}</span>
                 <Icon
-                  name="chevron"
-                  className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                  name="chevron-down"
+                  className={`admin-nav-group-label__chevron h-3.5 w-3.5 shrink-0 ${isOpen ? 'is-open' : ''}`}
                 />
               </button>
             ) : (
               <p className="sr-only">{t(group.labelKey)}</p>
             )}
             {isOpen && (
-              <ul className="space-y-0.5">
+              <ul className="admin-nav-list">
                 {group.items.map((link) => {
                   const active = isOwnerNavPathActive(location.pathname, link.path)
                   const label = t(link.nameKey)
@@ -104,7 +108,9 @@ const SidebarNav = ({
                         onClick={onNavigate}
                         className={`admin-nav-link ${active ? 'is-active' : ''}`}
                       >
-                        <Icon name={navIconForPath(link.path)} className="h-[18px] w-[18px] shrink-0" />
+                        <span className="admin-nav-link__icon" aria-hidden="true">
+                          <Icon name={navIconForPath(link.path)} className="h-[17px] w-[17px]" />
+                        </span>
                         <span className="admin-nav-label truncate">{label}</span>
                       </NavLink>
                     </li>
@@ -112,7 +118,7 @@ const SidebarNav = ({
                 })}
               </ul>
             )}
-          </div>
+          </section>
         )
       })}
     </nav>
@@ -172,15 +178,20 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
     }
   }
 
+  const agencyLabel = user?.agencyName || user?.businessName || t('admin.staff.agencyFallback')
+  const userName = user?.name || t('admin.staff.fallbackName')
+
   const brandBlock = (
-    <div className={`shrink-0 border-b border-[var(--admin-sidebar-border)] ${collapsed ? 'px-2 py-3' : 'px-3 py-3.5'}`}>
-      <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2.5'}`}>
-        <label htmlFor="admin-avatar" className="group relative shrink-0 cursor-pointer">
+    <div className={`admin-sidebar-brand ${collapsed ? 'is-collapsed' : ''}`}>
+      <div className="admin-sidebar-brand__row">
+        <label htmlFor="admin-avatar" className="admin-sidebar-avatar">
           <img
             src={previewUrl || user?.image || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=300'}
             alt=""
-            className="h-9 w-9 rounded-full object-cover ring-1 ring-[var(--admin-border)]"
           />
+          <span className="admin-sidebar-avatar__hint" aria-hidden="true">
+            <Icon name="camera" className="h-3 w-3" />
+          </span>
           <input
             type="file"
             id="admin-avatar"
@@ -191,15 +202,15 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
         </label>
         {!collapsed && (
           <div className="admin-sidebar-brand-text min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-[var(--admin-fg)]">{user?.name || t('admin.staff.fallbackName')}</p>
-            <p className="truncate text-[11px] text-[var(--admin-fg-muted)]">
-              {user?.agencyName || user?.businessName || t('admin.staff.agencyFallback')}
+            <p className="admin-sidebar-brand__name truncate">{userName}</p>
+            <p className="admin-sidebar-brand__agency truncate" title={agencyLabel}>
+              {agencyLabel}
             </p>
           </div>
         )}
       </div>
       {image ? (
-        <button type="button" onClick={updateImage} className="admin-btn admin-btn--primary w-full mt-2 h-8 text-xs">
+        <button type="button" onClick={updateImage} className="admin-btn admin-btn--primary w-full mt-2.5 h-8 text-xs">
           {t('admin.shell.save')}
         </button>
       ) : null}
@@ -214,15 +225,17 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
       >
         {brandBlock}
         <SidebarNav groups={groups} collapsed={collapsed} t={t} />
-        <div className="shrink-0 border-t border-[var(--admin-sidebar-border)] p-2">
+        <div className="admin-sidebar-footer">
           <button
             type="button"
-            className="admin-nav-link w-[calc(100%-0.8rem)]"
+            className="admin-nav-link admin-sidebar-collapse-btn"
             onClick={onToggleCollapsed}
             aria-pressed={collapsed}
             title={collapsed ? t('admin.shell.expandSidebar') : t('admin.shell.collapseSidebar')}
           >
-            <Icon name="panel" className="h-[18px] w-[18px]" />
+            <span className="admin-nav-link__icon" aria-hidden="true">
+              <Icon name={collapsed ? 'panel-left' : 'panel-right'} className="h-[17px] w-[17px]" />
+            </span>
             <span className="admin-nav-label">
               {collapsed ? t('admin.shell.expand') : t('admin.shell.collapse')}
             </span>
@@ -231,7 +244,7 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
       </aside>
 
       <div
-        className={`md:hidden fixed inset-0 z-40 ${mobileOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={`admin-sidebar-overlay md:hidden ${mobileOpen ? 'is-open' : ''}`}
         aria-hidden={!mobileOpen}
       >
         <button
@@ -239,20 +252,19 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
           tabIndex={mobileOpen ? 0 : -1}
           aria-label={t('admin.shell.closeMenu')}
           onClick={onMobileClose}
-          className={`absolute inset-0 bg-slate-950/50 transition-opacity duration-200 cursor-pointer ${
-            mobileOpen ? 'opacity-100' : 'opacity-0'
-          }`}
+          className="admin-sidebar-overlay__backdrop"
         />
         <aside
           role="dialog"
           aria-modal="true"
           aria-label={t('admin.menu.navigation')}
-          className={`admin-sidebar-drawer absolute inset-y-0 start-0 flex w-[min(18.5rem,88vw)] flex-col bg-[var(--admin-sidebar-bg)] shadow-[var(--admin-shadow-lg)] border-e border-[var(--admin-sidebar-border)] transition-transform duration-200 ease-out ${
-            mobileOpen ? 'translate-x-0' : 'ltr:-translate-x-full rtl:translate-x-full'
-          }`}
+          className={`admin-sidebar-drawer ${mobileOpen ? 'is-open' : ''}`}
         >
-          <div className="flex items-center justify-between gap-2 border-b border-[var(--admin-border)] px-3 py-3 shrink-0">
-            <p className="text-sm font-semibold text-[var(--admin-fg)]">{t('admin.menu.navigation')}</p>
+          <div className="admin-sidebar-drawer__head">
+            <div className="min-w-0">
+              <p className="admin-sidebar-drawer__title">{t('admin.menu.navigation')}</p>
+              <p className="admin-sidebar-drawer__sub truncate">{agencyLabel}</p>
+            </div>
             <button
               type="button"
               onClick={onMobileClose}
@@ -262,12 +274,17 @@ const Sidebar = ({ mobileOpen = false, onMobileClose, collapsed, onToggleCollaps
               <Icon name="x" className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="px-3 py-3 border-b border-[var(--admin-border)]">
-              <p className="text-sm font-semibold truncate">{user?.name || 'Admin'}</p>
-              <p className="text-[11px] text-[var(--admin-fg-muted)] truncate">
-                {user?.agencyName || 'Americonfort'}
-              </p>
+          <div className="admin-sidebar-drawer__body">
+            <div className="admin-sidebar-drawer__user">
+              <img
+                src={user?.image || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=300'}
+                alt=""
+                className="admin-sidebar-drawer__avatar"
+              />
+              <div className="min-w-0">
+                <p className="admin-sidebar-brand__name truncate">{userName}</p>
+                <p className="admin-sidebar-brand__agency truncate">{user?.email || agencyLabel}</p>
+              </div>
             </div>
             <SidebarNav
               groups={groups}
