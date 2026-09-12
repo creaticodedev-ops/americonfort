@@ -333,6 +333,10 @@ export const getRevenueAnalytics = async (req, res) => {
       weekSlice,
       topVehicleGroups,
       paidCount,
+      outstandingAgg,
+      byPaymentStatus,
+      byCategoryGroups,
+      byLocationGroups,
     ] = await Promise.all([
       Booking.aggregate([
         { $match: revenueMatch },
@@ -520,10 +524,98 @@ export const getRevenueAnalytics = async (req, res) => {
         status: { $in: revenueStatuses },
         paymentStatus: 'paid',
       }),
+      Booking.aggregate([
+        {
+          $match: {
+            owner: ownerOid,
+            status: { $nin: ['cancelled'] },
+            $or: [
+              { 'financial.balanceDue': { $gt: 0 } },
+              {
+                $and: [
+                  { paymentStatus: { $in: ['pending', 'failed'] } },
+                  { price: { $gt: 0 } },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            balanceDue: {
+              $sum: {
+                $cond: [
+                  { $gt: [{ $ifNull: ['$financial.balanceDue', 0] }, 0] },
+                  { $ifNull: ['$financial.balanceDue', 0] },
+                  {
+                    $cond: [
+                      { $in: ['$paymentStatus', ['pending', 'failed']] },
+                      { $ifNull: ['$price', 0] },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            },
+            amountPaid: { $sum: { $ifNull: ['$financial.paymentsTotal', 0] } },
+          },
+        },
+      ]),
+      Booking.aggregate([
+        { $match: { owner: ownerOid } },
+        {
+          $group: {
+            _id: { $ifNull: ['$paymentStatus', 'pending'] },
+            count: { $sum: 1 },
+            revenue: { $sum: { $ifNull: ['$price', 0] } },
+          },
+        },
+      ]),
+      Booking.aggregate([
+        { $match: { ...revenueMatch, car: { $ne: null } } },
+        {
+          $lookup: {
+            from: 'cars',
+            localField: 'car',
+            foreignField: '_id',
+            as: 'carDoc',
+          },
+        },
+        { $unwind: { path: '$carDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: { $ifNull: ['$carDoc.category', 'Other'] },
+            revenue: { $sum: '$price' },
+            rentals: { $sum: 1 },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: 10 },
+      ]),
+      Booking.aggregate([
+        {
+          $match: {
+            ...revenueMatch,
+            pickupLocation: { $exists: true, $nin: [null, ''] },
+          },
+        },
+        {
+          $group: {
+            _id: '$pickupLocation',
+            revenue: { $sum: '$price' },
+            rentals: { $sum: 1 },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: 8 },
+      ]),
     ]);
 
     const periods = periodTotals[0] || {};
     const life = lifetime[0] || {};
+    const outstandingRow = outstandingAgg[0] || {};
     const bookingCount = life.bookingCount || 0;
     const totalRevenue = life.totalRevenue || 0;
     const averageRevenuePerRental = bookingCount > 0
@@ -584,6 +676,18 @@ export const getRevenueAnalytics = async (req, res) => {
       rentals: row.rentals || 0,
     }));
 
+    const byCategory = (byCategoryGroups || []).map((row) => ({
+      category: row._id || 'Other',
+      revenue: row.revenue || 0,
+      rentals: row.rentals || 0,
+    }));
+
+    const byLocation = (byLocationGroups || []).map((row) => ({
+      location: row._id || '',
+      revenue: row.revenue || 0,
+      rentals: row.rentals || 0,
+    }));
+
     res.json({
       success: true,
       analytics: {
@@ -602,6 +706,11 @@ export const getRevenueAnalytics = async (req, res) => {
         averageRevenuePerRental,
         onlineBookingCount: life.onlineBookingCount || 0,
         walkInBookingCount: life.walkInBookingCount || 0,
+        outstanding: {
+          count: outstandingRow.count || 0,
+          balanceDue: Math.round((outstandingRow.balanceDue || 0) * 100) / 100,
+          amountPaid: Math.round((outstandingRow.amountPaid || 0) * 100) / 100,
+        },
         comparisons: {
           todayVsYesterday: pctChange(periods.todayRevenue, periods.yesterdayRevenue),
           weekVsPrev: pctChange(periods.weeklyRevenue, periods.prevWeeklyRevenue),
@@ -613,6 +722,9 @@ export const getRevenueAnalytics = async (req, res) => {
         yearlyTrend,
         byStatus,
         byChannel,
+        byPaymentStatus: byPaymentStatus || [],
+        byCategory,
+        byLocation,
         onlineRevenue: life.onlineRevenue || 0,
         walkInRevenue: life.walkInRevenue || 0,
         topVehicles,

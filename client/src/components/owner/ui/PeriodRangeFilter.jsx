@@ -14,6 +14,7 @@ export const PeriodRangeFilter = ({
   to,
   onChange,
   className = '',
+  compact = false,
 }) => (
   <AnalyticsPeriodBar
     period={period}
@@ -21,6 +22,7 @@ export const PeriodRangeFilter = ({
     to={to}
     onChange={onChange}
     className={className}
+    compact={compact}
   />
 )
 
