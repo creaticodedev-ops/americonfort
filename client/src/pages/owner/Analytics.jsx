@@ -174,6 +174,20 @@ const Analytics = () => {
     return t('admin.analytics.onlineRevenue')
   }
 
+  const paymentLabel = (id) => {
+    const key = `admin.paymentStatus.${id}`
+    const translated = t(key)
+    if (translated && translated !== key) return translated
+    const fallback = {
+      paid: t('admin.analytics.paymentPaid'),
+      pending: t('admin.analytics.paymentPending'),
+      partial: t('admin.analytics.paymentPartial'),
+      failed: t('admin.analytics.paymentFailed'),
+      refunded: t('admin.analytics.paymentRefunded'),
+    }
+    return fallback[id] || String(id || '').replace(/_/g, ' ')
+  }
+
   const periodCaption = useMemo(() => {
     if (!from || !to) return ''
     return `${formatAnalyticsDate(from, language)} → ${formatAnalyticsDate(to, language)}`
@@ -418,105 +432,108 @@ const Analytics = () => {
             />
           </div>
 
-          <div className="ax-grid ax-grid--main">
-            <section className="ax-panel">
-              <div className="ax-panel__head">
-                <div>
-                  <h2 className="ax-panel__title">{t('admin.analytics.incomeTrends')}</h2>
-                  <p className="ax-panel__sub">{t('admin.analytics.trendHint')}</p>
-                </div>
-                <SegmentedControl
-                  options={['period', 'weekly', 'monthly', 'yearly'].map((periodId) => ({
-                    id: periodId,
-                    label: t(`admin.analytics.${periodId === 'period' ? 'periodTab' : periodId}`),
-                  }))}
-                  value={tab}
-                  onChange={setTab}
-                  ariaLabel={t('admin.analytics.incomeTrends')}
-                />
-              </div>
-              <div className="ax-panel__body">
-                <RevenueChart
-                  data={chartData}
-                  currency={currency}
-                  height={260}
-                  emptyHint={
-                    tab === 'period'
-                      ? zeroPeriodHint
-                      : t('admin.analytics.chartEmpty')
-                  }
-                />
-              </div>
-            </section>
-
-            <section className="ax-panel">
-              <div className="ax-panel__head">
-                <div>
-                  <h2 className="ax-panel__title">{t('admin.analytics.insights')}</h2>
-                  <p className="ax-panel__sub">{t('admin.analytics.insightsHint')}</p>
-                </div>
-              </div>
-              <div className="ax-panel__body">
-                {insights.length === 0 ? (
-                  <EmptyBlock
-                    title={t('admin.analytics.insightsEmpty')}
-                    hint={periodCaption}
-                  />
-                ) : (
-                  <div className="ax-insights">
-                    {insights.map((item) => (
-                      <div key={item.id} className={`ax-insight ax-insight--${item.tone}`}>
-                        <span className="ax-insight__dot" aria-hidden />
-                        <p className="ax-insight__text">{item.text}</p>
-                      </div>
-                    ))}
+          <div className="ax-bi">
+            <div className="ax-grid ax-grid--main">
+              <section className="ax-panel ax-panel--chart">
+                <div className="ax-panel__head">
+                  <div>
+                    <h2 className="ax-panel__title">{t('admin.analytics.incomeTrends')}</h2>
+                    <p className="ax-panel__sub">{t('admin.analytics.trendHint')}</p>
                   </div>
-                )}
-              </div>
-            </section>
-          </div>
+                  <SegmentedControl
+                    options={['period', 'weekly', 'monthly', 'yearly'].map((periodId) => ({
+                      id: periodId,
+                      label: t(`admin.analytics.${periodId === 'period' ? 'periodTab' : periodId}`),
+                    }))}
+                    value={tab}
+                    onChange={setTab}
+                    ariaLabel={t('admin.analytics.incomeTrends')}
+                  />
+                </div>
+                <div className="ax-panel__body">
+                  <RevenueChart
+                    data={chartData}
+                    currency={currency}
+                    height={240}
+                    emptyHint={
+                      tab === 'period' ? zeroPeriodHint : t('admin.analytics.chartEmpty')
+                    }
+                  />
+                </div>
+              </section>
 
-          <div className="ax-grid ax-grid--three">
-            <section className="ax-panel">
-              <div className="ax-panel__head">
-                <h2 className="ax-panel__title">{t('admin.analytics.topVehicles')}</h2>
-              </div>
-              <div className="ax-panel__body">
-                {(analytics.topVehicles || []).some((r) => r.revenue > 0) ? (
+              <section className="ax-panel ax-panel--insights">
+                <div className="ax-panel__head">
+                  <div>
+                    <h2 className="ax-panel__title">{t('admin.analytics.insights')}</h2>
+                    <p className="ax-panel__sub">{t('admin.analytics.insightsHint')}</p>
+                  </div>
+                </div>
+                <div className="ax-panel__body">
+                  {insights.length === 0 ? (
+                    <EmptyBlock
+                      title={t('admin.analytics.insightsEmpty')}
+                      hint={periodCaption}
+                    />
+                  ) : (
+                    <div className="ax-insights">
+                      {insights.map((item) => (
+                        <div key={item.id} className={`ax-insight ax-insight--${item.tone}`}>
+                          <span className="ax-insight__dot" aria-hidden />
+                          <p className="ax-insight__text">{item.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <div className="ax-section-label">{t('admin.analytics.breakdownLabel')}</div>
+
+            <div className="ax-grid ax-grid--bi">
+              <section className="ax-panel">
+                <div className="ax-panel__head">
+                  <div>
+                    <h2 className="ax-panel__title">{t('admin.analytics.topVehicles')}</h2>
+                    <p className="ax-panel__sub">{t('admin.analytics.topVehiclesHint')}</p>
+                  </div>
+                </div>
+                <div className="ax-panel__body">
                   <RankBars
                     rows={analytics.topVehicles || []}
                     currency={currency}
                     labelFn={(row) => `${row.brand || ''} ${row.model || ''}`.trim() || '—'}
+                    emptyHint={zeroPeriodHint}
                   />
-                ) : (
-                  <EmptyBlock title={t('admin.analytics.noBreakdown')} hint={zeroPeriodHint} />
-                )}
-              </div>
-            </section>
+                </div>
+              </section>
 
-            <section className="ax-panel">
-              <div className="ax-panel__head">
-                <h2 className="ax-panel__title">{t('admin.analytics.byCategory')}</h2>
-              </div>
-              <div className="ax-panel__body">
-                {(analytics.byCategory || []).some((r) => r.revenue > 0) ? (
+              <section className="ax-panel">
+                <div className="ax-panel__head">
+                  <div>
+                    <h2 className="ax-panel__title">{t('admin.analytics.byCategory')}</h2>
+                    <p className="ax-panel__sub">{t('admin.analytics.byCategoryHint')}</p>
+                  </div>
+                </div>
+                <div className="ax-panel__body">
                   <RankBars
                     rows={analytics.byCategory || []}
                     currency={currency}
                     labelFn={(row) => row.category || '—'}
+                    emptyHint={zeroPeriodHint}
                   />
-                ) : (
-                  <EmptyBlock title={t('admin.analytics.noBreakdown')} hint={zeroPeriodHint} />
-                )}
-              </div>
-            </section>
+                </div>
+              </section>
 
-            <section className="ax-panel">
-              <div className="ax-panel__head">
-                <h2 className="ax-panel__title">{t('admin.analytics.byChannel')}</h2>
-              </div>
-              <div className="ax-panel__body">
-                {(analytics.byChannel || []).some((r) => (r.revenue || 0) > 0) ? (
+              <section className="ax-panel">
+                <div className="ax-panel__head">
+                  <div>
+                    <h2 className="ax-panel__title">{t('admin.analytics.byChannel')}</h2>
+                    <p className="ax-panel__sub">{t('admin.analytics.byChannelHint')}</p>
+                  </div>
+                </div>
+                <div className="ax-panel__body">
                   <ShareBars
                     rows={(analytics.byChannel || []).map((row) => ({
                       ...row,
@@ -524,171 +541,222 @@ const Analytics = () => {
                     }))}
                     currency={currency}
                     labelFn={(row) => channelLabel(row._id)}
+                    emptyHint={zeroPeriodHint}
                   />
+                </div>
+              </section>
+
+              <section className="ax-panel">
+                <div className="ax-panel__head">
+                  <div>
+                    <h2 className="ax-panel__title">{t('admin.analytics.byPayment')}</h2>
+                    <p className="ax-panel__sub">{t('admin.analytics.byPaymentHint')}</p>
+                  </div>
+                </div>
+                <div className="ax-panel__body">
+                  <ShareBars
+                    rows={analytics.byPaymentStatus || []}
+                    currency={currency}
+                    labelFn={(row) => paymentLabel(row._id)}
+                    emptyHint={zeroPeriodHint}
+                  />
+                </div>
+              </section>
+
+              {(analytics.byLocation || []).length > 0 ? (
+                <section className="ax-panel ax-panel--span2">
+                  <div className="ax-panel__head">
+                    <div>
+                      <h2 className="ax-panel__title">{t('admin.analytics.byLocation')}</h2>
+                      <p className="ax-panel__sub">{t('admin.analytics.byLocationHint')}</p>
+                    </div>
+                  </div>
+                  <div className="ax-panel__body">
+                    <RankBars
+                      rows={analytics.byLocation}
+                      currency={currency}
+                      labelFn={(row) => row.location || '—'}
+                      maxRows={8}
+                      emptyHint={zeroPeriodHint}
+                    />
+                  </div>
+                </section>
+              ) : null}
+            </div>
+
+            <section className="ax-panel">
+              <div className="ax-panel__head">
+                <div>
+                  <h2 className="ax-panel__title">{t('admin.analytics.byStatus')}</h2>
+                  <p className="ax-panel__sub">{t('admin.analytics.byStatusHint')}</p>
+                </div>
+              </div>
+              <div className="ax-panel__body">
+                {(analytics.byStatus || []).length === 0 ? (
+                  <EmptyBlock title={t('admin.analytics.noBreakdown')} hint={periodCaption} />
                 ) : (
-                  <EmptyBlock title={t('admin.analytics.noBreakdown')} hint={zeroPeriodHint} />
+                  <div className="ax-status-grid">
+                    {(analytics.byStatus || []).map((row) => (
+                      <div
+                        key={row._id}
+                        className={`ax-status${(row.revenue || 0) === 0 ? ' is-zero' : ''}`}
+                      >
+                        <p className="ax-status__label">{statusLabel(row._id)}</p>
+                        <p className="ax-status__count tabular-nums">{row.count}</p>
+                        <p className="ax-status__rev">{money(row.revenue, currency)}</p>
+                        <p className="ax-status__hint">{t('admin.analytics.statusRevenueHint')}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="ax-panel ax-panel--fleet">
+              <div className="ax-panel__head">
+                <div>
+                  <h2 className="ax-panel__title">{t('admin.analytics.fleetPerformance')}</h2>
+                  <p className="ax-panel__sub">{t('admin.analytics.fleetPerformanceHint')}</p>
+                </div>
+                {hasPermission?.('fleet') ? (
+                  <Link to="/owner/vehicle-stats" className="admin-btn admin-btn--secondary admin-btn--sm">
+                    {t('admin.analytics.openVehicleStats')}
+                  </Link>
+                ) : null}
+              </div>
+              <div className="ax-panel__body">
+                {fleetLoading ? (
+                  <Skeleton className="h-40 w-full rounded-[var(--admin-radius-lg)]" />
+                ) : fleetRows.length === 0 ? (
+                  <EmptyBlock title={t('admin.analytics.fleetEmpty')} hint={zeroPeriodHint} />
+                ) : (
+                  <div className="ax-fleet-layout">
+                    <div className="ax-table-wrap">
+                      <table className="ax-table">
+                        <thead>
+                          <tr>
+                            <th>{t('admin.analytics.colVehicle')}</th>
+                            <th>{t('admin.analytics.colRentals')}</th>
+                            <th>{t('admin.analytics.colDays')}</th>
+                            <th>{t('admin.analytics.colRevenue')}</th>
+                            <th>{t('admin.analytics.colUtil')}</th>
+                            <th>{t('admin.analytics.colAvgDay')}</th>
+                            <th>{t('admin.analytics.colStatus')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fleetRows.map((row) => {
+                            const util = Number(row.utilization) || 0
+                            const avgDay =
+                              row.rentalDays > 0
+                                ? Math.round((row.revenue / row.rentalDays) * 100) / 100
+                                : 0
+                            return (
+                              <tr key={row._id}>
+                                <td>
+                                  <div className="ax-table__vehicle">
+                                    <span className="ax-table__name">
+                                      {row.brand} {row.model}
+                                    </span>
+                                    <span className="ax-table__plate">
+                                      {row.licensePlate || row.fleetId || row.category || ''}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="tabular-nums">{row.totalRentals || 0}</td>
+                                <td className="tabular-nums">{row.rentalDays || 0}</td>
+                                <td className="tabular-nums font-semibold text-[var(--admin-fg)]">
+                                  {money(row.revenue, currency)}
+                                </td>
+                                <td>
+                                  <div className="ax-util">
+                                    <div className="ax-util__track">
+                                      <div
+                                        className="ax-util__fill"
+                                        style={{ width: `${Math.min(100, util)}%` }}
+                                      />
+                                    </div>
+                                    <span className="tabular-nums">{util.toFixed(0)}%</span>
+                                  </div>
+                                </td>
+                                <td className="tabular-nums">{money(avgDay, currency)}</td>
+                                <td>
+                                  {row.performance === 'best' ? (
+                                    <span className="ax-badge ax-badge--best">
+                                      {t('admin.analytics.perfBest')}
+                                    </span>
+                                  ) : row.performance === 'under' ? (
+                                    <span className="ax-badge ax-badge--under">
+                                      {t('admin.analytics.perfUnder')}
+                                    </span>
+                                  ) : (
+                                    <StatusBadge
+                                      status={
+                                        row.availability === 'rented'
+                                          ? 'active'
+                                          : row.availability === 'maintenance'
+                                            ? 'maintenance'
+                                            : row.availability === 'offline'
+                                              ? 'inactive'
+                                              : 'confirmed'
+                                      }
+                                    />
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {attentionRows.length > 0 ? (
+                      <aside className="ax-watch" aria-label={t('admin.analytics.needsAttention')}>
+                        <div className="ax-watch__head">
+                          <h3 className="ax-watch__title">{t('admin.analytics.needsAttention')}</h3>
+                          <p className="ax-watch__sub">{t('admin.analytics.needsAttentionHint')}</p>
+                        </div>
+                        <ul className="ax-watch__list">
+                          {attentionRows.map((row) => (
+                            <li key={row._id} className="ax-watch__item">
+                              <div className="ax-watch__vehicle">
+                                <span className="ax-watch__name">
+                                  {row.brand} {row.model}
+                                </span>
+                                <span className="ax-watch__plate">
+                                  {row.licensePlate || row.fleetId || row.category || '—'}
+                                </span>
+                              </div>
+                              <div className="ax-watch__metrics">
+                                <span className="ax-watch__metric">
+                                  <em>{t('admin.analytics.colRevenue')}</em>
+                                  {money(row.revenue || 0, currency)}
+                                </span>
+                                <span className="ax-watch__metric">
+                                  <em>{t('admin.analytics.colUtil')}</em>
+                                  {Number(row.utilization || 0).toFixed(0)}%
+                                </span>
+                              </div>
+                              <div className="ax-util ax-util--slim">
+                                <div className="ax-util__track">
+                                  <div
+                                    className="ax-util__fill is-warn"
+                                    style={{
+                                      width: `${Math.min(100, Number(row.utilization) || 0)}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </aside>
+                    ) : null}
+                  </div>
                 )}
               </div>
             </section>
           </div>
-
-          {(analytics.byLocation || []).length > 0 ? (
-            <section className="ax-panel">
-              <div className="ax-panel__head">
-                <div>
-                  <h2 className="ax-panel__title">{t('admin.analytics.byLocation')}</h2>
-                  <p className="ax-panel__sub">{t('admin.analytics.byLocationHint')}</p>
-                </div>
-              </div>
-              <div className="ax-panel__body">
-                <RankBars
-                  rows={analytics.byLocation}
-                  currency={currency}
-                  labelFn={(row) => row.location || '—'}
-                  maxRows={8}
-                />
-              </div>
-            </section>
-          ) : null}
-
-          <section className="ax-panel">
-            <div className="ax-panel__head">
-              <div>
-                <h2 className="ax-panel__title">{t('admin.analytics.byStatus')}</h2>
-                <p className="ax-panel__sub">{t('admin.analytics.byStatusHint')}</p>
-              </div>
-            </div>
-            <div className="ax-panel__body">
-              <div className="ax-status-grid">
-                {(analytics.byStatus || []).map((row) => (
-                  <div key={row._id} className={`ax-status${(row.revenue || 0) === 0 ? ' is-zero' : ''}`}>
-                    <p className="ax-status__label">{statusLabel(row._id)}</p>
-                    <p className="ax-status__count">{row.count}</p>
-                    <p className="ax-status__rev">{money(row.revenue, currency)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="ax-panel">
-            <div className="ax-panel__head">
-              <div>
-                <h2 className="ax-panel__title">{t('admin.analytics.fleetPerformance')}</h2>
-                <p className="ax-panel__sub">{t('admin.analytics.fleetPerformanceHint')}</p>
-              </div>
-              {hasPermission?.('fleet') ? (
-                <Link to="/owner/vehicle-stats" className="admin-btn admin-btn--secondary admin-btn--sm">
-                  {t('admin.analytics.openVehicleStats')}
-                </Link>
-              ) : null}
-            </div>
-            <div className="ax-panel__body">
-              {fleetLoading ? (
-                <Skeleton className="h-40 w-full rounded-[var(--admin-radius-lg)]" />
-              ) : fleetRows.length === 0 ? (
-                <EmptyBlock title={t('admin.analytics.fleetEmpty')} hint={zeroPeriodHint} />
-              ) : (
-                <>
-                  <div className="ax-table-wrap">
-                    <table className="ax-table">
-                      <thead>
-                        <tr>
-                          <th>{t('admin.analytics.colVehicle')}</th>
-                          <th>{t('admin.analytics.colRentals')}</th>
-                          <th>{t('admin.analytics.colDays')}</th>
-                          <th>{t('admin.analytics.colRevenue')}</th>
-                          <th>{t('admin.analytics.colUtil')}</th>
-                          <th>{t('admin.analytics.colAvgDay')}</th>
-                          <th>{t('admin.analytics.colStatus')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {fleetRows.map((row) => {
-                          const util = Number(row.utilization) || 0
-                          const avgDay =
-                            row.rentalDays > 0
-                              ? Math.round((row.revenue / row.rentalDays) * 100) / 100
-                              : 0
-                          return (
-                            <tr key={row._id}>
-                              <td>
-                                <div className="ax-table__vehicle">
-                                  <span className="ax-table__name">
-                                    {row.brand} {row.model}
-                                  </span>
-                                  <span className="ax-table__plate">
-                                    {row.licensePlate || row.fleetId || row.category || ''}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="tabular-nums">{row.totalRentals || 0}</td>
-                              <td className="tabular-nums">{row.rentalDays || 0}</td>
-                              <td className="tabular-nums font-semibold text-[var(--admin-fg)]">
-                                {money(row.revenue, currency)}
-                              </td>
-                              <td>
-                                <div className="ax-util">
-                                  <div className="ax-util__track">
-                                    <div
-                                      className="ax-util__fill"
-                                      style={{ width: `${Math.min(100, util)}%` }}
-                                    />
-                                  </div>
-                                  <span className="tabular-nums">{util.toFixed(0)}%</span>
-                                </div>
-                              </td>
-                              <td className="tabular-nums">{money(avgDay, currency)}</td>
-                              <td>
-                                {row.performance === 'best' ? (
-                                  <span className="ax-badge ax-badge--best">
-                                    {t('admin.analytics.perfBest')}
-                                  </span>
-                                ) : row.performance === 'under' ? (
-                                  <span className="ax-badge ax-badge--under">
-                                    {t('admin.analytics.perfUnder')}
-                                  </span>
-                                ) : (
-                                  <StatusBadge
-                                    status={
-                                      row.availability === 'rented'
-                                        ? 'active'
-                                        : row.availability === 'maintenance'
-                                          ? 'maintenance'
-                                          : row.availability === 'offline'
-                                            ? 'inactive'
-                                            : 'confirmed'
-                                    }
-                                  />
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {attentionRows.length > 0 ? (
-                    <div className="ax-attention">
-                      <p className="ax-attention__title">{t('admin.analytics.needsAttention')}</p>
-                      <ul className="ax-attention__list">
-                        {attentionRows.map((row) => (
-                          <li key={row._id}>
-                            {row.brand} {row.model}
-                            <span className="ax-muted">
-                              {' '}
-                              · {money(row.revenue, currency)} · {Number(row.utilization || 0).toFixed(0)}%
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </section>
         </>
       )}
     </AdminPage>

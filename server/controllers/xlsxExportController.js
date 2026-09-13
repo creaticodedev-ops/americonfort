@@ -12,6 +12,7 @@ import { logAudit } from '../utils/adminOps.js';
 import { escapeRegex, parseDateRange } from '../utils/listQuery.js';
 import { listClientDocuments } from '../services/clientDocumentService.js';
 import { buildFleetVehicleStats } from '../services/vehicleStatsService.js';
+import { buildOwnerRevenueAnalytics } from '../services/analyticsRevenueService.js';
 import {
   resolvePeriodRange,
   getAccountingOverview,
@@ -1076,100 +1077,258 @@ export const exportClientDocumentsXlsx = async (req, res) => {
 
 export const exportAnalyticsXlsx = async (req, res) => {
   try {
-    // Delegate to existing analytics computation via internal HTTP-less call pattern:
-    // Reuse getRevenueAnalytics logic by importing controller is awkward; query bookings here.
     const ownerId = req.user._id;
-    const revenueStatuses = ['confirmed', 'ready_for_pickup', 'active', 'completed'];
-    const now = new Date();
-    const yearStart = new Date(now.getFullYear(), 0, 1);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    weekStart.setHours(0, 0, 0, 0);
+    const period = req.query.period || 'month';
+    const from = req.query.from;
+    const to = req.query.to;
 
-    const bookings = await Booking.find({
+    const [analytics, fleet] = await Promise.all([
+      buildOwnerRevenueAnalytics(ownerId, { period, from, to }),
+      buildFleetVehicleStats({ ownerId, period, from, to }),
+    ]);
+
+    const periodMeta = analytics.period || {};
+    const periodFrom = from || periodMeta.from || '';
+    const periodTo = to || periodMeta.to || '';
+    const fleetVehicles = fleet?.vehicles || [];
+    const fleetKpis = fleet?.kpis || {};
+
+    const revenueBookings = await Booking.find({
       owner: ownerId,
-      status: { $in: revenueStatuses },
+      status: { $in: ['confirmed', 'ready_for_pickup', 'active', 'completed'] },
     })
-      .select('price status channel createdAt reservationId customerName pickupDate returnDate')
-      .sort({ createdAt: -1 })
+      .populate('car', 'brand model licensePlate category fleetId')
+      .select(
+        'reservationId customerName channel status paymentStatus price priceBreakdown deskDiscount financial pickupDate returnDate pickupLocation createdAt car',
+      )
+      .sort({ pickupDate: -1 })
       .limit(EXPORT_CAP)
       .lean();
 
-    const sumSince = (from) => bookings
-      .filter((b) => b.createdAt && new Date(b.createdAt) >= from)
-      .reduce((s, b) => s + asNumber(b.price), 0);
+    const { bookingOverlapsRange, proratedRevenue, resolveStatsPeriod, bookingRecognizedRevenue } =
+      await import('../services/vehicleStatsService.js');
+    const range = resolveStatsPeriod(period, from, to);
+    const overlapping = revenueBookings.filter((b) => bookingOverlapsRange(b, range));
 
-    const byStatus = {};
-    for (const b of bookings) {
-      const key = b.status || 'unknown';
-      byStatus[key] = byStatus[key] || { status: key, count: 0, revenue: 0 };
-      byStatus[key].count += 1;
-      byStatus[key].revenue += asNumber(b.price);
-    }
+    const reservationRows = overlapping.map((b) => {
+      const days = rentalDays(b.pickupDate, b.returnDate);
+      const discount = asNumber(b.priceBreakdown?.discountTotal);
+      return {
+        reservationId: b.reservationId || `RES-${String(b._id).slice(-8).toUpperCase()}`,
+        customerName: b.customerName || '',
+        channel: b.channel === 'walk_in' ? 'Walk-in' : 'Online',
+        status: b.status || '',
+        paymentStatus: b.paymentStatus || 'pending',
+        vehicle: carLabel(b.car),
+        plate: b.car?.licensePlate || '',
+        category: b.car?.category || '',
+        pickupLocation: b.pickupLocation || '',
+        pickupDate: b.pickupDate,
+        returnDate: b.returnDate,
+        rentalDays: days,
+        bookingValue: bookingRecognizedRevenue(b),
+        periodRevenue: proratedRevenue(b, range),
+        amountPaid: asNumber(b.financial?.paymentsTotal),
+        balanceDue: asNumber(b.financial?.balanceDue),
+        discount,
+      };
+    });
 
-    const monthly = {};
-    for (const b of bookings) {
-      if (!b.createdAt) continue;
-      const d = new Date(b.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      monthly[key] = monthly[key] || { period: key, bookings: 0, revenue: 0 };
-      monthly[key].bookings += 1;
-      monthly[key].revenue += asNumber(b.price);
-    }
+    const discountTotal = reservationRows.reduce((s, r) => s + asNumber(r.discount), 0);
+    const paidTotal = reservationRows.reduce((s, r) => s + asNumber(r.amountPaid), 0);
+    const balanceTotal = reservationRows.reduce((s, r) => s + asNumber(r.balanceDue), 0);
+
+    const fleetRows = fleetVehicles
+      .map((v) => ({
+        fleetId: v.fleetId || '',
+        vehicle: `${v.brand || ''} ${v.model || ''}`.trim(),
+        plate: v.licensePlate || '',
+        category: v.category || '',
+        availability: v.availability || v.status || '',
+        performance: v.performance || '',
+        rentals: asNumber(v.totalRentals),
+        revenue: asNumber(v.revenue),
+        rentalDays: asNumber(v.rentalDays),
+        utilization: asNumber(v.utilization),
+        avgPerDay:
+          asNumber(v.rentalDays) > 0
+            ? Math.round((asNumber(v.revenue) / asNumber(v.rentalDays)) * 100) / 100
+            : 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const trendRows = (analytics.periodTrend || analytics.monthlyTrend || []).map((row) => ({
+      period: row.label || row.key,
+      rentals: asNumber(row.count || row.bookings),
+      revenue: asNumber(row.amount || row.revenue),
+    }));
 
     await respondXlsx(req, res, {
       reportKey: 'analytics',
-      title: 'Analytics Report',
-      subtitle: 'Revenue performance by period, channel, and status',
+      title: 'Revenue Analytics Report',
+      subtitle: `Rental-attributed performance · ${periodFrom} → ${periodTo}`,
+      filters: filterLines({
+        Period: period,
+        From: periodFrom,
+        To: periodTo,
+        Attribution: 'Rental overlap (same as fleet statistics)',
+      }),
       kpis: [
-        { label: 'This week', value: sumSince(weekStart), format: 'money' },
-        { label: 'This month', value: sumSince(monthStart), format: 'money' },
-        { label: 'This year', value: sumSince(yearStart), format: 'money' },
-        { label: 'All time', value: bookings.reduce((s, b) => s + asNumber(b.price), 0), format: 'money' },
+        { label: 'Period revenue', value: asNumber(analytics.periodRevenue), format: 'money' },
+        { label: 'Revenue rentals', value: asNumber(periodMeta.rentals || periodMeta.bookingCount), format: 'number' },
+        { label: 'Fleet utilization', value: asNumber(fleetKpis.fleetUtilization) / 100, format: 'percent' },
+        { label: 'Rental days', value: asNumber(fleetKpis.rentalDays), format: 'number' },
+        { label: 'Collected', value: paidTotal, format: 'money' },
+        { label: 'Outstanding', value: asNumber(analytics.outstanding?.balanceDue), format: 'money' },
+        { label: 'Avg / rental', value: asNumber(analytics.averageRevenuePerRental), format: 'money' },
+        { label: 'Discounts', value: discountTotal, format: 'money' },
       ],
       sheets: [
         {
-          name: 'By status',
+          name: 'Summary',
           columns: [
-            { key: 'status', header: 'Status', width: 16, type: 'status' },
-            { key: 'count', header: 'Bookings', width: 12, type: 'number' },
+            { key: 'metric', header: 'Metric', width: 28 },
+            { key: 'value', header: 'Value', width: 18 },
+            { key: 'note', header: 'Notes', width: 42 },
+          ],
+          rows: [
+            { metric: 'Selected period', value: `${periodFrom} → ${periodTo}`, note: String(period) },
+            { metric: 'Period revenue', value: asNumber(analytics.periodRevenue), note: 'Ledger charges − refunds, prorated by overlap' },
+            { metric: 'Today (rental window)', value: asNumber(analytics.todayRevenue), note: '' },
+            { metric: 'This week', value: asNumber(analytics.weeklyRevenue), note: 'Monday–Sunday UTC' },
+            { metric: 'This month', value: asNumber(analytics.monthlyRevenue), note: '' },
+            { metric: 'This year', value: asNumber(analytics.yearlyRevenue), note: '' },
+            { metric: 'Online revenue (period)', value: asNumber(analytics.onlineRevenue), note: `${analytics.onlineBookingCount || 0} rentals` },
+            { metric: 'Walk-in revenue (period)', value: asNumber(analytics.walkInRevenue), note: `${analytics.walkInBookingCount || 0} rentals` },
+            { metric: 'Lifetime recognized', value: asNumber(analytics.totalRevenue), note: 'All revenue bookings, not prorated' },
+            { metric: 'Open balances', value: asNumber(analytics.outstanding?.balanceDue), note: `${analytics.outstanding?.count || 0} reservations` },
+            { metric: 'Discounts on period rentals', value: discountTotal, note: 'Listed discount totals on overlapping bookings' },
+            { metric: 'Payments collected (period)', value: paidTotal, note: 'financial.paymentsTotal on overlapping rentals' },
+            { metric: 'Remaining balance (period)', value: balanceTotal, note: 'financial.balanceDue on overlapping rentals' },
+          ],
+        },
+        {
+          name: 'Revenue trend',
+          columns: [
+            { key: 'period', header: 'Period', width: 16 },
+            { key: 'rentals', header: 'Rentals', width: 12, type: 'number' },
             { key: 'revenue', header: 'Revenue', width: 14, type: 'money' },
           ],
-          rows: Object.values(byStatus),
+          rows: trendRows,
+          totals: { label: 'Totals', sumKeys: ['rentals', 'revenue'] },
+        },
+        {
+          name: 'Fleet performance',
+          columns: [
+            { key: 'fleetId', header: 'Fleet ID', width: 12 },
+            { key: 'vehicle', header: 'Vehicle', width: 22 },
+            { key: 'plate', header: 'Plate', width: 12 },
+            { key: 'category', header: 'Category', width: 12 },
+            { key: 'rentals', header: 'Rentals', width: 10, type: 'number' },
+            { key: 'rentalDays', header: 'Rental days', width: 12, type: 'number' },
+            { key: 'revenue', header: 'Revenue', width: 14, type: 'money' },
+            { key: 'utilization', header: 'Utilization', width: 12, type: 'percent' },
+            { key: 'avgPerDay', header: 'Avg / day', width: 12, type: 'money' },
+            { key: 'performance', header: 'Rank', width: 12, type: 'status' },
+            { key: 'availability', header: 'Availability', width: 12, type: 'status' },
+          ],
+          rows: fleetRows,
+          totals: { label: 'Totals', sumKeys: ['rentals', 'rentalDays', 'revenue'] },
+        },
+        {
+          name: 'By category',
+          columns: [
+            { key: 'category', header: 'Category', width: 18 },
+            { key: 'rentals', header: 'Rentals', width: 12, type: 'number' },
+            { key: 'revenue', header: 'Revenue', width: 14, type: 'money' },
+          ],
+          rows: analytics.byCategory || [],
+          totals: { label: 'Totals', sumKeys: ['rentals', 'revenue'] },
+        },
+        {
+          name: 'By channel',
+          columns: [
+            { key: 'channel', header: 'Channel', width: 14 },
+            { key: 'count', header: 'Rentals', width: 12, type: 'number' },
+            { key: 'revenue', header: 'Revenue', width: 14, type: 'money' },
+          ],
+          rows: (analytics.byChannel || []).map((row) => ({
+            channel: row._id === 'walk_in' ? 'Walk-in' : 'Online',
+            count: asNumber(row.count),
+            revenue: asNumber(row.revenue),
+          })),
           totals: { label: 'Totals', sumKeys: ['count', 'revenue'] },
         },
         {
-          name: 'Monthly trend',
+          name: 'By payment',
           columns: [
-            { key: 'period', header: 'Month', width: 12 },
-            { key: 'bookings', header: 'Bookings', width: 12, type: 'number' },
+            { key: 'status', header: 'Payment status', width: 16, type: 'status' },
+            { key: 'count', header: 'Rentals', width: 12, type: 'number' },
             { key: 'revenue', header: 'Revenue', width: 14, type: 'money' },
           ],
-          rows: Object.values(monthly).sort((a, b) => String(a.period).localeCompare(String(b.period))),
-          totals: { label: 'Totals', sumKeys: ['bookings', 'revenue'] },
+          rows: (analytics.byPaymentStatus || []).map((row) => ({
+            status: row._id,
+            count: asNumber(row.count),
+            revenue: asNumber(row.revenue),
+          })),
+          totals: { label: 'Totals', sumKeys: ['count', 'revenue'] },
         },
         {
-          name: 'Recent bookings',
+          name: 'By location',
+          columns: [
+            { key: 'location', header: 'Pickup location', width: 24 },
+            { key: 'rentals', header: 'Rentals', width: 12, type: 'number' },
+            { key: 'revenue', header: 'Revenue', width: 14, type: 'money' },
+          ],
+          rows: analytics.byLocation || [],
+          totals: { label: 'Totals', sumKeys: ['rentals', 'revenue'] },
+        },
+        {
+          name: 'Reservations',
           columns: [
             { key: 'reservationId', header: 'Reservation #', width: 16 },
             { key: 'customerName', header: 'Customer', width: 18 },
             { key: 'channel', header: 'Channel', width: 10 },
             { key: 'status', header: 'Status', width: 14, type: 'status' },
-            { key: 'price', header: 'Amount', width: 12, type: 'money' },
-            { key: 'createdAt', header: 'Created', width: 12, type: 'date' },
+            { key: 'paymentStatus', header: 'Payment', width: 12, type: 'status' },
+            { key: 'vehicle', header: 'Vehicle', width: 20 },
+            { key: 'plate', header: 'Plate', width: 12 },
+            { key: 'category', header: 'Category', width: 12 },
+            { key: 'pickupLocation', header: 'Pickup', width: 16 },
+            { key: 'pickupDate', header: 'Pickup date', width: 12, type: 'date' },
+            { key: 'returnDate', header: 'Return date', width: 12, type: 'date' },
+            { key: 'rentalDays', header: 'Days', width: 8, type: 'number' },
+            { key: 'bookingValue', header: 'Booking value', width: 14, type: 'money' },
+            { key: 'periodRevenue', header: 'Period revenue', width: 14, type: 'money' },
+            { key: 'amountPaid', header: 'Paid', width: 12, type: 'money' },
+            { key: 'balanceDue', header: 'Balance due', width: 12, type: 'money' },
+            { key: 'discount', header: 'Discount', width: 12, type: 'money' },
           ],
-          rows: bookings.slice(0, 2000).map((b) => ({
-            reservationId: b.reservationId || '',
-            customerName: b.customerName || '',
-            channel: b.channel === 'walk_in' ? 'Walk-in' : 'Online',
-            status: b.status || '',
-            price: asNumber(b.price),
-            createdAt: b.createdAt,
+          rows: reservationRows,
+          totals: {
+            label: 'Totals',
+            sumKeys: ['rentalDays', 'bookingValue', 'periodRevenue', 'amountPaid', 'balanceDue', 'discount'],
+          },
+        },
+        {
+          name: 'Top vehicles',
+          columns: [
+            { key: 'vehicle', header: 'Vehicle', width: 24 },
+            { key: 'plate', header: 'Plate', width: 12 },
+            { key: 'category', header: 'Category', width: 12 },
+            { key: 'rentals', header: 'Rentals', width: 10, type: 'number' },
+            { key: 'revenue', header: 'Revenue', width: 14, type: 'money' },
+          ],
+          rows: (analytics.topVehicles || []).map((v) => ({
+            vehicle: `${v.brand || ''} ${v.model || ''}`.trim(),
+            plate: v.licensePlate || '',
+            category: v.category || '',
+            rentals: asNumber(v.rentals),
+            revenue: asNumber(v.revenue),
           })),
         },
       ],
-      rowCount: bookings.length,
+      rowCount: reservationRows.length + fleetRows.length,
     });
   } catch (error) {
     console.error(error.message);
