@@ -20,8 +20,25 @@ export function buildAnalyticsInsights(analytics, fleet, t, currency = '') {
   const insights = []
   const c = analytics.comparisons || {}
   const outstanding = analytics.outstanding || {}
+  const periodRevenue = Number(analytics.periodRevenue ?? analytics.period?.revenue) || 0
+  const prevPeriod = Number(analytics.period?.prevRevenue) || 0
 
-  if (typeof c.monthVsPrev === 'number' && (analytics.monthlyRevenue > 0 || analytics.prevMonthlyRevenue > 0)) {
+  if (typeof c.periodVsPrev === 'number' && (periodRevenue > 0 || prevPeriod > 0)) {
+    const delta = c.periodVsPrev
+    if (delta > 0) {
+      insights.push({
+        id: 'period-up',
+        tone: 'positive',
+        text: t('admin.analytics.insightPeriodUp', { pct: Math.abs(delta).toFixed(1) }),
+      })
+    } else if (delta < 0) {
+      insights.push({
+        id: 'period-down',
+        tone: 'negative',
+        text: t('admin.analytics.insightPeriodDown', { pct: Math.abs(delta).toFixed(1) }),
+      })
+    }
+  } else if (typeof c.monthVsPrev === 'number' && (analytics.monthlyRevenue > 0 || analytics.prevMonthlyRevenue > 0)) {
     const delta = c.monthVsPrev
     if (delta > 0) {
       insights.push({
@@ -52,11 +69,10 @@ export function buildAnalyticsInsights(analytics, fleet, t, currency = '') {
   }
 
   const topCat = analytics.byCategory?.[0]
-  if (topCat && topCat.revenue > 0 && (analytics.byCategory?.length || 0) > 1) {
-    const share = analytics.totalRevenue > 0
-      ? Math.round((topCat.revenue / analytics.totalRevenue) * 1000) / 10
-      : null
-    if (share != null && share > 0) {
+  const denom = periodRevenue > 0 ? periodRevenue : Number(analytics.totalRevenue) || 0
+  if (topCat && topCat.revenue > 0 && (analytics.byCategory?.length || 0) > 1 && denom > 0) {
+    const share = Math.round((topCat.revenue / denom) * 1000) / 10
+    if (share > 0) {
       insights.push({
         id: 'top-category',
         tone: 'neutral',
@@ -89,7 +105,7 @@ export function buildAnalyticsInsights(analytics, fleet, t, currency = '') {
     })
   }
 
-  if (outstanding.count > 0 && outstanding.balanceDue > 0) {
+  if ((outstanding.count || 0) > 0 && (outstanding.balanceDue || 0) > 0) {
     insights.push({
       id: 'outstanding',
       tone: 'warn',
@@ -100,30 +116,35 @@ export function buildAnalyticsInsights(analytics, fleet, t, currency = '') {
     })
   }
 
-  const util = fleet?.kpis?.fleetUtilization
-  if (typeof util === 'number' && (fleet?.kpis?.vehicles || 0) > 0) {
+  const util = Number(fleet?.kpis?.fleetUtilization)
+  if (Number.isFinite(util)) {
     insights.push({
       id: 'utilization',
-      tone: util < 25 ? 'warn' : util >= 55 ? 'positive' : 'neutral',
-      text: t('admin.analytics.insightUtilization', {
-        pct: Number(util).toFixed(1),
-        period: fleet?.period?.label || 'month',
-      }),
+      tone: util < 20 ? 'warn' : 'neutral',
+      text: t('admin.analytics.insightUtilization', { pct: util.toFixed(1) }),
     })
   }
 
-  const under = (fleet?.vehicles || []).filter((v) => v.performance === 'under').slice(0, 1)
-  if (under[0]) {
+  const under = (fleet?.vehicles || []).find((v) => v.performance === 'under' && (v.totalRentals || 0) === 0)
+  if (under) {
     insights.push({
-      id: 'underperform',
+      id: 'under',
       tone: 'warn',
       text: t('admin.analytics.insightUnderperform', {
-        vehicle: vehicleName(under[0]),
+        vehicle: vehicleName(under),
       }),
     })
   }
 
-  return insights.slice(0, 6)
+  if (periodRevenue === 0) {
+    insights.push({
+      id: 'zero-period',
+      tone: 'neutral',
+      text: t('admin.analytics.insightZeroPeriod'),
+    })
+  }
+
+  return insights.slice(0, 8)
 }
 
 export default buildAnalyticsInsights

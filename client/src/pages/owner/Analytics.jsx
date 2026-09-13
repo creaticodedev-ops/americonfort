@@ -17,29 +17,82 @@ import { useI18n } from '../../i18n/I18nContext'
 import { getErrorMessage } from '../../utils/apiError'
 import { downloadXlsxFromApi } from '../../utils/downloadXlsx'
 import { buildAnalyticsInsights } from '../../utils/analyticsInsights'
+import { formatAnalyticsDate } from '../../components/owner/ui/AnalyticsPeriodBar'
 import '../../styles/analytics-dashboard.css'
 
 const money = (value, currency) =>
   `${currency}${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
-const Delta = ({ value, label }) => {
+const Delta = ({ value, label, isNew, newLabel }) => {
+  if (isNew) {
+    return <span className="ax-kpi__delta is-new">{newLabel || 'New'}</span>
+  }
   if (typeof value !== 'number') return null
   const flat = value === 0
   const up = value > 0
   return (
     <span className={`ax-kpi__delta ${flat ? 'is-flat' : up ? 'is-up' : 'is-down'}`}>
       {flat ? '→' : up ? '↑' : '↓'} {Math.abs(value).toFixed(1)}%
-      {label ? <span style={{ fontWeight: 500, opacity: 0.85 }}> {label}</span> : null}
+      {label ? <span className="ax-kpi__delta-label"> {label}</span> : null}
     </span>
   )
 }
 
+const KpiCard = ({
+  label,
+  value,
+  currency,
+  hint,
+  emptyHint,
+  delta,
+  deltaLabel,
+  prevValue,
+  accent,
+  warn,
+  suffix = '',
+  newLabel,
+  className = '',
+}) => {
+  const numeric = Number(value) || 0
+  const isZero = numeric === 0
+  const prev = Number(prevValue)
+  const isNew = isZero === false && prev === 0 && (delta === null || delta === undefined)
+  const display = suffix
+    ? `${Number(numeric).toLocaleString(undefined, { maximumFractionDigits: 1 })}${suffix}`
+    : money(numeric, currency)
+  return (
+    <div
+      className={`ax-kpi${accent ? ' ax-kpi--accent' : ''}${warn ? ' ax-kpi--warn' : ''}${
+        isZero ? ' is-zero' : ''
+      } ${className}`.trim()}
+    >
+      <span className="ax-kpi__label">{label}</span>
+      <p className="ax-kpi__value">{display}</p>
+      {delta !== undefined || isNew ? (
+        <Delta value={delta} label={deltaLabel} isNew={isNew} newLabel={newLabel} />
+      ) : null}
+      {isZero && emptyHint ? (
+        <p className="ax-kpi__empty">{emptyHint}</p>
+      ) : hint ? (
+        <p className="ax-kpi__hint">{hint}</p>
+      ) : null}
+    </div>
+  )
+}
+
+const EmptyBlock = ({ title, hint }) => (
+  <div className="ax-empty">
+    <p className="ax-empty__title">{title}</p>
+    {hint ? <p className="ax-empty__hint">{hint}</p> : null}
+  </div>
+)
+
 const Analytics = () => {
   const { axios, currency, hasPermission } = useAppContext()
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   const [analytics, setAnalytics] = useState(null)
   const [fleet, setFleet] = useState(null)
-  const [tab, setTab] = useState('monthly')
+  const [tab, setTab] = useState('period')
   const [loading, setLoading] = useState(true)
   const [fleetLoading, setFleetLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -50,11 +103,14 @@ const Analytics = () => {
   const [to, setTo] = useState(initialRange.to)
 
   useEffect(() => {
+    if (!from || !to) return undefined
     let cancelled = false
     const load = async () => {
       setLoading(true)
       try {
-        const { data } = await axios.get('/api/owner/analytics')
+        const { data } = await axios.get('/api/owner/analytics', {
+          params: { period, from, to },
+        })
         if (cancelled) return
         if (data.success) setAnalytics(data.analytics)
         else toast.error(data.message)
@@ -68,7 +124,7 @@ const Analytics = () => {
     return () => {
       cancelled = true
     }
-  }, [axios])
+  }, [axios, from, period, to])
 
   useEffect(() => {
     if (!from || !to) return undefined
@@ -98,7 +154,8 @@ const Analytics = () => {
     if (!analytics) return []
     if (tab === 'weekly') return analytics.weeklyTrend || []
     if (tab === 'yearly') return analytics.yearlyTrend || []
-    return analytics.monthlyTrend || []
+    if (tab === 'monthly') return analytics.monthlyTrend || []
+    return analytics.periodTrend || analytics.monthlyTrend || []
   }, [analytics, tab])
 
   const insights = useMemo(
@@ -116,6 +173,11 @@ const Analytics = () => {
     if (id === 'walk_in') return t('admin.analytics.walkInRevenue')
     return t('admin.analytics.onlineRevenue')
   }
+
+  const periodCaption = useMemo(() => {
+    if (!from || !to) return ''
+    return `${formatAnalyticsDate(from, language)} → ${formatAnalyticsDate(to, language)}`
+  }, [from, to, language])
 
   const fleetRows = useMemo(() => {
     const rows = [...(fleet?.vehicles || [])]
@@ -135,6 +197,7 @@ const Analytics = () => {
     try {
       await downloadXlsxFromApi(axios, '/api/owner/analytics/export', {
         fallbackName: 'analytics.xlsx',
+        params: { period, from, to },
       })
       toast.success(t('admin.exportUi.success'))
     } catch (error) {
@@ -148,12 +211,18 @@ const Analytics = () => {
     setPeriod(nextPeriod)
     setFrom(nextFrom)
     setTo(nextTo)
+    setTab('period')
   }
 
+  const periodRevenue = analytics?.periodRevenue ?? analytics?.period?.revenue ?? 0
+  const periodRentals = analytics?.period?.rentals ?? analytics?.period?.bookingCount ?? 0
   const avgPerDay =
     fleet?.kpis?.rentalDays > 0
       ? Math.round((fleet.kpis.totalRevenue / fleet.kpis.rentalDays) * 100) / 100
       : null
+
+  const zeroPeriodHint = t('admin.analytics.zeroPeriodHint', { range: periodCaption })
+  const zeroWindowHint = t('admin.analytics.zeroWindowHint')
 
   return (
     <AdminPage className="ax-page">
@@ -182,9 +251,7 @@ const Analytics = () => {
             compact
           />
         </div>
-        <p className="text-xs text-[var(--admin-fg-muted)] max-w-sm leading-snug">
-          {t('admin.analytics.periodHint')}
-        </p>
+        <p className="ax-toolbar__hint">{t('admin.analytics.periodHint')}</p>
       </div>
 
       {loading ? (
@@ -196,98 +263,159 @@ const Analytics = () => {
         <ErrorState title={t('admin.shell.loadError')} onRetry={() => window.location.reload()} />
       ) : (
         <>
-          <div className="ax-kpis">
-            <div className="ax-kpi ax-kpi--accent">
-              <span className="ax-kpi__label">{t('admin.analytics.today')}</span>
-              <p className="ax-kpi__value">{money(analytics.todayRevenue, currency)}</p>
-              <Delta value={analytics.comparisons?.todayVsYesterday} label={t('admin.analytics.vsYesterday')} />
+          <section className="ax-hero" aria-label={t('admin.analytics.periodRevenue')}>
+            <div className="ax-hero__main">
+              <p className="ax-hero__eyebrow">{t('admin.analytics.selectedPeriod')}</p>
+              <h2 className="ax-hero__title">{periodCaption}</h2>
+              <p className="ax-hero__value tabular-nums">{money(periodRevenue, currency)}</p>
+              <div className="ax-hero__meta">
+                <Delta
+                  value={analytics.comparisons?.periodVsPrev}
+                  label={t('admin.analytics.vsPrevPeriod')}
+                  newLabel={t('admin.analytics.newVsPrior')}
+                  isNew={
+                    periodRevenue > 0 &&
+                    (analytics.period?.prevRevenue || 0) === 0 &&
+                    analytics.comparisons?.periodVsPrev == null
+                  }
+                />
+                <span className="ax-hero__sep" aria-hidden>
+                  ·
+                </span>
+                <span>
+                  {t('admin.analytics.periodRentals', { count: periodRentals })}
+                </span>
+              </div>
+              {periodRevenue === 0 ? (
+                <p className="ax-hero__empty">{zeroPeriodHint}</p>
+              ) : (
+                <p className="ax-hero__sub">{t('admin.analytics.attributionHint')}</p>
+              )}
             </div>
-            <div className="ax-kpi">
-              <span className="ax-kpi__label">{t('admin.analytics.thisWeek')}</span>
-              <p className="ax-kpi__value">{money(analytics.weeklyRevenue, currency)}</p>
-              <Delta value={analytics.comparisons?.weekVsPrev} label={t('admin.analytics.vsPrevWeek')} />
+
+            <div className="ax-hero__side">
+              <KpiCard
+                label={t('admin.analytics.outstanding')}
+                value={analytics.outstanding?.balanceDue || 0}
+                currency={currency}
+                warn={(analytics.outstanding?.count || 0) > 0}
+                hint={t('admin.analytics.outstandingCount', {
+                  count: analytics.outstanding?.count || 0,
+                })}
+                emptyHint={t('admin.analytics.zeroOutstanding')}
+              />
+              <KpiCard
+                label={t('admin.analytics.fleetUtilization')}
+                value={fleetLoading ? 0 : fleet?.kpis?.fleetUtilization || 0}
+                currency=""
+                suffix="%"
+                hint={
+                  fleetLoading
+                    ? t('admin.analytics.loading')
+                    : t('admin.analytics.rentalDaysHint', { days: fleet?.kpis?.rentalDays || 0 })
+                }
+                emptyHint={t('admin.analytics.zeroUtilization')}
+              />
             </div>
-            <div className="ax-kpi">
-              <span className="ax-kpi__label">{t('admin.analytics.thisMonth')}</span>
-              <p className="ax-kpi__value">{money(analytics.monthlyRevenue, currency)}</p>
-              <Delta value={analytics.comparisons?.monthVsPrev} label={t('admin.analytics.vsPrevMonth')} />
-              <p className="ax-kpi__hint">
-                {t('admin.analytics.monthBookings', { count: analytics.monthBookingCount || 0 })}
-              </p>
-            </div>
-            <div className="ax-kpi">
-              <span className="ax-kpi__label">{t('admin.analytics.thisYear')}</span>
-              <p className="ax-kpi__value">{money(analytics.yearlyRevenue, currency)}</p>
-              <Delta value={analytics.comparisons?.yearVsPrev} label={t('admin.analytics.vsPrevYear')} />
-            </div>
-            <div className="ax-kpi">
-              <span className="ax-kpi__label">{t('admin.analytics.avgPerRental')}</span>
-              <p className="ax-kpi__value">{money(analytics.averageRevenuePerRental, currency)}</p>
-              <p className="ax-kpi__hint">
-                {t('admin.analytics.bookingsAllTime', { count: analytics.bookingCount || 0 })}
-              </p>
-            </div>
-            <div className={`ax-kpi${(analytics.outstanding?.count || 0) > 0 ? ' ax-kpi--warn' : ''}`}>
-              <span className="ax-kpi__label">{t('admin.analytics.outstanding')}</span>
-              <p className="ax-kpi__value">
-                {money(analytics.outstanding?.balanceDue || 0, currency)}
-              </p>
-              <p className="ax-kpi__hint">
-                {t('admin.analytics.outstandingCount', { count: analytics.outstanding?.count || 0 })}
-              </p>
-            </div>
+          </section>
+
+          <div className="ax-section-label">{t('admin.analytics.snapshotLabel')}</div>
+          <div className="ax-kpis ax-kpis--snap">
+            <KpiCard
+              label={t('admin.analytics.today')}
+              value={analytics.todayRevenue}
+              currency={currency}
+              accent
+              delta={analytics.comparisons?.todayVsYesterday}
+              deltaLabel={t('admin.analytics.vsYesterday')}
+              newLabel={t('admin.analytics.newVsPrior')}
+              prevValue={analytics.yesterdayRevenue}
+              emptyHint={zeroWindowHint}
+            />
+            <KpiCard
+              label={t('admin.analytics.thisWeek')}
+              value={analytics.weeklyRevenue}
+              currency={currency}
+              delta={analytics.comparisons?.weekVsPrev}
+              deltaLabel={t('admin.analytics.vsPrevWeek')}
+              newLabel={t('admin.analytics.newVsPrior')}
+              prevValue={analytics.prevWeeklyRevenue}
+              emptyHint={zeroWindowHint}
+            />
+            <KpiCard
+              label={t('admin.analytics.thisMonth')}
+              value={analytics.monthlyRevenue}
+              currency={currency}
+              delta={analytics.comparisons?.monthVsPrev}
+              deltaLabel={t('admin.analytics.vsPrevMonth')}
+              newLabel={t('admin.analytics.newVsPrior')}
+              prevValue={analytics.prevMonthlyRevenue}
+              hint={t('admin.analytics.monthBookings', { count: analytics.monthBookingCount || 0 })}
+              emptyHint={zeroWindowHint}
+            />
+            <KpiCard
+              label={t('admin.analytics.thisYear')}
+              value={analytics.yearlyRevenue}
+              currency={currency}
+              delta={analytics.comparisons?.yearVsPrev}
+              deltaLabel={t('admin.analytics.vsPrevYear')}
+              newLabel={t('admin.analytics.newVsPrior')}
+              prevValue={analytics.prevYearlyRevenue}
+              emptyHint={zeroWindowHint}
+            />
           </div>
 
+          <div className="ax-section-label">{t('admin.analytics.breakdownLabel')}</div>
           <div className="ax-kpis">
-            <div className="ax-kpi">
-              <span className="ax-kpi__label">{t('admin.analytics.allTime')}</span>
-              <p className="ax-kpi__value">{money(analytics.totalRevenue, currency)}</p>
-              <p className="ax-kpi__hint">
-                {t('admin.analytics.paidOfTotal', {
-                  paid: analytics.paidBookingCount || 0,
-                  total: analytics.bookingCount || 0,
-                })}
-              </p>
-            </div>
-            <div className="ax-kpi">
-              <span className="ax-kpi__label">{t('admin.analytics.onlineRevenue')}</span>
-              <p className="ax-kpi__value">{money(analytics.onlineRevenue, currency)}</p>
-              <p className="ax-kpi__hint">
-                {t('admin.analytics.channelBookings', { count: analytics.onlineBookingCount || 0 })}
-              </p>
-            </div>
-            <div className="ax-kpi">
-              <span className="ax-kpi__label">{t('admin.analytics.walkInRevenue')}</span>
-              <p className="ax-kpi__value">{money(analytics.walkInRevenue, currency)}</p>
-              <p className="ax-kpi__hint">
-                {t('admin.analytics.channelBookings', { count: analytics.walkInBookingCount || 0 })}
-              </p>
-            </div>
-            {!fleetLoading && fleet?.kpis ? (
-              <>
-                <div className="ax-kpi">
-                  <span className="ax-kpi__label">{t('admin.analytics.fleetUtilization')}</span>
-                  <p className="ax-kpi__value">{Number(fleet.kpis.fleetUtilization || 0).toFixed(1)}%</p>
-                  <p className="ax-kpi__hint">
-                    {t('admin.analytics.rentalDaysHint', { days: fleet.kpis.rentalDays || 0 })}
-                  </p>
-                </div>
-                <div className="ax-kpi">
-                  <span className="ax-kpi__label">{t('admin.analytics.periodRevenue')}</span>
-                  <p className="ax-kpi__value">{money(fleet.kpis.totalRevenue, currency)}</p>
-                  <p className="ax-kpi__hint">
-                    {t('admin.analytics.periodRentals', { count: fleet.kpis.revenueRentals || 0 })}
-                  </p>
-                </div>
-                <div className="ax-kpi">
-                  <span className="ax-kpi__label">{t('admin.analytics.avgPerDay')}</span>
-                  <p className="ax-kpi__value">
-                    {avgPerDay != null ? money(avgPerDay, currency) : '—'}
-                  </p>
-                  <p className="ax-kpi__hint">{t('admin.analytics.avgPerDayHint')}</p>
-                </div>
-              </>
-            ) : null}
+            <KpiCard
+              label={t('admin.analytics.onlineRevenue')}
+              value={analytics.onlineRevenue}
+              currency={currency}
+              hint={t('admin.analytics.channelBookings', {
+                count: analytics.onlineBookingCount || 0,
+              })}
+              emptyHint={t('admin.analytics.zeroOnline')}
+            />
+            <KpiCard
+              label={t('admin.analytics.walkInRevenue')}
+              value={analytics.walkInRevenue}
+              currency={currency}
+              hint={t('admin.analytics.channelBookings', {
+                count: analytics.walkInBookingCount || 0,
+              })}
+              emptyHint={t('admin.analytics.zeroWalkIn')}
+            />
+            <KpiCard
+              label={t('admin.analytics.avgPerRental')}
+              value={analytics.averageRevenuePerRental}
+              currency={currency}
+              hint={t('admin.analytics.periodRentals', { count: periodRentals })}
+              emptyHint={zeroPeriodHint}
+            />
+            <KpiCard
+              label={t('admin.analytics.avgPerDay')}
+              value={avgPerDay || 0}
+              currency={currency}
+              hint={t('admin.analytics.avgPerDayHint')}
+              emptyHint={zeroPeriodHint}
+            />
+            <KpiCard
+              label={t('admin.analytics.allTime')}
+              value={analytics.totalRevenue}
+              currency={currency}
+              hint={t('admin.analytics.paidOfTotal', {
+                paid: analytics.paidBookingCount || 0,
+                total: analytics.bookingCount || 0,
+              })}
+              emptyHint={t('admin.analytics.zeroLifetime')}
+            />
+            <KpiCard
+              label={t('admin.analytics.amountCollected')}
+              value={analytics.period?.amountPaid || 0}
+              currency={currency}
+              hint={t('admin.analytics.collectedHint')}
+              emptyHint={t('admin.analytics.zeroCollected')}
+            />
           </div>
 
           <div className="ax-grid ax-grid--main">
@@ -298,9 +426,9 @@ const Analytics = () => {
                   <p className="ax-panel__sub">{t('admin.analytics.trendHint')}</p>
                 </div>
                 <SegmentedControl
-                  options={['weekly', 'monthly', 'yearly'].map((periodId) => ({
+                  options={['period', 'weekly', 'monthly', 'yearly'].map((periodId) => ({
                     id: periodId,
-                    label: t(`admin.analytics.${periodId}`),
+                    label: t(`admin.analytics.${periodId === 'period' ? 'periodTab' : periodId}`),
                   }))}
                   value={tab}
                   onChange={setTab}
@@ -308,7 +436,16 @@ const Analytics = () => {
                 />
               </div>
               <div className="ax-panel__body">
-                <RevenueChart data={chartData} currency={currency} height={260} />
+                <RevenueChart
+                  data={chartData}
+                  currency={currency}
+                  height={260}
+                  emptyHint={
+                    tab === 'period'
+                      ? zeroPeriodHint
+                      : t('admin.analytics.chartEmpty')
+                  }
+                />
               </div>
             </section>
 
@@ -321,7 +458,10 @@ const Analytics = () => {
               </div>
               <div className="ax-panel__body">
                 {insights.length === 0 ? (
-                  <p className="ax-muted">{t('admin.analytics.insightsEmpty')}</p>
+                  <EmptyBlock
+                    title={t('admin.analytics.insightsEmpty')}
+                    hint={periodCaption}
+                  />
                 ) : (
                   <div className="ax-insights">
                     {insights.map((item) => (
@@ -342,11 +482,15 @@ const Analytics = () => {
                 <h2 className="ax-panel__title">{t('admin.analytics.topVehicles')}</h2>
               </div>
               <div className="ax-panel__body">
-                <RankBars
-                  rows={analytics.topVehicles || []}
-                  currency={currency}
-                  labelFn={(row) => `${row.brand || ''} ${row.model || ''}`.trim() || '—'}
-                />
+                {(analytics.topVehicles || []).some((r) => r.revenue > 0) ? (
+                  <RankBars
+                    rows={analytics.topVehicles || []}
+                    currency={currency}
+                    labelFn={(row) => `${row.brand || ''} ${row.model || ''}`.trim() || '—'}
+                  />
+                ) : (
+                  <EmptyBlock title={t('admin.analytics.noBreakdown')} hint={zeroPeriodHint} />
+                )}
               </div>
             </section>
 
@@ -355,11 +499,15 @@ const Analytics = () => {
                 <h2 className="ax-panel__title">{t('admin.analytics.byCategory')}</h2>
               </div>
               <div className="ax-panel__body">
-                <RankBars
-                  rows={analytics.byCategory || []}
-                  currency={currency}
-                  labelFn={(row) => row.category || '—'}
-                />
+                {(analytics.byCategory || []).some((r) => r.revenue > 0) ? (
+                  <RankBars
+                    rows={analytics.byCategory || []}
+                    currency={currency}
+                    labelFn={(row) => row.category || '—'}
+                  />
+                ) : (
+                  <EmptyBlock title={t('admin.analytics.noBreakdown')} hint={zeroPeriodHint} />
+                )}
               </div>
             </section>
 
@@ -368,14 +516,18 @@ const Analytics = () => {
                 <h2 className="ax-panel__title">{t('admin.analytics.byChannel')}</h2>
               </div>
               <div className="ax-panel__body">
-                <ShareBars
-                  rows={(analytics.byChannel || []).map((row) => ({
-                    ...row,
-                    revenue: row.revenue || 0,
-                  }))}
-                  currency={currency}
-                  labelFn={(row) => channelLabel(row._id)}
-                />
+                {(analytics.byChannel || []).some((r) => (r.revenue || 0) > 0) ? (
+                  <ShareBars
+                    rows={(analytics.byChannel || []).map((row) => ({
+                      ...row,
+                      revenue: row.revenue || 0,
+                    }))}
+                    currency={currency}
+                    labelFn={(row) => channelLabel(row._id)}
+                  />
+                ) : (
+                  <EmptyBlock title={t('admin.analytics.noBreakdown')} hint={zeroPeriodHint} />
+                )}
               </div>
             </section>
           </div>
@@ -409,7 +561,7 @@ const Analytics = () => {
             <div className="ax-panel__body">
               <div className="ax-status-grid">
                 {(analytics.byStatus || []).map((row) => (
-                  <div key={row._id} className="ax-status">
+                  <div key={row._id} className={`ax-status${(row.revenue || 0) === 0 ? ' is-zero' : ''}`}>
                     <p className="ax-status__label">{statusLabel(row._id)}</p>
                     <p className="ax-status__count">{row.count}</p>
                     <p className="ax-status__rev">{money(row.revenue, currency)}</p>
@@ -435,7 +587,7 @@ const Analytics = () => {
               {fleetLoading ? (
                 <Skeleton className="h-40 w-full rounded-[var(--admin-radius-lg)]" />
               ) : fleetRows.length === 0 ? (
-                <p className="ax-muted">{t('admin.analytics.fleetEmpty')}</p>
+                <EmptyBlock title={t('admin.analytics.fleetEmpty')} hint={zeroPeriodHint} />
               ) : (
                 <>
                   <div className="ax-table-wrap">
@@ -507,7 +659,6 @@ const Analytics = () => {
                                             ? 'inactive'
                                             : 'confirmed'
                                     }
-                                    className="admin-badge--compact"
                                   />
                                 )}
                               </td>
@@ -519,19 +670,19 @@ const Analytics = () => {
                   </div>
 
                   {attentionRows.length > 0 ? (
-                    <div style={{ marginTop: '1rem' }}>
-                      <h3 className="ax-panel__title" style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                        {t('admin.analytics.needsAttention')}
-                      </h3>
-                      <RankBars
-                        rows={attentionRows.map((r) => ({
-                          ...r,
-                          rentals: r.totalRentals,
-                        }))}
-                        currency={currency}
-                        labelFn={(row) => `${row.brand || ''} ${row.model || ''}`.trim()}
-                        maxRows={5}
-                      />
+                    <div className="ax-attention">
+                      <p className="ax-attention__title">{t('admin.analytics.needsAttention')}</p>
+                      <ul className="ax-attention__list">
+                        {attentionRows.map((row) => (
+                          <li key={row._id}>
+                            {row.brand} {row.model}
+                            <span className="ax-muted">
+                              {' '}
+                              · {money(row.revenue, currency)} · {Number(row.utilization || 0).toFixed(0)}%
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   ) : null}
                 </>
