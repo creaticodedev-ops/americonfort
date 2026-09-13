@@ -776,12 +776,14 @@
   box-shadow: 0 0 0 3px rgb(128 0 32 / 14%);
 }
 
-/* Analytics period bar date faces → DateField compact */
-.admin-analytics-period__date {
+/* Analytics period — DateField hooks (legacy selectors kept harmless) */
+.admin-analytics-period__date,
+.admin-period__date {
   min-width: 9.5rem;
 }
 
-.admin-analytics-period .hdn-date-field__trigger {
+.admin-analytics-period .hdn-date-field__trigger,
+.admin-period .hdn-date-field__trigger {
   min-height: 2.35rem;
   padding: 0.28rem 0.7rem;
   font-size: 0.8125rem;
