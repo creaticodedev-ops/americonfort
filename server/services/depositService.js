@@ -189,6 +189,7 @@ export const claimDeposit = async ({
         notes: 'Applied from security deposit claim',
         idempotencyKey: `deposit_claim_pay:${claimKey}`,
         allowOverpayment: false,
+        derivedFromDepositClaim: true,
         links: {
           type: 'deposit_claim_payment',
           claimEntryId: claimResult.entry?.id,

@@ -217,7 +217,11 @@ const BookingInspector = ({
       </div>
 
       <div className="admin-booking-inspector-body">
-        <BookingMoneySummary bookingId={booking._id} currency={currency} />
+        <BookingMoneySummary
+          bookingId={booking._id}
+          currency={currency}
+          reservationId={booking.reservationId}
+        />
         <BookingDeskOps bookingId={booking._id} currency={currency} />
 
         <DetailSection title={t('admin.details.period')} collapsible defaultOpen>

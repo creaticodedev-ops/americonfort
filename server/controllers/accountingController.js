@@ -118,6 +118,10 @@ export const createSamsarPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid payment date' });
     }
 
+    const paymentStatus = ['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)
+      ? req.body.paymentStatus
+      : 'pending';
+
     const item = await SamsarPayment.create({
       owner,
       samsar: samsar._id,
@@ -125,9 +129,8 @@ export const createSamsarPayment = async (req, res) => {
       amount,
       currency: String(req.body.currency || process.env.CURRENCY || 'MAD'),
       paymentDate,
-      paymentStatus: ['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)
-        ? req.body.paymentStatus
-        : 'pending',
+      paymentStatus,
+      paidAt: paymentStatus === 'paid' ? paymentDate : null,
       paymentMethod: ['cash', 'bank_transfer', 'check', 'other'].includes(req.body.paymentMethod)
         ? req.body.paymentMethod
         : 'cash',
@@ -173,6 +176,10 @@ export const updateSamsarPayment = async (req, res) => {
     }
     if (['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)) {
       item.paymentStatus = req.body.paymentStatus;
+      if (req.body.paymentStatus === 'paid' && !item.paidAt) {
+        item.paidAt = item.paymentDate || new Date();
+      }
+      if (req.body.paymentStatus !== 'paid') item.paidAt = null;
     }
     if (['cash', 'bank_transfer', 'check', 'other'].includes(req.body.paymentMethod)) {
       item.paymentMethod = req.body.paymentMethod;
@@ -240,6 +247,9 @@ export const createAgencyExpense = async (req, res) => {
     if (Number.isNaN(expenseDate.getTime())) {
       return res.status(400).json({ success: false, message: 'Invalid expense date' });
     }
+    const paymentStatus = ['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)
+      ? req.body.paymentStatus
+      : 'pending';
     const item = await AgencyExpense.create({
       owner,
       category: req.body.category || 'other',
@@ -247,9 +257,8 @@ export const createAgencyExpense = async (req, res) => {
       currency: String(req.body.currency || process.env.CURRENCY || 'MAD'),
       expenseDate,
       description: String(req.body.description || '').slice(0, 500),
-      paymentStatus: ['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)
-        ? req.body.paymentStatus
-        : 'pending',
+      paymentStatus,
+      paidAt: paymentStatus === 'paid' ? expenseDate : null,
       paymentMethod: req.body.paymentMethod || 'cash',
       notes: String(req.body.notes || '').slice(0, 2000),
       partnerCompany: mongoose.isValidObjectId(req.body.partnerCompanyId)
@@ -294,6 +303,10 @@ export const updateAgencyExpense = async (req, res) => {
     }
     if (['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)) {
       item.paymentStatus = req.body.paymentStatus;
+      if (req.body.paymentStatus === 'paid' && !item.paidAt) {
+        item.paidAt = item.expenseDate || new Date();
+      }
+      if (req.body.paymentStatus !== 'paid') item.paidAt = null;
     }
     if (req.body.paymentMethod) item.paymentMethod = req.body.paymentMethod;
     if (req.body.description != null) item.description = String(req.body.description).slice(0, 500);
@@ -364,6 +377,9 @@ export const createVehicleExpense = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid expense date' });
     }
 
+    const paymentStatus = ['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)
+      ? req.body.paymentStatus
+      : 'pending';
     const item = await VehicleExpense.create({
       owner,
       car: car._id,
@@ -372,9 +388,8 @@ export const createVehicleExpense = async (req, res) => {
       currency: String(req.body.currency || process.env.CURRENCY || 'MAD'),
       expenseDate,
       description: String(req.body.description || '').slice(0, 500),
-      paymentStatus: ['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)
-        ? req.body.paymentStatus
-        : 'pending',
+      paymentStatus,
+      paidAt: paymentStatus === 'paid' ? expenseDate : null,
       paymentMethod: req.body.paymentMethod || 'cash',
       odometer: req.body.odometer != null && Number.isFinite(Number(req.body.odometer))
         ? Number(req.body.odometer)
@@ -421,6 +436,10 @@ export const updateVehicleExpense = async (req, res) => {
     }
     if (['pending', 'paid', 'cancelled'].includes(req.body.paymentStatus)) {
       item.paymentStatus = req.body.paymentStatus;
+      if (req.body.paymentStatus === 'paid' && !item.paidAt) {
+        item.paidAt = item.expenseDate || new Date();
+      }
+      if (req.body.paymentStatus !== 'paid') item.paidAt = null;
     }
     if (req.body.paymentMethod) item.paymentMethod = req.body.paymentMethod;
     if (req.body.description != null) item.description = String(req.body.description).slice(0, 500);

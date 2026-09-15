@@ -41,6 +41,8 @@ const agencyExpenseSchema = new mongoose.Schema(
       enum: ['cash', 'bank_transfer', 'check', 'card', 'other'],
       default: 'cash',
     },
+    /** When paymentStatus became paid — used by cash Décaissements journal */
+    paidAt: { type: Date, default: null, index: true },
     notes: { type: String, default: '' },
     /** Optional future link to partner company */
     partnerCompany: { type: ObjectId, ref: 'PartnerCompany', default: null },
@@ -52,6 +54,7 @@ const agencyExpenseSchema = new mongoose.Schema(
 
 agencyExpenseSchema.index({ owner: 1, expenseDate: -1 });
 agencyExpenseSchema.index({ owner: 1, category: 1, expenseDate: -1 });
+agencyExpenseSchema.index({ owner: 1, paymentStatus: 1, paidAt: -1 });
 
 const AgencyExpense = mongoose.model('AgencyExpense', agencyExpenseSchema);
 export default AgencyExpense;

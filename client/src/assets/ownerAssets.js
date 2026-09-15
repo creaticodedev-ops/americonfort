@@ -68,6 +68,8 @@ export const ownerMenuLinks = [
   { nameKey: 'admin.menu.invoices', path: '/owner/invoices', icon: listIcon, coloredIcon: listIconColored, permission: 'contracts', feature: 'invoices' },
   { nameKey: 'admin.menu.templates', path: '/owner/templates', icon: edit_icon, coloredIcon: edit_icon, permission: 'templates', feature: 'templates' },
   { nameKey: 'admin.menu.accounting', path: '/owner/accounting', icon: dashboardIcon, coloredIcon: dashboardIconColored, permission: 'accounting', feature: 'accounting' },
+  { nameKey: 'admin.menu.encaissements', path: '/owner/encaissements', icon: listIcon, coloredIcon: listIconColored, permission: 'accounting', feature: 'accounting' },
+  { nameKey: 'admin.menu.decaissements', path: '/owner/decaissements', icon: listIcon, coloredIcon: listIconColored, permission: 'accounting', feature: 'accounting' },
   { nameKey: 'admin.menu.revenues', path: '/owner/accounting/revenues', icon: listIcon, coloredIcon: listIconColored, permission: 'accounting', feature: 'accounting' },
   { nameKey: 'admin.menu.samsarPayments', path: '/owner/accounting/samsar-payments', icon: listIcon, coloredIcon: listIconColored, permission: 'accounting', feature: 'accounting' },
   { nameKey: 'admin.menu.agencyExpenses', path: '/owner/accounting/agency-expenses', icon: listIcon, coloredIcon: listIconColored, permission: 'accounting', feature: 'accounting' },

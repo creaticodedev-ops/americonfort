@@ -212,68 +212,76 @@ const BookingDeskOps = ({ bookingId, currency, onFinancialChange, onStatusHint }
 
   return (
     <DetailSection title={t('admin.deskOps.title')} collapsible defaultOpen>
-      <div className="mb-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2 py-2">
-          <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.bookingMoney.deposit')}</p>
-          <p className="font-semibold tabular-nums">{money}{financial?.depositRequired || 0}</p>
+      {/* Caution subsection */}
+      <div className="mb-4 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)]/40 p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-fg)]">
+          {t('admin.deskOps.depositSection')}
+        </p>
+        <div className="mb-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+          <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-2">
+            <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.bookingMoney.deposit')}</p>
+            <p className="font-semibold tabular-nums">{money}{financial?.depositRequired || 0}</p>
+          </div>
+          <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-2">
+            <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.bookingMoney.depositHeld')}</p>
+            <p className="font-semibold tabular-nums">{money}{financial?.depositHeld || 0}</p>
+          </div>
+          <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-2">
+            <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.deskOps.pickup')}</p>
+            <p className="font-semibold">{pickup ? t('admin.deskOps.done') : t('admin.deskOps.pending')}</p>
+          </div>
+          <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-2">
+            <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.deskOps.return')}</p>
+            <p className="font-semibold">{ret ? t('admin.deskOps.done') : t('admin.deskOps.pending')}</p>
+          </div>
         </div>
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2 py-2">
-          <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.bookingMoney.depositHeld')}</p>
-          <p className="font-semibold tabular-nums">{money}{financial?.depositHeld || 0}</p>
-        </div>
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2 py-2">
-          <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.deskOps.pickup')}</p>
-          <p className="font-semibold">{pickup ? t('admin.deskOps.done') : t('admin.deskOps.pending')}</p>
-        </div>
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2 py-2">
-          <p className="text-[10px] uppercase text-[var(--admin-fg-muted)]">{t('admin.deskOps.return')}</p>
-          <p className="font-semibold">{ret ? t('admin.deskOps.done') : t('admin.deskOps.pending')}</p>
+
+        <p className="mb-2 text-[11px] font-semibold uppercase text-[var(--admin-fg-muted)]">
+          {t('admin.deskOps.depositActions')}
+        </p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div>
+            <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
+            <input className={inputClass} type="number" min="0" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
+            <select className={inputClass} value={depositMethod} onChange={(e) => setDepositMethod(e.target.value)}>
+              {['cash', 'card_tpe', 'bank_transfer', 'other'].map((m) => (
+                <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap items-end gap-1">
+            <button type="button" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm" onClick={() => depositAction('hold')}>
+              {t('admin.deskOps.hold')}
+            </button>
+            <button type="button" disabled={busy} className="admin-btn admin-btn--secondary admin-btn--sm" onClick={() => depositAction('release')}>
+              {t('admin.deskOps.release')}
+            </button>
+            <button type="button" disabled={busy} className="admin-btn admin-btn--danger admin-btn--sm" onClick={() => depositAction('claim')}>
+              {t('admin.deskOps.claim')}
+            </button>
+          </div>
         </div>
       </div>
 
-      <p className="mb-2 text-[11px] font-semibold uppercase text-[var(--admin-fg-muted)]">
-        {t('admin.deskOps.depositActions')}
-      </p>
-      <div className="mb-3 grid gap-2 sm:grid-cols-3">
-        <div>
-          <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-          <input className={inputClass} type="number" min="0" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
-        </div>
-        <div>
-          <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
-          <select className={inputClass} value={depositMethod} onChange={(e) => setDepositMethod(e.target.value)}>
-            {['cash', 'card_tpe', 'bank_transfer', 'other'].map((m) => (
-              <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-wrap items-end gap-1">
-          <button type="button" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm" onClick={() => depositAction('hold')}>
-            {t('admin.deskOps.hold')}
+      {/* Inspections subsection */}
+      <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-fg)]">
+          {t('admin.deskOps.inspections')}
+        </p>
+        <div className="mb-3 flex flex-wrap gap-1">
+          <button type="button" disabled={busy} className="admin-btn admin-btn--secondary admin-btn--sm" onClick={() => openInspection('pickup')}>
+            {t('admin.deskOps.openPickup')}
           </button>
-          <button type="button" disabled={busy} className="admin-btn admin-btn--secondary admin-btn--sm" onClick={() => depositAction('release')}>
-            {t('admin.deskOps.release')}
-          </button>
-          <button type="button" disabled={busy} className="admin-btn admin-btn--danger admin-btn--sm" onClick={() => depositAction('claim')}>
-            {t('admin.deskOps.claim')}
+          <button type="button" disabled={busy} className="admin-btn admin-btn--secondary admin-btn--sm" onClick={() => openInspection('return')}>
+            {t('admin.deskOps.openReturn')}
           </button>
         </div>
-      </div>
-
-      <p className="mb-2 text-[11px] font-semibold uppercase text-[var(--admin-fg-muted)]">
-        {t('admin.deskOps.inspections')}
-      </p>
-      <div className="mb-3 flex flex-wrap gap-1">
-        <button type="button" disabled={busy} className="admin-btn admin-btn--secondary admin-btn--sm" onClick={() => openInspection('pickup')}>
-          {t('admin.deskOps.openPickup')}
-        </button>
-        <button type="button" disabled={busy} className="admin-btn admin-btn--secondary admin-btn--sm" onClick={() => openInspection('return')}>
-          {t('admin.deskOps.openReturn')}
-        </button>
-      </div>
 
       {draft ? (
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] p-3">
+        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface-2)]/30 p-3">
           <p className="mb-2 text-sm font-semibold text-[var(--admin-fg)]">
             {draft.type === 'pickup' ? t('admin.deskOps.pickup') : t('admin.deskOps.return')}
             {' · '}
@@ -436,6 +444,7 @@ const BookingDeskOps = ({ bookingId, currency, onFinancialChange, onStatusHint }
           </div>
         </div>
       ) : null}
+      </div>
     </DetailSection>
   )
 }

@@ -18,6 +18,10 @@ import {
   getAccountingOverview,
 } from '../services/accountingService.js';
 import {
+  listCashJournal,
+  getCashOverview,
+} from '../services/cashJournalService.js';
+import {
   resolveAgencyReportContext,
   buildAgencyWorkbook,
   buildDownloadFilename,
@@ -796,6 +800,211 @@ export const exportAccountingXlsx = async (req, res) => {
           ],
         }],
         rowCount: 8,
+      });
+      return;
+    }
+
+    if (kind === 'encaissements' || kind === 'decaissements' || kind === 'cash-overview') {
+      const direction = kind === 'decaissements' ? 'out' : 'in';
+      const from = req.query.from || range.from?.toISOString?.()?.slice(0, 10);
+      const to = req.query.to || range.to?.toISOString?.()?.slice(0, 10);
+      const cashOverview = await getCashOverview(ownerId, { from, to });
+      const ck = cashOverview.kpis || {};
+
+      if (kind === 'cash-overview') {
+        await respondXlsx(req, res, {
+          reportKey: 'cash-overview',
+          title: 'Cash Overview',
+          subtitle: 'Encaissements / Décaissements summary (cash basis)',
+          filters: filterLines({
+            From: from,
+            To: to,
+          }),
+          kpis: [
+            { label: 'Today in', value: asNumber(ck.todayIn), format: 'money' },
+            { label: 'Today out', value: asNumber(ck.todayOut), format: 'money' },
+            { label: 'Period net', value: asNumber(ck.periodNet), format: 'money' },
+            { label: 'Outstanding', value: asNumber(ck.outstandingBalance), format: 'money' },
+            { label: 'Deposits held', value: asNumber(ck.depositsHeld), format: 'money' },
+          ],
+          sheets: [
+            {
+              name: 'KPIs',
+              columns: [
+                { key: 'metric', header: 'Metric', width: 28 },
+                { key: 'amount', header: 'Amount', width: 16, type: 'money' },
+              ],
+              rows: [
+                { metric: 'Today in', amount: asNumber(ck.todayIn) },
+                { metric: 'Today out', amount: asNumber(ck.todayOut) },
+                { metric: 'Today net', amount: asNumber(ck.todayNet) },
+                { metric: 'Period in', amount: asNumber(ck.periodIn) },
+                { metric: 'Period out', amount: asNumber(ck.periodOut) },
+                { metric: 'Period net', amount: asNumber(ck.periodNet) },
+                { metric: 'Outstanding A/R', amount: asNumber(ck.outstandingBalance) },
+                { metric: 'Deposits held', amount: asNumber(ck.depositsHeld) },
+                { metric: 'Refunds (period)', amount: asNumber(ck.refunds) },
+              ],
+            },
+            {
+              name: 'Methods in',
+              columns: [
+                { key: 'method', header: 'Method', width: 16 },
+                { key: 'count', header: 'Count', width: 10, type: 'number' },
+                { key: 'amount', header: 'Amount', width: 14, type: 'money' },
+              ],
+              rows: (cashOverview.methodBreakdownIn || []).map((r) => ({
+                method: r.method,
+                count: r.count,
+                amount: asNumber(r.amount),
+              })),
+            },
+            {
+              name: 'Methods out',
+              columns: [
+                { key: 'method', header: 'Method', width: 16 },
+                { key: 'count', header: 'Count', width: 10, type: 'number' },
+                { key: 'amount', header: 'Amount', width: 14, type: 'money' },
+              ],
+              rows: (cashOverview.methodBreakdownOut || []).map((r) => ({
+                method: r.method,
+                count: r.count,
+                amount: asNumber(r.amount),
+              })),
+            },
+          ],
+          rowCount: 9,
+        });
+        return;
+      }
+
+      const result = await listCashJournal(ownerId, {
+        direction,
+        from,
+        to,
+        page: 1,
+        limit: EXPORT_CAP,
+        method: req.query.method,
+        cashType: req.query.cashType || req.query.type,
+        q: req.query.q || req.query.search,
+        reservationId: req.query.reservationId,
+        bookingId: req.query.bookingId,
+        minAmount: req.query.minAmount,
+        maxAmount: req.query.maxAmount,
+      });
+
+      const rows = (result.items || []).map((r) => ({
+        occurredAt: r.occurredAt,
+        cashType: r.cashType,
+        category: r.category,
+        amount: asNumber(r.amount),
+        method: r.method,
+        status: r.status,
+        customer: r.customerName || r.beneficiary || '',
+        reservationId: r.booking?.reservationId || '',
+        reference: r.reference || '',
+        notes: r.notes || '',
+        actor: r.actor?.name || '',
+        source: r.sourceCollection,
+      }));
+
+      const methodMap = new Map();
+      const categoryMap = new Map();
+      for (const r of rows) {
+        const m = methodMap.get(r.method) || { method: r.method, count: 0, amount: 0 };
+        m.count += 1;
+        m.amount += r.amount;
+        methodMap.set(r.method, m);
+        const c = categoryMap.get(r.cashType) || { cashType: r.cashType, count: 0, amount: 0 };
+        c.count += 1;
+        c.amount += r.amount;
+        categoryMap.set(r.cashType, c);
+      }
+
+      const title = kind === 'encaissements' ? 'Encaissements' : 'Décaissements';
+      await respondXlsx(req, res, {
+        reportKey: `cash-${kind}`,
+        title,
+        subtitle: 'Cash journal (ledger + paid expenses). Deposit claim payments excluded from cash-in.',
+        filters: filterLines({
+          From: from,
+          To: to,
+          Method: req.query.method,
+          Type: req.query.cashType || req.query.type,
+          Reservation: req.query.reservationId,
+          Search: req.query.q || req.query.search,
+        }),
+        kpis: [
+          { label: 'Rows', value: rows.length, format: 'number' },
+          { label: 'Total', value: asNumber(result.totals?.amount), format: 'money' },
+          { label: 'Today in', value: asNumber(ck.todayIn), format: 'money' },
+          { label: 'Today out', value: asNumber(ck.todayOut), format: 'money' },
+          { label: 'Outstanding', value: asNumber(ck.outstandingBalance), format: 'money' },
+          { label: 'Deposits held', value: asNumber(ck.depositsHeld), format: 'money' },
+        ],
+        sheets: [
+          {
+            name: 'Summary',
+            columns: [
+              { key: 'metric', header: 'Metric', width: 28 },
+              { key: 'amount', header: 'Value', width: 16 },
+            ],
+            rows: [
+              { metric: 'Movements', amount: rows.length },
+              { metric: 'Total amount (MAD)', amount: asNumber(result.totals?.amount) },
+              { metric: 'Today in', amount: asNumber(ck.todayIn) },
+              { metric: 'Today out', amount: asNumber(ck.todayOut) },
+              { metric: 'Outstanding A/R', amount: asNumber(ck.outstandingBalance) },
+              { metric: 'Deposits held', amount: asNumber(ck.depositsHeld) },
+              { metric: 'Refunds (period)', amount: asNumber(ck.refunds) },
+            ],
+          },
+          {
+            name: 'Transactions',
+            columns: [
+              { key: 'occurredAt', header: 'Date', width: 18, type: 'datetime' },
+              { key: 'cashType', header: 'Type', width: 18 },
+              { key: 'customer', header: 'Party', width: 20 },
+              { key: 'reservationId', header: 'Reservation #', width: 16 },
+              { key: 'method', header: 'Method', width: 14 },
+              { key: 'amount', header: 'Amount', width: 12, type: 'money' },
+              { key: 'status', header: 'Status', width: 12, type: 'status' },
+              { key: 'reference', header: 'Reference', width: 14 },
+              { key: 'actor', header: 'Recorded by', width: 16 },
+              { key: 'notes', header: 'Notes', width: 28 },
+              { key: 'source', header: 'Source', width: 18 },
+            ],
+            rows,
+            totals: { label: 'Totals', sumKeys: ['amount'] },
+          },
+          {
+            name: 'By method',
+            columns: [
+              { key: 'method', header: 'Method', width: 16 },
+              { key: 'count', header: 'Count', width: 10, type: 'number' },
+              { key: 'amount', header: 'Amount', width: 14, type: 'money' },
+            ],
+            rows: [...methodMap.values()].map((r) => ({
+              method: r.method,
+              count: r.count,
+              amount: asNumber(r.amount),
+            })),
+          },
+          {
+            name: 'By category',
+            columns: [
+              { key: 'cashType', header: 'Type', width: 20 },
+              { key: 'count', header: 'Count', width: 10, type: 'number' },
+              { key: 'amount', header: 'Amount', width: 14, type: 'money' },
+            ],
+            rows: [...categoryMap.values()].map((r) => ({
+              cashType: r.cashType,
+              count: r.count,
+              amount: asNumber(r.amount),
+            })),
+          },
+        ],
+        rowCount: rows.length,
       });
       return;
     }

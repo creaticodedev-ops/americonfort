@@ -79,8 +79,13 @@ const bookingLedgerEntrySchema = new mongoose.Schema(
     voidedAt: { type: Date, default: null },
     voidReason: { type: String, default: '' },
     /**
+     * True when this payment was auto-posted from a deposit claim (not new cash in).
+     * Cash journal Encaissements must exclude these.
+     */
+    derivedFromDepositClaim: { type: Boolean, default: false, index: true },
+    /**
      * Optional links for idempotency / audit:
-     * extensionId, inspectionId, damageId, legacyPaymentId, migrationTag
+     * extensionId, inspectionId, damageId, legacyPaymentId, migrationTag, type
      */
     links: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   },
@@ -90,6 +95,8 @@ const bookingLedgerEntrySchema = new mongoose.Schema(
 bookingLedgerEntrySchema.index({ owner: 1, booking: 1, occurredAt: 1 });
 bookingLedgerEntrySchema.index({ booking: 1, status: 1, kind: 1 });
 bookingLedgerEntrySchema.index({ owner: 1, kind: 1, occurredAt: -1 });
+bookingLedgerEntrySchema.index({ owner: 1, status: 1, occurredAt: -1 });
+bookingLedgerEntrySchema.index({ owner: 1, derivedFromDepositClaim: 1, occurredAt: -1 });
 bookingLedgerEntrySchema.index(
   { owner: 1, booking: 1, idempotencyKey: 1 },
   {

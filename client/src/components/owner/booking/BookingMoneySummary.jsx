@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { DetailSection, DetailRow } from '../ui/DetailSection'
 import StatusBadge from '../StatusBadge'
 import { useAppContext } from '../../../context/AppContext'
@@ -31,20 +32,21 @@ const inputClass =
 const labelClass = 'mb-1 block text-[11px] font-medium text-[var(--admin-fg-muted)]'
 
 /**
- * Phase 2: operational offline money panel (payments + charges).
- * Deposit hold/release is out of scope — shows required/held from franchiseAmount only.
+ * Compact reservation financial strip + quick capture actions + collapsible history.
  */
-const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
+const BookingMoneySummary = ({ bookingId, currency: currencyProp, reservationId }) => {
   const { axios, currency: ctxCurrency, hasPermission } = useAppContext()
   const { t } = useI18n()
   const currency = currencyProp || ctxCurrency || 'MAD '
   const canRefund = hasPermission('accounting')
+  const canAccounting = hasPermission('accounting')
 
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [financial, setFinancial] = useState(null)
-  const [tab, setTab] = useState('payment') // payment | charge | refund
+  const [action, setAction] = useState(null) // payment | charge | refund | deposit | null
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const [payAmount, setPayAmount] = useState('')
   const [payMethod, setPayMethod] = useState('cash')
@@ -62,6 +64,9 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
   const [refundRef, setRefundRef] = useState('')
   const [refundNotes, setRefundNotes] = useState('')
 
+  const [depositAmount, setDepositAmount] = useState('')
+  const [depositMethod, setDepositMethod] = useState('cash')
+
   const load = useCallback(async () => {
     if (!bookingId) return
     setLoading(true)
@@ -72,6 +77,10 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         setFinancial(data.financial)
         const due = Number(data.financial?.balanceDue) || 0
         if (due > 0) setPayAmount(String(due))
+        const req = Number(data.financial?.depositRequired) || 0
+        const held = Number(data.financial?.depositHeld) || 0
+        const remaining = Math.max(0, req - held)
+        setDepositAmount(remaining > 0 ? String(remaining) : req > 0 ? String(req) : '')
       } else {
         setError(data.message || t('admin.bookingMoney.loadError'))
       }
@@ -85,6 +94,13 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
   useEffect(() => {
     load()
   }, [load])
+
+  const afterWrite = (nextFinancial) => {
+    setFinancial(nextFinancial)
+    const due = Number(nextFinancial?.balanceDue) || 0
+    setPayAmount(due > 0 ? String(due) : '')
+    setAction(null)
+  }
 
   const submitPayment = async (e) => {
     e.preventDefault()
@@ -104,9 +120,7 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         setPayRef('')
         setPayNotes('')
         setAllowOverpay(false)
-        setFinancial(data.financial)
-        const due = Number(data.financial?.balanceDue) || 0
-        setPayAmount(due > 0 ? String(due) : '')
+        afterWrite(data.financial)
       } else {
         toast.error(data.message || t('admin.bookingMoney.paymentFail'))
       }
@@ -134,9 +148,7 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         setChargeAmount('')
         setChargeRef('')
         setChargeNotes('')
-        setFinancial(data.financial)
-        const due = Number(data.financial?.balanceDue) || 0
-        if (due > 0) setPayAmount(String(due))
+        afterWrite(data.financial)
       } else {
         toast.error(data.message || t('admin.bookingMoney.chargeFail'))
       }
@@ -164,12 +176,35 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         setRefundAmount('')
         setRefundRef('')
         setRefundNotes('')
-        setFinancial(data.financial)
+        afterWrite(data.financial)
       } else {
         toast.error(data.message || t('admin.bookingMoney.refundFail'))
       }
     } catch (err) {
       toast.error(getErrorMessage(err) || t('admin.bookingMoney.refundFail'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const submitDepositHold = async (e) => {
+    e.preventDefault()
+    if (busy) return
+    setBusy(true)
+    try {
+      const { data } = await axios.post(`/api/bookings/owner/${bookingId}/deposit/hold`, {
+        amount: Number(depositAmount),
+        method: depositMethod,
+        idempotencyKey: newIdempotencyKey(),
+      })
+      if (data.success) {
+        toast.success(data.message || t('admin.bookingMoney.paymentOk'))
+        afterWrite(data.financial)
+      } else {
+        toast.error(data.message || t('admin.bookingMoney.paymentFail'))
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err) || t('admin.bookingMoney.paymentFail'))
     } finally {
       setBusy(false)
     }
@@ -187,9 +222,6 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
     return (
       <DetailSection title={t('admin.bookingMoney.title')} collapsible defaultOpen>
         <p className="text-sm text-[var(--admin-danger)]">{error || t('admin.bookingMoney.loadError')}</p>
-        <button type="button" className="admin-btn admin-btn--secondary admin-btn--sm mt-2" onClick={load}>
-          {t('admin.leftover.tryAgain')}
-        </button>
       </DetailSection>
     )
   }
@@ -206,6 +238,8 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
     ? financial.chargeCategories.filter((c) => c !== 'security_deposit')
     : ['extra', 'late_fee', 'fuel', 'damage', 'extension', 'adjustment', 'other']
 
+  const resId = reservationId || financial.reservationId || ''
+
   return (
     <DetailSection
       title={t('admin.bookingMoney.title')}
@@ -217,82 +251,94 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         </span>
       }
     >
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Compact financial strip */}
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          { label: t('admin.bookingMoney.charges'), value: financial.chargesTotal },
+          { label: t('admin.bookingMoney.paid'), value: financial.paymentsTotal },
+          { label: t('admin.bookingMoney.balanceDue'), value: financial.balanceDue },
+          { label: t('admin.bookingMoney.depositHeld'), value: financial.depositHeld },
+          { label: t('admin.bookingMoney.refunds'), value: financial.refundsTotal },
+        ].map((tile) => (
+          <div
+            key={tile.label}
+            className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2.5 py-2"
+          >
+            <p className="text-[10px] font-medium uppercase text-[var(--admin-fg-muted)]">{tile.label}</p>
+            <p className="mt-0.5 text-sm font-semibold tabular-nums">{money(currency, tile.value)}</p>
+          </div>
+        ))}
         <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2.5 py-2">
           <p className="text-[10px] font-medium uppercase text-[var(--admin-fg-muted)]">
-            {t('admin.bookingMoney.charges')}
+            {t('admin.bookingMoney.settlement')}
           </p>
-          <p className="mt-0.5 text-sm font-semibold tabular-nums">{money(currency, financial.chargesTotal)}</p>
-        </div>
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2.5 py-2">
-          <p className="text-[10px] font-medium uppercase text-[var(--admin-fg-muted)]">
-            {t('admin.bookingMoney.paid')}
-          </p>
-          <p className="mt-0.5 text-sm font-semibold tabular-nums">{money(currency, financial.paymentsTotal)}</p>
-        </div>
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2.5 py-2">
-          <p className="text-[10px] font-medium uppercase text-[var(--admin-fg-muted)]">
-            {t('admin.bookingMoney.balanceDue')}
-          </p>
-          <p className="mt-0.5 text-sm font-semibold tabular-nums">{money(currency, financial.balanceDue)}</p>
-        </div>
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2.5 py-2">
-          <p className="text-[10px] font-medium uppercase text-[var(--admin-fg-muted)]">
-            {t('admin.bookingMoney.deposit')}
-          </p>
-          <p className="mt-0.5 text-sm font-semibold tabular-nums">{money(currency, financial.depositRequired)}</p>
+          <div className="mt-1">
+            <StatusBadge
+              status={financial.settlementStatus || 'unpaid'}
+              label={t(`admin.bookingMoney.settlementStatuses.${financial.settlementStatus || 'unpaid'}`)}
+            />
+          </div>
         </div>
       </div>
 
-      <DetailRow label={t('admin.bookingMoney.settlement')}>
-        <StatusBadge
-          status={financial.settlementStatus || 'unpaid'}
-          label={t(`admin.bookingMoney.settlementStatuses.${financial.settlementStatus || 'unpaid'}`)}
-        />
-      </DetailRow>
-      <DetailRow label={t('admin.bookingMoney.depositStatus')}>
-        <StatusBadge
-          status={financial.depositStatus || 'none'}
-          label={t(`admin.bookingMoney.depositStatuses.${financial.depositStatus || 'none'}`)}
-        />
-      </DetailRow>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <DetailRow label={t('admin.bookingMoney.depositStatus')}>
+          <StatusBadge
+            status={financial.depositStatus || 'none'}
+            label={t(`admin.bookingMoney.depositStatuses.${financial.depositStatus || 'none'}`)}
+          />
+        </DetailRow>
+      </div>
 
       {financial.source === 'legacy' ? (
-        <p className="mt-2 mb-3 text-[11px] leading-relaxed text-[var(--admin-fg-muted)]">
+        <p className="mb-3 text-[11px] leading-relaxed text-[var(--admin-fg-muted)]">
           {t('admin.bookingMoney.legacyHint')}
         </p>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap gap-1 border-b border-[var(--admin-border)] pb-2">
+      {/* Quick actions */}
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-fg-muted)]">
+        {t('admin.bookingMoney.quickActions')}
+      </p>
+      <div className="mb-2 flex flex-wrap gap-1">
         {[
           { id: 'payment', label: t('admin.bookingMoney.recordPayment') },
+          { id: 'deposit', label: t('admin.bookingMoney.holdDeposit') },
           { id: 'charge', label: t('admin.bookingMoney.addCharge') },
           ...(canRefund ? [{ id: 'refund', label: t('admin.bookingMoney.recordRefund') }] : []),
         ].map((item) => (
           <button
             key={item.id}
             type="button"
-            className={`admin-btn admin-btn--sm ${tab === item.id ? 'admin-btn--primary' : 'admin-btn--secondary'}`}
-            onClick={() => setTab(item.id)}
+            className={`admin-btn admin-btn--sm ${action === item.id ? 'admin-btn--primary' : 'admin-btn--secondary'}`}
+            onClick={() => setAction((prev) => (prev === item.id ? null : item.id))}
           >
             {item.label}
           </button>
         ))}
+        {canAccounting && resId ? (
+          <>
+            <Link
+              className="admin-btn admin-btn--secondary admin-btn--sm"
+              to={`/owner/encaissements?reservationId=${encodeURIComponent(resId)}`}
+            >
+              {t('admin.bookingMoney.viewInCash')}
+            </Link>
+            <Link
+              className="admin-btn admin-btn--secondary admin-btn--sm"
+              to={`/owner/decaissements?reservationId=${encodeURIComponent(resId)}`}
+            >
+              {t('admin.bookingMoney.viewInCashOut')}
+            </Link>
+          </>
+        ) : null}
       </div>
 
-      {tab === 'payment' && (
-        <form className="mt-3 grid gap-2 sm:grid-cols-2" onSubmit={submitPayment}>
+      {action === 'payment' && (
+        <form className="mt-2 grid gap-2 sm:grid-cols-2" onSubmit={submitPayment}>
           <div>
             <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-            <input
-              className={inputClass}
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              value={payAmount}
-              onChange={(e) => setPayAmount(e.target.value)}
-            />
+            <input className={inputClass} type="number" min="0.01" step="0.01" required value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
@@ -322,27 +368,37 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         </form>
       )}
 
-      {tab === 'charge' && (
-        <form className="mt-3 grid gap-2 sm:grid-cols-2" onSubmit={submitCharge}>
+      {action === 'deposit' && (
+        <form className="mt-2 grid gap-2 sm:grid-cols-3" onSubmit={submitDepositHold}>
           <div>
             <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-            <input
-              className={inputClass}
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              value={chargeAmount}
-              onChange={(e) => setChargeAmount(e.target.value)}
-            />
+            <input className={inputClass} type="number" min="0.01" step="0.01" required value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
+            <select className={inputClass} value={depositMethod} onChange={(e) => setDepositMethod(e.target.value)}>
+              {methods.map((m) => (
+                <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button type="submit" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm">
+              {busy ? t('admin.common.saving') : t('admin.bookingMoney.holdDeposit')}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {action === 'charge' && (
+        <form className="mt-2 grid gap-2 sm:grid-cols-2" onSubmit={submitCharge}>
+          <div>
+            <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
+            <input className={inputClass} type="number" min="0.01" step="0.01" required value={chargeAmount} onChange={(e) => setChargeAmount(e.target.value)} />
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookingMoney.category')}</label>
-            <select
-              className={inputClass}
-              value={chargeCategory}
-              onChange={(e) => setChargeCategory(e.target.value)}
-            >
+            <select className={inputClass} value={chargeCategory} onChange={(e) => setChargeCategory(e.target.value)}>
               {categories.map((c) => (
                 <option key={c} value={c}>{t(`admin.bookingMoney.categories.${c}`)}</option>
               ))}
@@ -364,19 +420,11 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         </form>
       )}
 
-      {tab === 'refund' && canRefund && (
-        <form className="mt-3 grid gap-2 sm:grid-cols-2" onSubmit={submitRefund}>
+      {action === 'refund' && canRefund && (
+        <form className="mt-2 grid gap-2 sm:grid-cols-2" onSubmit={submitRefund}>
           <div>
             <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-            <input
-              className={inputClass}
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              value={refundAmount}
-              onChange={(e) => setRefundAmount(e.target.value)}
-            />
+            <input className={inputClass} type="number" min="0.01" step="0.01" required value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} />
           </div>
           <div>
             <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
@@ -402,47 +450,57 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp }) => {
         </form>
       )}
 
-      <div className="mt-4 overflow-x-auto">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-fg-muted)]">
-          {t('admin.bookingMoney.history')}
-        </p>
-        {Array.isArray(financial.entries) && financial.entries.length > 0 ? (
-          <table className="w-full min-w-[28rem] text-left text-xs">
-            <thead>
-              <tr className="border-b border-[var(--admin-border)] text-[var(--admin-fg-muted)]">
-                <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colWhen')}</th>
-                <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colKind')}</th>
-                <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colCategory')}</th>
-                <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.method')}</th>
-                <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colBy')}</th>
-                <th className="py-1.5 font-medium text-end">{t('admin.bookingMoney.colAmount')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...financial.entries].reverse().map((row) => (
-                <tr key={row.id} className="border-b border-[var(--admin-border)]/60">
-                  <td className="py-1.5 pe-2 whitespace-nowrap text-[var(--admin-fg-secondary)]">
-                    {formatWhen(row.occurredAt || row.createdAt)}
-                  </td>
-                  <td className="py-1.5 pe-2 text-[var(--admin-fg)]">{row.kind}</td>
-                  <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">{row.category}</td>
-                  <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">
-                    {row.method ? t(`admin.bookingMoney.methods.${row.method}`) : '—'}
-                  </td>
-                  <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">
-                    {row.createdBy?.name || '—'}
-                  </td>
-                  <td className="py-1.5 text-end tabular-nums text-[var(--admin-fg)]">
-                    {money(currency, row.amount)}
-                  </td>
+      {/* Collapsible history */}
+      <button
+        type="button"
+        className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-accent)]"
+        onClick={() => setHistoryOpen((v) => !v)}
+      >
+        {historyOpen ? t('admin.bookingMoney.hideHistory') : t('admin.bookingMoney.showHistory')}
+        {' · '}
+        {Array.isArray(financial.entries) ? financial.entries.length : 0}
+      </button>
+
+      {historyOpen ? (
+        <div className="mt-2 overflow-x-auto">
+          {Array.isArray(financial.entries) && financial.entries.length > 0 ? (
+            <table className="w-full min-w-[28rem] text-left text-xs">
+              <thead>
+                <tr className="border-b border-[var(--admin-border)] text-[var(--admin-fg-muted)]">
+                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colWhen')}</th>
+                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colKind')}</th>
+                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colCategory')}</th>
+                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.method')}</th>
+                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colBy')}</th>
+                  <th className="py-1.5 font-medium text-end">{t('admin.bookingMoney.colAmount')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-[11px] text-[var(--admin-fg-muted)]">{t('admin.bookingMoney.noEntries')}</p>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {[...financial.entries].reverse().map((row) => (
+                  <tr key={row.id} className="border-b border-[var(--admin-border)]/60">
+                    <td className="py-1.5 pe-2 whitespace-nowrap text-[var(--admin-fg-secondary)]">
+                      {formatWhen(row.occurredAt || row.createdAt)}
+                    </td>
+                    <td className="py-1.5 pe-2 text-[var(--admin-fg)]">{row.kind}</td>
+                    <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">{row.category}</td>
+                    <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">
+                      {row.method ? t(`admin.bookingMoney.methods.${row.method}`) : '—'}
+                    </td>
+                    <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">
+                      {row.createdBy?.name || '—'}
+                    </td>
+                    <td className="py-1.5 text-end tabular-nums text-[var(--admin-fg)]">
+                      {money(currency, row.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-[11px] text-[var(--admin-fg-muted)]">{t('admin.bookingMoney.noEntries')}</p>
+          )}
+        </div>
+      ) : null}
     </DetailSection>
   )
 }

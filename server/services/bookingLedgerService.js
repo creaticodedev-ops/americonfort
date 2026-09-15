@@ -187,6 +187,9 @@ export const serializeLedgerEntry = (e) => ({
   createdAt: e.createdAt,
   idempotencyKey: e.idempotencyKey || '',
   links: e.links || {},
+  derivedFromDepositClaim: Boolean(e.derivedFromDepositClaim),
+  voidedAt: e.voidedAt || null,
+  voidReason: e.voidReason || '',
   createdBy: e.createdBy
     ? {
         id: String(e.createdBy._id || e.createdBy),
@@ -338,6 +341,7 @@ export const postLedgerEntry = async ({
   idempotencyKey = '',
   links = {},
   allowOverpayment = false,
+  derivedFromDepositClaim = false,
 }) => {
   if (!LEDGER_KINDS.includes(kind)) {
     const err = new Error('Invalid ledger kind');
@@ -428,6 +432,9 @@ export const postLedgerEntry = async ({
       idempotencyKey: String(idempotencyKey || '').trim(),
       createdBy: actorId || null,
       links: links || {},
+      derivedFromDepositClaim: Boolean(
+        derivedFromDepositClaim || links?.type === 'deposit_claim_payment',
+      ),
     });
   } catch (createErr) {
     if (createErr?.code === 11000 && idempotencyKey) {
@@ -712,6 +719,61 @@ export const deleteLedgerForBookings = async (bookingIds) => {
   return result.deletedCount || 0;
 };
 
+/**
+ * Soft-void a posted ledger entry and recompute booking.financial.
+ * Prefer this over hard delete for corrections.
+ */
+export const voidLedgerEntry = async ({
+  ownerId,
+  entryId,
+  actorId,
+  reason = '',
+}) => {
+  if (!mongoose.isValidObjectId(entryId)) {
+    const err = new Error('Invalid entry id');
+    err.status = 400;
+    throw err;
+  }
+  const entry = await BookingLedgerEntry.findOne({ _id: entryId, owner: ownerId });
+  if (!entry) {
+    const err = new Error('Ledger entry not found');
+    err.status = 404;
+    throw err;
+  }
+  if (entry.status === 'voided') {
+    const financial = await getBookingFinancialSummary(entry.booking, ownerId);
+    return { entry: serializeLedgerEntry(entry.toObject()), financial, alreadyVoided: true };
+  }
+
+  entry.status = 'voided';
+  entry.voidedBy = actorId || null;
+  entry.voidedAt = new Date();
+  entry.voidReason = String(reason || '').slice(0, 500);
+  await entry.save();
+
+  await recomputeAndSyncBookingFinancial(entry.booking, ownerId);
+
+  try {
+    await logAudit({
+      owner: ownerId,
+      actor: actorId || ownerId,
+      action: 'ledger.void',
+      entityType: 'BookingLedgerEntry',
+      entityId: entry._id,
+      details: `Voided ${entry.kind} ${entry.amount} on booking ${entry.booking}`,
+      meta: { bookingId: String(entry.booking), kind: entry.kind, amount: entry.amount, reason },
+    });
+  } catch {
+    /* non-fatal */
+  }
+
+  const populated = await BookingLedgerEntry.findById(entry._id)
+    .populate('createdBy', 'name email')
+    .lean();
+  const financial = await getBookingFinancialSummary(entry.booking, ownerId);
+  return { entry: serializeLedgerEntry(populated), financial, alreadyVoided: false };
+};
+
 export const getBookingFinancialSummary = async (bookingId, ownerId) => {
   if (!mongoose.isValidObjectId(bookingId)) {
     const err = new Error('Invalid booking ID');
@@ -805,5 +867,6 @@ export default {
   syncLegacyPaymentStatusChange,
   recomputeAndSyncBookingFinancial,
   deleteLedgerForBookings,
+  voidLedgerEntry,
   toMoney,
 };

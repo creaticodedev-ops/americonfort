@@ -35,6 +35,8 @@ export const OWNER_NAV_GROUPS = [
     labelKey: 'admin.menu.groups.finance',
     paths: [
       '/owner/accounting',
+      '/owner/encaissements',
+      '/owner/decaissements',
       '/owner/accounting/revenues',
       '/owner/accounting/samsar-payments',
       '/owner/accounting/agency-expenses',

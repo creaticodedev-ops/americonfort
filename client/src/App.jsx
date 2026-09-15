@@ -71,6 +71,8 @@ const VehicleExpensesPage = lazyWithRetry(async () => {
   const m = await import('./pages/owner/accounting/AccountingLists')
   return { default: m.VehicleExpensesPage }
 })
+const EncaissementsPage = lazyWithRetry(() => import('./pages/owner/cash/EncaissementsPage'))
+const DecaissementsPage = lazyWithRetry(() => import('./pages/owner/cash/DecaissementsPage'))
 
 const SuperAdminLogin = lazyWithRetry(() => import('./pages/superadmin/Login'))
 const SuperAdminLayout = lazyWithRetry(() => import('./pages/superadmin/Layout'))
@@ -152,6 +154,8 @@ const App = () => {
                 <Route path="invoices" element={withPerm('contracts', Invoices)} />
                 <Route path="templates" element={withPerm('templates', ExportTemplates)} />
                 <Route path="accounting" element={withPerm('accounting', AccountingOverview)} />
+                <Route path="encaissements" element={withPerm('accounting', EncaissementsPage)} />
+                <Route path="decaissements" element={withPerm('accounting', DecaissementsPage)} />
                 <Route path="accounting/revenues" element={withPerm('accounting', RevenuesPage)} />
                 <Route path="accounting/samsar-payments" element={withPerm('accounting', SamsarPaymentsPage)} />
                 <Route path="accounting/agency-expenses" element={withPerm('accounting', AgencyExpensesPage)} />

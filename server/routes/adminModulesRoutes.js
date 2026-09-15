@@ -19,6 +19,15 @@ import {
 } from '../controllers/accountingController.js';
 import { exportAccountingXlsx } from '../controllers/xlsxExportController.js';
 import {
+  cashOverview,
+  listEncaissements,
+  listDecaissements,
+  getCashTransaction,
+  createEncaissement,
+  createDecaissement,
+  voidCashTransaction,
+} from '../controllers/cashController.js';
+import {
   listSignatures,
   generateSignature,
   ensureSignature,
@@ -93,5 +102,14 @@ router.patch('/accounting/agency-expenses/:id', ...gate('accounting', 'accountin
 router.get('/accounting/vehicle-expenses', ...gate('accounting', 'accounting'), listVehicleExpenses);
 router.post('/accounting/vehicle-expenses', ...gate('accounting', 'accounting'), createVehicleExpense);
 router.patch('/accounting/vehicle-expenses/:id', ...gate('accounting', 'accounting'), updateVehicleExpense);
+
+/* Cash journal — Encaissements / Décaissements */
+router.get('/accounting/cash/overview', ...gate('accounting', 'accounting'), cashOverview);
+router.get('/accounting/cash/encaissements', ...gate('accounting', 'accounting'), listEncaissements);
+router.get('/accounting/cash/decaissements', ...gate('accounting', 'accounting'), listDecaissements);
+router.get('/accounting/cash/transactions/:id', ...gate('accounting', 'accounting'), getCashTransaction);
+router.post('/accounting/cash/encaissements', ...gate('accounting', 'accounting'), createEncaissement);
+router.post('/accounting/cash/decaissements', ...gate('accounting', 'accounting'), createDecaissement);
+router.post('/accounting/cash/transactions/:id/void', ...gate('accounting', 'accounting'), voidCashTransaction);
 
 export default router;

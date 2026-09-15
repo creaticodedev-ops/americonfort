@@ -24,6 +24,8 @@ const samsarPaymentSchema = new mongoose.Schema(
       enum: ['cash', 'bank_transfer', 'check', 'other'],
       default: 'cash',
     },
+    /** When paymentStatus became paid — used by cash Décaissements journal */
+    paidAt: { type: Date, default: null, index: true },
     notes: { type: String, default: '' },
     createdBy: { type: ObjectId, ref: 'User', default: null },
     updatedBy: { type: ObjectId, ref: 'User', default: null },
@@ -34,6 +36,7 @@ const samsarPaymentSchema = new mongoose.Schema(
 samsarPaymentSchema.index({ owner: 1, paymentDate: -1 });
 samsarPaymentSchema.index({ owner: 1, samsar: 1, paymentDate: -1 });
 samsarPaymentSchema.index({ owner: 1, paymentStatus: 1, paymentDate: -1 });
+samsarPaymentSchema.index({ owner: 1, paymentStatus: 1, paidAt: -1 });
 
 const SamsarPayment = mongoose.model('SamsarPayment', samsarPaymentSchema);
 export default SamsarPayment;

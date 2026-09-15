@@ -44,6 +44,8 @@ const vehicleExpenseSchema = new mongoose.Schema(
     },
     odometer: { type: Number, default: null },
     notes: { type: String, default: '' },
+    /** When paymentStatus became paid — used by cash Décaissements journal */
+    paidAt: { type: Date, default: null, index: true },
     booking: { type: ObjectId, ref: 'Booking', default: null },
     maintenanceRecord: { type: ObjectId, ref: 'MaintenanceRecord', default: null },
     createdBy: { type: ObjectId, ref: 'User', default: null },
@@ -55,6 +57,7 @@ const vehicleExpenseSchema = new mongoose.Schema(
 vehicleExpenseSchema.index({ owner: 1, expenseDate: -1 });
 vehicleExpenseSchema.index({ owner: 1, car: 1, expenseDate: -1 });
 vehicleExpenseSchema.index({ owner: 1, category: 1, expenseDate: -1 });
+vehicleExpenseSchema.index({ owner: 1, paymentStatus: 1, paidAt: -1 });
 
 const VehicleExpense = mongoose.model('VehicleExpense', vehicleExpenseSchema);
 export default VehicleExpense;
