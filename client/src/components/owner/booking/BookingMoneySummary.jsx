@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { DetailSection, DetailRow } from '../ui/DetailSection'
+import { DetailSection } from '../ui/DetailSection'
 import StatusBadge from '../StatusBadge'
+import { Icon } from '../ui/adminIcons'
 import { useAppContext } from '../../../context/AppContext'
 import { useI18n } from '../../../i18n/I18nContext'
 import { getErrorMessage } from '../../../utils/apiError'
@@ -31,8 +32,12 @@ const inputClass =
   'h-9 w-full min-w-0 rounded-[var(--admin-radius)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2.5 text-sm text-[var(--admin-fg)] outline-none focus:shadow-[var(--admin-focus)]'
 const labelClass = 'mb-1 block text-[11px] font-medium text-[var(--admin-fg-muted)]'
 
+const OUT_KINDS = new Set(['refund', 'deposit_release'])
+const IN_KINDS = new Set(['payment', 'deposit_hold'])
+
 /**
- * Compact reservation financial strip + quick capture actions + collapsible history.
+ * Premium reservation financial surface — hero balance, action chips, ledger timeline.
+ * Business logic unchanged: same financial + ledger APIs.
  */
 const BookingMoneySummary = ({ bookingId, currency: currencyProp, reservationId }) => {
   const { axios, currency: ctxCurrency, hasPermission } = useAppContext()
@@ -45,8 +50,8 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp, reservationId 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [financial, setFinancial] = useState(null)
-  const [action, setAction] = useState(null) // payment | charge | refund | deposit | null
-  const [historyOpen, setHistoryOpen] = useState(false)
+  const [action, setAction] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(true)
 
   const [payAmount, setPayAmount] = useState('')
   const [payMethod, setPayMethod] = useState('cash')
@@ -239,6 +244,40 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp, reservationId 
     : ['extra', 'late_fee', 'fuel', 'damage', 'extension', 'adjustment', 'other']
 
   const resId = reservationId || financial.reservationId || ''
+  const balanceDue = Number(financial.balanceDue) || 0
+  const isDue = balanceDue > 0.001
+  const settlement = financial.settlementStatus || 'unpaid'
+  const isSettled = !isDue && ['paid', 'overpaid', 'settled'].includes(String(settlement))
+  const entries = Array.isArray(financial.entries) ? [...financial.entries].reverse() : []
+  const heroClass = [
+    'admin-finance__hero',
+    isDue ? 'is-due' : '',
+    isSettled ? 'is-settled' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const actionMeta = {
+    payment: { title: t('admin.bookingMoney.recordPayment'), icon: 'cash-in' },
+    deposit: { title: t('admin.bookingMoney.holdDeposit'), icon: 'lock' },
+    charge: { title: t('admin.bookingMoney.addCharge'), icon: 'plus-circle' },
+    refund: { title: t('admin.bookingMoney.recordRefund'), icon: 'cash-out' },
+  }
+
+  const chips = [
+    { id: 'payment', label: t('admin.bookingMoney.recordPayment'), icon: 'cash-in' },
+    { id: 'deposit', label: t('admin.bookingMoney.holdDeposit'), icon: 'lock' },
+    { id: 'charge', label: t('admin.bookingMoney.addCharge'), icon: 'plus-circle' },
+    ...(canRefund
+      ? [{ id: 'refund', label: t('admin.bookingMoney.recordRefund'), icon: 'cash-out', danger: true }]
+      : []),
+  ]
+
+  const amountTone = (kind) => {
+    if (OUT_KINDS.has(kind)) return 'is-out'
+    if (IN_KINDS.has(kind)) return 'is-in'
+    return ''
+  }
 
   return (
     <DetailSection
@@ -251,256 +290,265 @@ const BookingMoneySummary = ({ bookingId, currency: currencyProp, reservationId 
         </span>
       }
     >
-      {/* Compact financial strip */}
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          { label: t('admin.bookingMoney.charges'), value: financial.chargesTotal },
-          { label: t('admin.bookingMoney.paid'), value: financial.paymentsTotal },
-          { label: t('admin.bookingMoney.balanceDue'), value: financial.balanceDue },
-          { label: t('admin.bookingMoney.depositHeld'), value: financial.depositHeld },
-          { label: t('admin.bookingMoney.refunds'), value: financial.refundsTotal },
-        ].map((tile) => (
-          <div
-            key={tile.label}
-            className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2.5 py-2"
-          >
-            <p className="text-[10px] font-medium uppercase text-[var(--admin-fg-muted)]">{tile.label}</p>
-            <p className="mt-0.5 text-sm font-semibold tabular-nums">{money(currency, tile.value)}</p>
+      <div className="admin-finance">
+        <div className={heroClass}>
+          <div className="admin-finance__hero-top">
+            <div className="admin-finance__focal">
+              <p className="admin-finance__focal-label">{t('admin.bookingMoney.balanceDue')}</p>
+              <p className="admin-finance__focal-value">{money(currency, balanceDue)}</p>
+              <p className="admin-finance__focal-hint">
+                {isDue
+                  ? `${t('admin.bookingMoney.paid')} ${money(currency, financial.paymentsTotal)} · ${t('admin.bookingMoney.charges')} ${money(currency, financial.chargesTotal)}`
+                  : `${t('admin.bookingMoney.charges')} ${money(currency, financial.chargesTotal)}`}
+              </p>
+            </div>
+            <div className="admin-finance__badges">
+              <StatusBadge
+                status={settlement}
+                label={t(`admin.bookingMoney.settlementStatuses.${settlement}`)}
+              />
+              <StatusBadge
+                status={financial.depositStatus || 'none'}
+                label={t(`admin.bookingMoney.depositStatuses.${financial.depositStatus || 'none'}`)}
+              />
+            </div>
           </div>
-        ))}
-        <div className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] px-2.5 py-2">
-          <p className="text-[10px] font-medium uppercase text-[var(--admin-fg-muted)]">
-            {t('admin.bookingMoney.settlement')}
-          </p>
-          <div className="mt-1">
-            <StatusBadge
-              status={financial.settlementStatus || 'unpaid'}
-              label={t(`admin.bookingMoney.settlementStatuses.${financial.settlementStatus || 'unpaid'}`)}
-            />
+
+          <div className="admin-finance__rail">
+            <div className="admin-finance__metric">
+              <span className="admin-finance__metric-label">{t('admin.bookingMoney.charges')}</span>
+              <span className="admin-finance__metric-value">{money(currency, financial.chargesTotal)}</span>
+            </div>
+            <div className="admin-finance__metric">
+              <span className="admin-finance__metric-label">{t('admin.bookingMoney.paid')}</span>
+              <span className="admin-finance__metric-value">{money(currency, financial.paymentsTotal)}</span>
+            </div>
+            <div className="admin-finance__metric">
+              <span className="admin-finance__metric-label">{t('admin.bookingMoney.depositHeld')}</span>
+              <span className="admin-finance__metric-value">{money(currency, financial.depositHeld)}</span>
+            </div>
+            <div className={`admin-finance__metric${!financial.refundsTotal ? ' is-muted' : ''}`}>
+              <span className="admin-finance__metric-label">{t('admin.bookingMoney.refunds')}</span>
+              <span className="admin-finance__metric-value">{money(currency, financial.refundsTotal)}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <DetailRow label={t('admin.bookingMoney.depositStatus')}>
-          <StatusBadge
-            status={financial.depositStatus || 'none'}
-            label={t(`admin.bookingMoney.depositStatuses.${financial.depositStatus || 'none'}`)}
-          />
-        </DetailRow>
-      </div>
-
-      {financial.source === 'legacy' ? (
-        <p className="mb-3 text-[11px] leading-relaxed text-[var(--admin-fg-muted)]">
-          {t('admin.bookingMoney.legacyHint')}
-        </p>
-      ) : null}
-
-      {/* Quick actions */}
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-fg-muted)]">
-        {t('admin.bookingMoney.quickActions')}
-      </p>
-      <div className="mb-2 flex flex-wrap gap-1">
-        {[
-          { id: 'payment', label: t('admin.bookingMoney.recordPayment') },
-          { id: 'deposit', label: t('admin.bookingMoney.holdDeposit') },
-          { id: 'charge', label: t('admin.bookingMoney.addCharge') },
-          ...(canRefund ? [{ id: 'refund', label: t('admin.bookingMoney.recordRefund') }] : []),
-        ].map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`admin-btn admin-btn--sm ${action === item.id ? 'admin-btn--primary' : 'admin-btn--secondary'}`}
-            onClick={() => setAction((prev) => (prev === item.id ? null : item.id))}
-          >
-            {item.label}
-          </button>
-        ))}
-        {canAccounting && resId ? (
-          <>
-            <Link
-              className="admin-btn admin-btn--secondary admin-btn--sm"
-              to={`/owner/encaissements?reservationId=${encodeURIComponent(resId)}`}
-            >
-              {t('admin.bookingMoney.viewInCash')}
-            </Link>
-            <Link
-              className="admin-btn admin-btn--secondary admin-btn--sm"
-              to={`/owner/decaissements?reservationId=${encodeURIComponent(resId)}`}
-            >
-              {t('admin.bookingMoney.viewInCashOut')}
-            </Link>
-          </>
+        {financial.source === 'legacy' ? (
+          <p className="admin-finance__legacy">{t('admin.bookingMoney.legacyHint')}</p>
         ) : null}
-      </div>
 
-      {action === 'payment' && (
-        <form className="mt-2 grid gap-2 sm:grid-cols-2" onSubmit={submitPayment}>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-            <input className={inputClass} type="number" min="0.01" step="0.01" required value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+        <div className="admin-finance__toolbar">
+          <p className="admin-finance__toolbar-label">{t('admin.bookingMoney.quickActions')}</p>
+          <div className="admin-finance__actions">
+            {chips.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`admin-finance__chip${action === item.id ? ' is-active' : ''}${
+                  item.danger ? ' is-danger' : ''
+                }`}
+                onClick={() => setAction((prev) => (prev === item.id ? null : item.id))}
+              >
+                <Icon name={item.icon} />
+                {item.label}
+              </button>
+            ))}
           </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
-            <select className={inputClass} value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
-              {methods.map((m) => (
-                <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.reference')}</label>
-            <input className={inputClass} value={payRef} onChange={(e) => setPayRef(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.notes')}</label>
-            <input className={inputClass} value={payNotes} onChange={(e) => setPayNotes(e.target.value)} />
-          </div>
-          <label className="sm:col-span-2 flex items-center gap-2 text-xs text-[var(--admin-fg-secondary)]">
-            <input type="checkbox" checked={allowOverpay} onChange={(e) => setAllowOverpay(e.target.checked)} />
-            {t('admin.bookingMoney.allowOverpayment')}
-          </label>
-          <div className="sm:col-span-2">
-            <button type="submit" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm">
-              {busy ? t('admin.common.saving') : t('admin.bookingMoney.recordPayment')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {action === 'deposit' && (
-        <form className="mt-2 grid gap-2 sm:grid-cols-3" onSubmit={submitDepositHold}>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-            <input className={inputClass} type="number" min="0.01" step="0.01" required value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
-            <select className={inputClass} value={depositMethod} onChange={(e) => setDepositMethod(e.target.value)}>
-              {methods.map((m) => (
-                <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button type="submit" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm">
-              {busy ? t('admin.common.saving') : t('admin.bookingMoney.holdDeposit')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {action === 'charge' && (
-        <form className="mt-2 grid gap-2 sm:grid-cols-2" onSubmit={submitCharge}>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-            <input className={inputClass} type="number" min="0.01" step="0.01" required value={chargeAmount} onChange={(e) => setChargeAmount(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.category')}</label>
-            <select className={inputClass} value={chargeCategory} onChange={(e) => setChargeCategory(e.target.value)}>
-              {categories.map((c) => (
-                <option key={c} value={c}>{t(`admin.bookingMoney.categories.${c}`)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.reference')}</label>
-            <input className={inputClass} value={chargeRef} onChange={(e) => setChargeRef(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.notes')}</label>
-            <input className={inputClass} value={chargeNotes} onChange={(e) => setChargeNotes(e.target.value)} />
-          </div>
-          <div className="sm:col-span-2">
-            <button type="submit" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm">
-              {busy ? t('admin.common.saving') : t('admin.bookingMoney.addCharge')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {action === 'refund' && canRefund && (
-        <form className="mt-2 grid gap-2 sm:grid-cols-2" onSubmit={submitRefund}>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
-            <input className={inputClass} type="number" min="0.01" step="0.01" required value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
-            <select className={inputClass} value={refundMethod} onChange={(e) => setRefundMethod(e.target.value)}>
-              {methods.map((m) => (
-                <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.reference')}</label>
-            <input className={inputClass} value={refundRef} onChange={(e) => setRefundRef(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>{t('admin.bookingMoney.notes')}</label>
-            <input className={inputClass} value={refundNotes} onChange={(e) => setRefundNotes(e.target.value)} />
-          </div>
-          <div className="sm:col-span-2">
-            <button type="submit" disabled={busy} className="admin-btn admin-btn--danger admin-btn--sm">
-              {busy ? t('admin.common.saving') : t('admin.bookingMoney.recordRefund')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Collapsible history */}
-      <button
-        type="button"
-        className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-accent)]"
-        onClick={() => setHistoryOpen((v) => !v)}
-      >
-        {historyOpen ? t('admin.bookingMoney.hideHistory') : t('admin.bookingMoney.showHistory')}
-        {' · '}
-        {Array.isArray(financial.entries) ? financial.entries.length : 0}
-      </button>
-
-      {historyOpen ? (
-        <div className="mt-2 overflow-x-auto">
-          {Array.isArray(financial.entries) && financial.entries.length > 0 ? (
-            <table className="w-full min-w-[28rem] text-left text-xs">
-              <thead>
-                <tr className="border-b border-[var(--admin-border)] text-[var(--admin-fg-muted)]">
-                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colWhen')}</th>
-                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colKind')}</th>
-                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colCategory')}</th>
-                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.method')}</th>
-                  <th className="py-1.5 pe-2 font-medium">{t('admin.bookingMoney.colBy')}</th>
-                  <th className="py-1.5 font-medium text-end">{t('admin.bookingMoney.colAmount')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...financial.entries].reverse().map((row) => (
-                  <tr key={row.id} className="border-b border-[var(--admin-border)]/60">
-                    <td className="py-1.5 pe-2 whitespace-nowrap text-[var(--admin-fg-secondary)]">
-                      {formatWhen(row.occurredAt || row.createdAt)}
-                    </td>
-                    <td className="py-1.5 pe-2 text-[var(--admin-fg)]">{row.kind}</td>
-                    <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">{row.category}</td>
-                    <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">
-                      {row.method ? t(`admin.bookingMoney.methods.${row.method}`) : '—'}
-                    </td>
-                    <td className="py-1.5 pe-2 text-[var(--admin-fg-secondary)]">
-                      {row.createdBy?.name || '—'}
-                    </td>
-                    <td className="py-1.5 text-end tabular-nums text-[var(--admin-fg)]">
-                      {money(currency, row.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-[11px] text-[var(--admin-fg-muted)]">{t('admin.bookingMoney.noEntries')}</p>
-          )}
+          {canAccounting && resId ? (
+            <div className="admin-finance__links">
+              <Link
+                className="admin-finance__link"
+                to={`/owner/encaissements?reservationId=${encodeURIComponent(resId)}`}
+              >
+                {t('admin.bookingMoney.viewInCash')}
+                <Icon name="external" />
+              </Link>
+              <Link
+                className="admin-finance__link"
+                to={`/owner/decaissements?reservationId=${encodeURIComponent(resId)}`}
+              >
+                {t('admin.bookingMoney.viewInCashOut')}
+                <Icon name="external" />
+              </Link>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+
+        {action === 'payment' && (
+          <div className="admin-finance__capture">
+            <p className="admin-finance__capture-title">{actionMeta.payment.title}</p>
+            <form className="grid gap-2 sm:grid-cols-2" onSubmit={submitPayment}>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
+                <input className={inputClass} type="number" min="0.01" step="0.01" required value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
+                <select className={inputClass} value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
+                  {methods.map((m) => (
+                    <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.reference')}</label>
+                <input className={inputClass} value={payRef} onChange={(e) => setPayRef(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.notes')}</label>
+                <input className={inputClass} value={payNotes} onChange={(e) => setPayNotes(e.target.value)} />
+              </div>
+              <label className="sm:col-span-2 flex items-center gap-2 text-xs text-[var(--admin-fg-secondary)]">
+                <input type="checkbox" checked={allowOverpay} onChange={(e) => setAllowOverpay(e.target.checked)} />
+                {t('admin.bookingMoney.allowOverpayment')}
+              </label>
+              <div className="sm:col-span-2">
+                <button type="submit" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm">
+                  {busy ? t('admin.common.saving') : t('admin.bookingMoney.recordPayment')}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {action === 'deposit' && (
+          <div className="admin-finance__capture">
+            <p className="admin-finance__capture-title">{actionMeta.deposit.title}</p>
+            <form className="grid gap-2 sm:grid-cols-3" onSubmit={submitDepositHold}>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
+                <input className={inputClass} type="number" min="0.01" step="0.01" required value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
+                <select className={inputClass} value={depositMethod} onChange={(e) => setDepositMethod(e.target.value)}>
+                  {methods.map((m) => (
+                    <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button type="submit" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm">
+                  {busy ? t('admin.common.saving') : t('admin.bookingMoney.holdDeposit')}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {action === 'charge' && (
+          <div className="admin-finance__capture">
+            <p className="admin-finance__capture-title">{actionMeta.charge.title}</p>
+            <form className="grid gap-2 sm:grid-cols-2" onSubmit={submitCharge}>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
+                <input className={inputClass} type="number" min="0.01" step="0.01" required value={chargeAmount} onChange={(e) => setChargeAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.category')}</label>
+                <select className={inputClass} value={chargeCategory} onChange={(e) => setChargeCategory(e.target.value)}>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>{t(`admin.bookingMoney.categories.${c}`)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.reference')}</label>
+                <input className={inputClass} value={chargeRef} onChange={(e) => setChargeRef(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.notes')}</label>
+                <input className={inputClass} value={chargeNotes} onChange={(e) => setChargeNotes(e.target.value)} />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" disabled={busy} className="admin-btn admin-btn--primary admin-btn--sm">
+                  {busy ? t('admin.common.saving') : t('admin.bookingMoney.addCharge')}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {action === 'refund' && canRefund && (
+          <div className="admin-finance__capture">
+            <p className="admin-finance__capture-title">{actionMeta.refund.title}</p>
+            <form className="grid gap-2 sm:grid-cols-2" onSubmit={submitRefund}>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.amount')}</label>
+                <input className={inputClass} type="number" min="0.01" step="0.01" required value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.method')}</label>
+                <select className={inputClass} value={refundMethod} onChange={(e) => setRefundMethod(e.target.value)}>
+                  {methods.map((m) => (
+                    <option key={m} value={m}>{t(`admin.bookingMoney.methods.${m}`)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.reference')}</label>
+                <input className={inputClass} value={refundRef} onChange={(e) => setRefundRef(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('admin.bookingMoney.notes')}</label>
+                <input className={inputClass} value={refundNotes} onChange={(e) => setRefundNotes(e.target.value)} />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" disabled={busy} className="admin-btn admin-btn--danger admin-btn--sm">
+                  {busy ? t('admin.common.saving') : t('admin.bookingMoney.recordRefund')}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className={`admin-finance__history${historyOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="admin-finance__history-head"
+            aria-expanded={historyOpen}
+            onClick={() => setHistoryOpen((v) => !v)}
+          >
+            <p className="admin-finance__history-title">
+              {t('admin.bookingMoney.history')}
+              <span className="admin-finance__history-count">{entries.length}</span>
+            </p>
+            <svg className="admin-finance__history-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          {historyOpen ? (
+            <div className="admin-finance__history-body">
+              {entries.length > 0 ? (
+                <ul className="admin-finance__timeline">
+                  {entries.map((row) => (
+                    <li key={row.id} className="admin-finance__timeline-item">
+                      <div className="admin-finance__timeline-main">
+                        <p className="admin-finance__timeline-kind">{row.kind}</p>
+                        <p className="admin-finance__timeline-meta">
+                          {formatWhen(row.occurredAt || row.createdAt)}
+                          {row.category ? ` · ${row.category}` : ''}
+                          {row.method ? ` · ${t(`admin.bookingMoney.methods.${row.method}`)}` : ''}
+                          {row.createdBy?.name ? ` · ${row.createdBy.name}` : ''}
+                        </p>
+                      </div>
+                      <p className={`admin-finance__timeline-amount ${amountTone(row.kind)}`.trim()}>
+                        {money(currency, row.amount)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="admin-finance__empty">
+                  <p className="admin-finance__empty-title">{t('admin.bookingMoney.noEntries')}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
     </DetailSection>
   )
 }

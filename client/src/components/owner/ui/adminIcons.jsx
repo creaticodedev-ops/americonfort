@@ -344,6 +344,44 @@ export const Icon = ({ name, className = 'h-4 w-4', ...props }) => {
           <circle cx="12" cy="13" r="3" />
         </svg>
       )
+    case 'cash-in':
+      return (
+        <svg {...common}>
+          <path d="M12 3v12" />
+          <path d="M8 11l4 4 4-4" />
+          <path d="M5 19h14" />
+        </svg>
+      )
+    case 'cash-out':
+      return (
+        <svg {...common}>
+          <path d="M12 21V9" />
+          <path d="M8 13l4-4 4 4" />
+          <path d="M5 5h14" />
+        </svg>
+      )
+    case 'lock':
+      return (
+        <svg {...common}>
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V8a4 4 0 018 0v3" />
+        </svg>
+      )
+    case 'plus-circle':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="8.25" />
+          <path d="M12 8.5v7M8.5 12h7" />
+        </svg>
+      )
+    case 'external':
+      return (
+        <svg {...common}>
+          <path d="M14 5h5v5" />
+          <path d="M19 5l-8 8" />
+          <path d="M11 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" />
+        </svg>
+      )
     default:
       return (
         <svg {...common}>
@@ -370,6 +408,8 @@ export const navIconForPath = (path) => {
     '/owner/partner-companies': 'building',
     '/owner/employees': 'id-badge',
     '/owner/accounting': 'wallet',
+    '/owner/encaissements': 'cash-in',
+    '/owner/decaissements': 'cash-out',
     '/owner/accounting/revenues': 'trend-up',
     '/owner/accounting/samsar-payments': 'coins',
     '/owner/accounting/agency-expenses': 'receipt',
