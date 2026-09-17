@@ -12,6 +12,8 @@ export const AdminModal = ({
   size = 'md',
   closeOnBackdrop = true,
   variant = 'drawer',
+  /** `bare` = close only (sr-only title) for profile-first drawers */
+  headerVariant = 'default',
 }) => {
   const { t } = useI18n()
   const titleId = useId()
@@ -87,13 +89,23 @@ export const AdminModal = ({
         aria-labelledby={titleId}
         className={`admin-modal-panel ${widthClass}`}
       >
-        <div className="admin-modal-header">
-          <div className="min-w-0 pe-10">
-            <h2 id={titleId} className="admin-modal-title">
+        <div
+          className={`admin-modal-header${
+            headerVariant === 'bare' ? ' admin-modal-header--bare' : ''
+          }`}
+        >
+          {headerVariant === 'bare' ? (
+            <h2 id={titleId} className="admin-modal-title-sr">
               {title}
             </h2>
-            {description ? <p className="admin-modal-description">{description}</p> : null}
-          </div>
+          ) : (
+            <div className="min-w-0 pe-10">
+              <h2 id={titleId} className="admin-modal-title">
+                {title}
+              </h2>
+              {description ? <p className="admin-modal-description">{description}</p> : null}
+            </div>
+          )}
           <button
             type="button"
             className="admin-modal-close admin-icon-btn"

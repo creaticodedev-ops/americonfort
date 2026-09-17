@@ -726,6 +726,9 @@ export const adminEn = {
     periodHint: 'Figures for {{days}} days in the selected range',
     rentalHistory: 'Rental history',
     noRentals: 'No rentals in this period.',
+    performanceTitle: 'Period performance',
+    pipelineTitle: 'Rental pipeline',
+    daysUnit: 'd',
   },
   addCar: {
     title: 'Add New Car',
@@ -2520,6 +2523,9 @@ export const adminFr = {
     periodHint: 'Chiffres sur {{days}} jours de la période choisie',
     rentalHistory: 'Historique des locations',
     noRentals: 'Aucune location sur cette période.',
+    performanceTitle: 'Performance de la période',
+    pipelineTitle: 'Pipeline de locations',
+    daysUnit: 'j',
   },
   addCar: {
     title: 'Ajouter une voiture',
@@ -4299,6 +4305,9 @@ export const adminEs = {
     periodHint: 'Cifras de {{days}} días del rango seleccionado',
     rentalHistory: 'Historial de alquileres',
     noRentals: 'No hay alquileres en este periodo.',
+    performanceTitle: 'Rendimiento del periodo',
+    pipelineTitle: 'Pipeline de alquileres',
+    daysUnit: 'd',
   },
   addCar: {
     title: 'Añadir coche',

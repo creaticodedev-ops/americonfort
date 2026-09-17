@@ -2,11 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
   AdminModal,
   AnalyticsPeriodBar,
-  ChartCard,
   EmptyState,
   SegmentedControl,
   Skeleton,
-  StatCard,
   formatAnalyticsDate,
   rangeForPeriod,
 } from './ui'
@@ -25,17 +23,6 @@ const money = (value, currency) => {
   return `${formatted} ${code}`
 }
 
-const ActivityValue = ({ children, empty }) => {
-  if (empty) {
-    return <dd className="admin-vehicle-analytics__empty-val">—</dd>
-  }
-  return (
-    <dd className="admin-vehicle-analytics__activity-val">
-      {children}
-    </dd>
-  )
-}
-
 const formatDay = (value) => {
   if (!value) return '—'
   const d = new Date(value)
@@ -48,6 +35,19 @@ const availabilityLabel = (availability, t) => {
   if (availability === 'maintenance') return t('admin.vehicleStats.statusMaintenance')
   if (availability === 'offline') return t('admin.vehicleStats.statusOffline')
   return t('admin.vehicleStats.statusAvailable')
+}
+
+const statusTone = (availability) => {
+  if (availability === 'rented') return 'active'
+  if (availability === 'maintenance') return 'maintenance'
+  if (availability === 'offline') return 'inactive'
+  return 'confirmed'
+}
+
+const displayName = (vehicle, stats) => {
+  const brand = vehicle?.brand || stats?.vehicle?.brand || ''
+  const model = vehicle?.model || stats?.vehicle?.model || ''
+  return [brand, model].filter(Boolean).join(' – ')
 }
 
 /**
@@ -76,7 +76,6 @@ const VehicleStatsDrawer = ({
 
   const carId = vehicle?._id
 
-  // Sync from parent when opening a vehicle / parent filter changes while open
   useEffect(() => {
     if (!open) return
     const next = rangeForPeriod(parentPeriod || 'month')
@@ -138,10 +137,11 @@ const VehicleStatsDrawer = ({
   const history = stats?.rentalHistory || []
   const trend = stats?.trend || []
   const maintenance = stats?.maintenanceHistory || []
-  const name = `${vehicle?.brand || stats?.vehicle?.brand || ''} ${vehicle?.model || stats?.vehicle?.model || ''}`.trim()
+  const name = displayName(vehicle, stats)
   const fleetId = vehicle?.fleetId || stats?.vehicle?.fleetId || ''
   const plate = vehicle?.licensePlate || stats?.vehicle?.licensePlate || ''
   const availability = overview.availability || stats?.vehicle?.availability || 'available'
+  const metaLine = [fleetId, plate].filter(Boolean).join(' · ')
 
   const grainOptions = useMemo(
     () => [
@@ -153,6 +153,52 @@ const VehicleStatsDrawer = ({
   )
 
   const periodCaption = `${formatAnalyticsDate(from)} → ${formatAnalyticsDate(to)}`
+  const utilPct =
+    overview.utilization != null && overview.utilization !== ''
+      ? Number(overview.utilization)
+      : Number(String(overview.utilizationRate || '0').replace('%', ''))
+  const utilDisplay = Number.isFinite(utilPct)
+    ? `${Number.isInteger(utilPct) ? utilPct : utilPct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%`
+    : overview.utilizationRate || '0%'
+  const avgDays =
+    overview.avgDuration != null
+      ? overview.avgDuration
+      : Number(String(overview.averageRentalDuration || '').replace(/[^\d.]/g, '')) || 0
+
+  const revenueHint =
+    overview.bookingValue != null && overview.bookingValue !== overview.totalRevenue
+      ? t('admin.vehicleStats.periodRevenueHint', {
+          booking: money(overview.bookingValue, currency),
+        })
+      : t('admin.vehicleStats.kpiRevenueHint')
+
+  const pipeline = [
+    {
+      id: 'completed',
+      label: t('admin.vehicleStats.completed'),
+      value: overview.completedBookings ?? 0,
+      tone: 'neutral',
+    },
+    {
+      id: 'active',
+      label: t('admin.vehicleStats.activeNow'),
+      value: overview.activeBookings ?? 0,
+      tone: 'live',
+      hint: t('admin.vehicleStats.liveTag'),
+    },
+    {
+      id: 'upcoming',
+      label: t('admin.vehicleStats.upcoming'),
+      value: overview.upcomingBookings ?? 0,
+      tone: 'neutral',
+    },
+    {
+      id: 'cancelled',
+      label: t('admin.vehicleStats.cancelled'),
+      value: overview.cancelledBookings ?? 0,
+      tone: 'muted',
+    },
+  ]
 
   return (
     <AdminModal
@@ -160,168 +206,230 @@ const VehicleStatsDrawer = ({
       onClose={onClose}
       size="xl"
       variant="drawer"
+      headerVariant="bare"
       title={name || t('admin.vehicleStats.title')}
-      description={[fleetId, plate].filter(Boolean).join(' · ')}
     >
-      <div className="space-y-5">
-        <div className="admin-vehicle-analytics__identity">
-          <img
-            src={vehicle?.image || stats?.vehicle?.image || assets.car_image1}
-            alt={name}
-            className="h-14 w-14 rounded-[var(--admin-radius)] object-cover shrink-0"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-[var(--admin-fg)] truncate">{name || '—'}</p>
-            <p className="admin-vehicle-analytics__meta truncate">
-              {[fleetId, plate].filter(Boolean).join(' · ') || '—'}
-            </p>
-            <p className="mt-0.5 text-xs text-[var(--admin-fg-muted)]">
-              {t('admin.vehicleStats.vehicleScopeHint')}
-            </p>
+      <div className="admin-vperf">
+        <header className="admin-vperf__identity">
+          <div className="admin-vperf__photo-wrap">
+            <img
+              src={vehicle?.image || stats?.vehicle?.image || assets.car_image1}
+              alt={name}
+              className="admin-vperf__photo"
+            />
           </div>
-          <StatusBadge
-            status={
-              availability === 'rented'
-                ? 'active'
-                : availability === 'maintenance'
-                  ? 'maintenance'
-                  : availability === 'offline'
-                    ? 'inactive'
-                    : 'confirmed'
-            }
-            label={availabilityLabel(availability, t)}
-          />
-        </div>
+          <div className="admin-vperf__identity-body">
+            <div className="admin-vperf__identity-top">
+              <h2 className="admin-vperf__name">{name || '—'}</h2>
+              <StatusBadge
+                status={statusTone(availability)}
+                label={availabilityLabel(availability, t)}
+              />
+            </div>
+            <p className="admin-vperf__meta">{metaLine || '—'}</p>
+            <p className="admin-vperf__scope">{t('admin.vehicleStats.vehicleScopeHint')}</p>
+          </div>
+        </header>
 
-        <AnalyticsPeriodBar
-          period={period}
-          from={from}
-          to={to}
-          onChange={handlePeriodChange}
-        />
+        <AnalyticsPeriodBar period={period} from={from} to={to} onChange={handlePeriodChange} />
 
         {loading && !stats ? (
-          <div className="space-y-3">
-            <Skeleton className="h-20 w-full rounded-[var(--admin-radius)]" />
-            <Skeleton className="h-40 w-full rounded-[var(--admin-radius)]" />
+          <div className="admin-vperf__skeletons">
+            <Skeleton className="h-28 w-full rounded-[var(--admin-radius)]" />
+            <Skeleton className="h-48 w-full rounded-[var(--admin-radius)]" />
           </div>
         ) : !stats ? (
           <EmptyState title={t('admin.vehicleStats.none')} />
         ) : (
           <>
-            <p className="text-xs text-[var(--admin-fg-muted)] -mt-2">
-              {t('admin.vehicleStats.periodHint', { days: stats.period?.days || 0 })}
-              <span className="mx-1.5 opacity-40">·</span>
-              <span className="tabular-nums">{periodCaption}</span>
-            </p>
+            <section className="admin-vperf__panel" aria-label={t('admin.vehicleStats.performanceTitle')}>
+              <div className="admin-vperf__panel-head">
+                <p className="admin-vperf__eyebrow">{t('admin.vehicleStats.performanceTitle')}</p>
+                <p className="admin-vperf__period">
+                  {t('admin.vehicleStats.periodHint', { days: stats.period?.days || 0 })}
+                  <span className="admin-vperf__dot" aria-hidden>
+                    ·
+                  </span>
+                  <span className="tabular-nums">{periodCaption}</span>
+                </p>
+              </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-              <StatCard
-                compact
-                label={t('admin.vehicleStats.revenue')}
-                value={money(overview.totalRevenue, currency)}
-                hint={
-                  overview.bookingValue != null && overview.bookingValue !== overview.totalRevenue
-                    ? t('admin.vehicleStats.periodRevenueHint', {
-                        booking: money(overview.bookingValue, currency),
-                      })
-                    : t('admin.vehicleStats.kpiRevenueHint')
-                }
-              />
-              <StatCard compact label={t('admin.vehicleStats.rentals')} value={overview.totalBookings ?? 0} />
-              <StatCard compact label={t('admin.vehicleStats.rentalDays')} value={overview.rentalDays ?? 0} />
-              <StatCard compact label={t('admin.vehicleStats.utilization')} value={overview.utilizationRate || '0%'} />
-              <StatCard
-                compact
-                label={t('admin.vehicleStats.averageRental')}
-                value={overview.averageRentalDuration || '0 days'}
-              />
-              <StatCard
-                compact
-                label={t('admin.vehicleStats.avgRevenuePerRental')}
-                value={money(overview.averageRevenuePerBooking, currency)}
-              />
-            </div>
+              <div className="admin-vperf__hero">
+                <div className="admin-vperf__focal">
+                  <p className="admin-vperf__label">{t('admin.vehicleStats.revenue')}</p>
+                  <p className="admin-vperf__focal-value tabular-nums">
+                    {money(overview.totalRevenue, currency)}
+                  </p>
+                  <p className="admin-vperf__hint">{revenueHint}</p>
+                </div>
+                <div className="admin-vperf__util">
+                  <p className="admin-vperf__label">{t('admin.vehicleStats.utilization')}</p>
+                  <p className="admin-vperf__util-value tabular-nums">{utilDisplay}</p>
+                  <div className="admin-vperf__util-track" aria-hidden>
+                    <div
+                      className="admin-vperf__util-fill"
+                      style={{ width: `${Math.min(100, Math.max(0, utilPct || 0))}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <StatCard compact label={t('admin.vehicleStats.completed')} value={overview.completedBookings ?? 0} />
-              <StatCard
-                compact
-                label={t('admin.vehicleStats.activeNow')}
-                value={overview.activeBookings ?? 0}
-                hint={t('admin.vehicleStats.liveTag')}
-              />
-              <StatCard compact label={t('admin.vehicleStats.upcoming')} value={overview.upcomingBookings ?? 0} />
-              <StatCard compact label={t('admin.vehicleStats.cancelled')} value={overview.cancelledBookings ?? 0} />
-            </div>
-
-            <section className="admin-vehicle-analytics__activity">
-              <h3 className="admin-panel-title mb-1">
-                {t('admin.vehicleStats.activityTitle')}
-                <span className="admin-vehicle-analytics__live-tag">{t('admin.vehicleStats.liveTag')}</span>
-              </h3>
-              <p className="mb-3 text-xs text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.activityLiveHint')}</p>
-              <dl className="admin-vehicle-analytics__activity-grid">
-                <div className="admin-vehicle-analytics__activity-item">
-                  <dt>{t('admin.vehicleStats.currentRental')}</dt>
-                  <ActivityValue empty={!overview.currentlyRented}>
-                    {overview.currentCustomer || '—'}
-                    <span className="admin-vehicle-analytics__activity-sub">
-                      {formatDay(overview.currentPickupAt)} → {formatDay(overview.currentReturnAt)}
+              <div className="admin-vperf__cluster" role="list">
+                <div className="admin-vperf__cluster-item" role="listitem">
+                  <span className="admin-vperf__cluster-value tabular-nums">
+                    {overview.totalBookings ?? 0}
+                  </span>
+                  <span className="admin-vperf__cluster-label">{t('admin.vehicleStats.rentals')}</span>
+                </div>
+                <div className="admin-vperf__cluster-item" role="listitem">
+                  <span className="admin-vperf__cluster-value tabular-nums">
+                    {overview.rentalDays ?? 0}
+                  </span>
+                  <span className="admin-vperf__cluster-label">{t('admin.vehicleStats.rentalDays')}</span>
+                </div>
+                <div className="admin-vperf__cluster-item" role="listitem">
+                  <span className="admin-vperf__cluster-value tabular-nums">
+                    {avgDays}
+                    <span className="admin-vperf__cluster-unit">
+                      {t('admin.vehicleStats.daysUnit')}
                     </span>
-                  </ActivityValue>
+                  </span>
+                  <span className="admin-vperf__cluster-label">{t('admin.vehicleStats.averageRental')}</span>
                 </div>
-                <div className="admin-vehicle-analytics__activity-item">
-                  <dt>{t('admin.vehicleStats.nextReservation')}</dt>
-                  <ActivityValue empty={!overview.nextReservationAt}>
-                    {overview.nextCustomer || '—'}
-                    <span className="admin-vehicle-analytics__activity-sub">
-                      {formatDay(overview.nextReservationAt)}
+                <div className="admin-vperf__cluster-item" role="listitem">
+                  <span className="admin-vperf__cluster-value tabular-nums">
+                    {money(overview.averageRevenuePerBooking, currency)}
+                  </span>
+                  <span className="admin-vperf__cluster-label">
+                    {t('admin.vehicleStats.avgRevenuePerRental')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="admin-vperf__pipeline" aria-label={t('admin.vehicleStats.pipelineTitle')}>
+                {pipeline.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`admin-vperf__pipe admin-vperf__pipe--${item.tone}${
+                      item.value > 0 ? ' is-active' : ''
+                    }`}
+                  >
+                    <span className="admin-vperf__pipe-value tabular-nums">{item.value}</span>
+                    <span className="admin-vperf__pipe-label">
+                      {item.label}
+                      {item.hint && item.value > 0 ? (
+                        <span className="admin-vperf__pipe-live">{item.hint}</span>
+                      ) : null}
                     </span>
-                  </ActivityValue>
+                  </div>
+                ))}
+              </div>
+
+              <div className="admin-vperf__activity">
+                <div className="admin-vperf__section-head">
+                  <h3 className="admin-vperf__section-title">
+                    {t('admin.vehicleStats.activityTitle')}
+                  </h3>
+                  <span className="admin-vperf__live">{t('admin.vehicleStats.liveTag')}</span>
                 </div>
-                <div className="admin-vehicle-analytics__activity-item">
-                  <dt>{t('admin.vehicleStats.lastRental')}</dt>
-                  <ActivityValue empty={!overview.lastRentalAt}>
-                    {formatDay(overview.lastRentalAt)}
-                  </ActivityValue>
+                <p className="admin-vperf__section-hint">{t('admin.vehicleStats.activityLiveHint')}</p>
+                <dl className="admin-vperf__activity-grid">
+                  <div className="admin-vperf__activity-item">
+                    <dt>{t('admin.vehicleStats.currentRental')}</dt>
+                    {overview.currentlyRented ? (
+                      <dd>
+                        <span className="admin-vperf__activity-main">
+                          {overview.currentCustomer || '—'}
+                        </span>
+                        <span className="admin-vperf__activity-sub">
+                          {formatDay(overview.currentPickupAt)} → {formatDay(overview.currentReturnAt)}
+                        </span>
+                      </dd>
+                    ) : (
+                      <dd className="admin-vperf__activity-empty">—</dd>
+                    )}
+                  </div>
+                  <div className="admin-vperf__activity-item">
+                    <dt>{t('admin.vehicleStats.nextReservation')}</dt>
+                    {overview.nextReservationAt ? (
+                      <dd>
+                        <span className="admin-vperf__activity-main">
+                          {overview.nextCustomer || '—'}
+                        </span>
+                        <span className="admin-vperf__activity-sub">
+                          {formatDay(overview.nextReservationAt)}
+                        </span>
+                      </dd>
+                    ) : (
+                      <dd className="admin-vperf__activity-empty">—</dd>
+                    )}
+                  </div>
+                  <div className="admin-vperf__activity-item">
+                    <dt>{t('admin.vehicleStats.lastRental')}</dt>
+                    {overview.lastRentalAt ? (
+                      <dd>
+                        <span className="admin-vperf__activity-main">
+                          {formatDay(overview.lastRentalAt)}
+                        </span>
+                      </dd>
+                    ) : (
+                      <dd className="admin-vperf__activity-empty">—</dd>
+                    )}
+                  </div>
+                </dl>
+                <p className="admin-vperf__availability">
+                  {t('admin.vehicleStats.availabilityDays', {
+                    available: overview.availableDays ?? overview.periodDays ?? 0,
+                    unavailable: overview.unavailableDays ?? 0,
+                  })}
+                </p>
+              </div>
+
+              <div className="admin-vperf__chart">
+                <div className="admin-vperf__section-head admin-vperf__section-head--chart">
+                  <h3 className="admin-vperf__section-title">
+                    {t('admin.vehicleStats.revenueTrend')}
+                  </h3>
+                  <SegmentedControl
+                    className="admin-segment--premium"
+                    options={grainOptions}
+                    value={grain || stats.period?.grain || 'monthly'}
+                    onChange={setGrain}
+                    ariaLabel={t('admin.vehicleStats.grainAria')}
+                  />
                 </div>
-              </dl>
-              <p className="mt-3 text-xs text-[var(--admin-fg-muted)]">
-                {t('admin.vehicleStats.availabilityDays', {
-                  available: overview.availableDays ?? overview.periodDays ?? 0,
-                  unavailable: overview.unavailableDays ?? 0,
-                })}
-              </p>
+                {loading ? (
+                  <Skeleton className="h-44 w-full rounded-[var(--admin-radius)]" />
+                ) : (
+                  <RevenueChart data={trend} currency={currency} height={200} showValues={false} />
+                )}
+              </div>
             </section>
 
-            <ChartCard
-              title={t('admin.vehicleStats.revenueTrend')}
-              action={
-                <SegmentedControl
-                  className="admin-segment--premium"
-                  options={grainOptions}
-                  value={grain || stats.period?.grain || 'monthly'}
-                  onChange={setGrain}
-                  ariaLabel={t('admin.vehicleStats.grainAria')}
-                />
-              }
-            >
-              {loading ? (
-                <Skeleton className="h-44 w-full rounded-[var(--admin-radius)]" />
-              ) : (
-                <RevenueChart data={trend} currency={currency} height={200} showValues={false} />
-              )}
-            </ChartCard>
-
-            <section>
+            <section className="admin-vperf__history">
               <h3 className="admin-panel-title mb-3">{t('admin.vehicleStats.rentalHistory')}</h3>
               <DataTable
                 columns={[
-                  { key: 'customer', label: t('admin.vehicleStats.colCustomer'), render: (row) => row.customerName || t('admin.vehicleStats.guest') },
-                  { key: 'pickup', label: t('admin.vehicleStats.colPickup'), render: (row) => formatDay(row.pickupDate) },
-                  { key: 'return', label: t('admin.vehicleStats.colReturn'), render: (row) => formatDay(row.returnDate) },
-                  { key: 'duration', label: t('admin.vehicleStats.colDuration'), render: (row) => row.duration || 0 },
+                  {
+                    key: 'customer',
+                    label: t('admin.vehicleStats.colCustomer'),
+                    render: (row) => row.customerName || t('admin.vehicleStats.guest'),
+                  },
+                  {
+                    key: 'pickup',
+                    label: t('admin.vehicleStats.colPickup'),
+                    render: (row) => formatDay(row.pickupDate),
+                  },
+                  {
+                    key: 'return',
+                    label: t('admin.vehicleStats.colReturn'),
+                    render: (row) => formatDay(row.returnDate),
+                  },
+                  {
+                    key: 'duration',
+                    label: t('admin.vehicleStats.colDuration'),
+                    render: (row) => row.duration || 0,
+                  },
                   {
                     key: 'overlapDays',
                     label: t('admin.vehicleStats.colOverlapDays'),
@@ -337,22 +445,47 @@ const VehicleStatsDrawer = ({
                     label: t('admin.vehicleStats.colBookingValue'),
                     render: (row) => money(row.revenue, currency),
                   },
-                  { key: 'status', label: t('admin.vehicleStats.colStatus'), render: (row) => <StatusBadge status={row.status} /> },
+                  {
+                    key: 'status',
+                    label: t('admin.vehicleStats.colStatus'),
+                    render: (row) => <StatusBadge status={row.status} />,
+                  },
                 ]}
                 data={history}
                 emptyMessage={t('admin.vehicleStats.noRentals')}
               />
             </section>
 
-            <section>
+            <section className="admin-vperf__history">
               <h3 className="admin-panel-title mb-3">{t('admin.vehicleStats.maintenanceHistory')}</h3>
               <DataTable
                 columns={[
-                  { key: 'date', label: t('admin.vehicleStats.colDate'), render: (row) => formatDay(row.completedDate || row.scheduledDate) },
-                  { key: 'type', label: t('admin.vehicleStats.colType'), render: (row) => row.title || row.type || t('admin.vehicleStats.maintenanceDefault') },
-                  { key: 'cost', label: t('admin.vehicleStats.colCost'), render: (row) => money(row.cost, currency) },
-                  { key: 'down', label: t('admin.vehicleStats.colDowntime'), render: (row) => row.downtimeDays || 0 },
-                  { key: 'notes', label: t('admin.vehicleStats.colNotes'), render: (row) => row.notes || '—' },
+                  {
+                    key: 'date',
+                    label: t('admin.vehicleStats.colDate'),
+                    render: (row) => formatDay(row.completedDate || row.scheduledDate),
+                  },
+                  {
+                    key: 'type',
+                    label: t('admin.vehicleStats.colType'),
+                    render: (row) =>
+                      row.title || row.type || t('admin.vehicleStats.maintenanceDefault'),
+                  },
+                  {
+                    key: 'cost',
+                    label: t('admin.vehicleStats.colCost'),
+                    render: (row) => money(row.cost, currency),
+                  },
+                  {
+                    key: 'down',
+                    label: t('admin.vehicleStats.colDowntime'),
+                    render: (row) => row.downtimeDays || 0,
+                  },
+                  {
+                    key: 'notes',
+                    label: t('admin.vehicleStats.colNotes'),
+                    render: (row) => row.notes || '—',
+                  },
                 ]}
                 data={maintenance}
                 emptyMessage={t('admin.vehicleStats.noMaintenance')}
