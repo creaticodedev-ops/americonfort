@@ -19,8 +19,22 @@ import { getErrorMessage } from '../../utils/apiError'
 import toast from 'react-hot-toast'
 import { assets } from '../../assets/ownerAssets'
 
-const money = (value, currency) =>
-  `${currency}${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+const money = (value, currency) => {
+  const code = String(currency || 'MAD').replace(/\s+/g, '') || 'MAD'
+  const formatted = Number(value || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })
+  return `${formatted} ${code}`
+}
+
+const ActivityValue = ({ children, empty }) => {
+  if (empty) {
+    return <dd className="admin-vehicle-analytics__empty-val">—</dd>
+  }
+  return (
+    <dd className="admin-vehicle-analytics__activity-val">
+      {children}
+    </dd>
+  )
+}
 
 const formatDay = (value) => {
   if (!value) return '—'
@@ -201,7 +215,7 @@ const VehicleStatsDrawer = ({
               <span className="tabular-nums">{periodCaption}</span>
             </p>
 
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
               <StatCard
                 compact
                 label={t('admin.vehicleStats.revenue')}
@@ -217,7 +231,16 @@ const VehicleStatsDrawer = ({
               <StatCard compact label={t('admin.vehicleStats.rentals')} value={overview.totalBookings ?? 0} />
               <StatCard compact label={t('admin.vehicleStats.rentalDays')} value={overview.rentalDays ?? 0} />
               <StatCard compact label={t('admin.vehicleStats.utilization')} value={overview.utilizationRate || '0%'} />
-              <StatCard compact label={t('admin.vehicleStats.averageRental')} value={overview.averageRentalDuration || '0 days'} />
+              <StatCard
+                compact
+                label={t('admin.vehicleStats.averageRental')}
+                value={overview.averageRentalDuration || '0 days'}
+              />
+              <StatCard
+                compact
+                label={t('admin.vehicleStats.avgRevenuePerRental')}
+                value={money(overview.averageRevenuePerBooking, currency)}
+              />
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -232,32 +255,36 @@ const VehicleStatsDrawer = ({
               <StatCard compact label={t('admin.vehicleStats.cancelled')} value={overview.cancelledBookings ?? 0} />
             </div>
 
-            <section className="rounded-[var(--admin-radius)] border border-[var(--admin-border)] p-4">
+            <section className="admin-vehicle-analytics__activity">
               <h3 className="admin-panel-title mb-1">
                 {t('admin.vehicleStats.activityTitle')}
                 <span className="admin-vehicle-analytics__live-tag">{t('admin.vehicleStats.liveTag')}</span>
               </h3>
               <p className="mb-3 text-xs text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.activityLiveHint')}</p>
-              <dl className="grid gap-3 sm:grid-cols-3 text-sm">
-                <div>
-                  <dt className="text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.currentRental')}</dt>
-                  <dd className="mt-0.5 font-medium text-[var(--admin-fg)]">
-                    {overview.currentlyRented
-                      ? `${overview.currentCustomer || '—'} · ${formatDay(overview.currentPickupAt)} → ${formatDay(overview.currentReturnAt)}`
-                      : '—'}
-                  </dd>
+              <dl className="admin-vehicle-analytics__activity-grid">
+                <div className="admin-vehicle-analytics__activity-item">
+                  <dt>{t('admin.vehicleStats.currentRental')}</dt>
+                  <ActivityValue empty={!overview.currentlyRented}>
+                    {overview.currentCustomer || '—'}
+                    <span className="admin-vehicle-analytics__activity-sub">
+                      {formatDay(overview.currentPickupAt)} → {formatDay(overview.currentReturnAt)}
+                    </span>
+                  </ActivityValue>
                 </div>
-                <div>
-                  <dt className="text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.nextReservation')}</dt>
-                  <dd className="mt-0.5 font-medium text-[var(--admin-fg)]">
-                    {overview.nextReservationAt
-                      ? `${overview.nextCustomer || '—'} · ${formatDay(overview.nextReservationAt)}`
-                      : '—'}
-                  </dd>
+                <div className="admin-vehicle-analytics__activity-item">
+                  <dt>{t('admin.vehicleStats.nextReservation')}</dt>
+                  <ActivityValue empty={!overview.nextReservationAt}>
+                    {overview.nextCustomer || '—'}
+                    <span className="admin-vehicle-analytics__activity-sub">
+                      {formatDay(overview.nextReservationAt)}
+                    </span>
+                  </ActivityValue>
                 </div>
-                <div>
-                  <dt className="text-[var(--admin-fg-muted)]">{t('admin.vehicleStats.lastRental')}</dt>
-                  <dd className="mt-0.5 font-medium text-[var(--admin-fg)]">{formatDay(overview.lastRentalAt)}</dd>
+                <div className="admin-vehicle-analytics__activity-item">
+                  <dt>{t('admin.vehicleStats.lastRental')}</dt>
+                  <ActivityValue empty={!overview.lastRentalAt}>
+                    {formatDay(overview.lastRentalAt)}
+                  </ActivityValue>
                 </div>
               </dl>
               <p className="mt-3 text-xs text-[var(--admin-fg-muted)]">
@@ -280,7 +307,11 @@ const VehicleStatsDrawer = ({
                 />
               }
             >
-              <RevenueChart data={trend} currency={currency} height={180} />
+              {loading ? (
+                <Skeleton className="h-44 w-full rounded-[var(--admin-radius)]" />
+              ) : (
+                <RevenueChart data={trend} currency={currency} height={200} showValues={false} />
+              )}
             </ChartCard>
 
             <section>

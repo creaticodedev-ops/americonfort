@@ -356,13 +356,16 @@ export const buildTrendSeries = (bookings, range, grain) => {
   return buckets.map((bucket) => {
     const inBucket = bookings.filter((booking) => bookingOverlapsRange(booking, bucket));
     const revenue = inBucket.reduce((sum, booking) => sum + proratedRevenue(booking, bucket), 0);
-    const rentals = inBucket.filter((booking) => booking.status !== 'cancelled').length;
+    const rentals = inBucket.filter((booking) => REVENUE_BOOKING_STATUSES.includes(booking.status)).length;
     return {
       key: bucket.key,
       label: bucket.label,
+      from: toIsoDate(bucket.start || bucket.from),
+      to: toIsoDate(bucket.end || bucket.to),
       amount: roundMoney(revenue),
       revenue: roundMoney(revenue),
       bookings: rentals,
+      count: rentals,
     };
   });
 };
@@ -632,7 +635,8 @@ export const buildVehicleDetailStats = async ({ ownerId, car, period = 'month', 
 
   const periodDays = range.periodDays;
   const resolvedGrain = ['daily', 'weekly', 'monthly'].includes(grain) ? grain : suggestedTrendGrain(periodDays);
-  const trendBookings = overlapping.filter((booking) => booking.status !== 'cancelled');
+  // Same revenue universe as overview KPIs (confirmed → completed; cancelled excluded via proratedRevenue)
+  const trendBookings = overlapping.filter((booking) => REVENUE_BOOKING_STATUSES.includes(booking.status));
   const trend = buildTrendSeries(trendBookings, range, resolvedGrain);
 
   const maintenanceRows = maintenance

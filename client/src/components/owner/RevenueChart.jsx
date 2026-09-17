@@ -1,22 +1,47 @@
 import React, { useMemo, useState } from 'react'
 import { useI18n } from '../../i18n/I18nContext'
+import '../../styles/analytics-dashboard.css'
 
 const valueOf = (item) => {
   const n = Number(item?.amount ?? item?.revenue ?? item?.value ?? 0)
   return Number.isFinite(n) ? n : 0
 }
 
-const formatMoney = (n, currency) =>
-  `${currency}${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+/** Premium MAD display: `3 300 MAD` (fr-FR grouping). */
+export const formatChartMoney = (n, currency = 'MAD') => {
+  const code = String(currency || 'MAD').replace(/\s+/g, '') || 'MAD'
+  const formatted = Number(n || 0).toLocaleString('fr-FR', {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+  })
+  return `${formatted} ${code}`
+}
+
+const periodCaption = (item) => {
+  if (item?.from && item?.to && item.from !== item.to) {
+    try {
+      const a = new Date(item.from)
+      const b = new Date(item.to)
+      if (!Number.isNaN(a.getTime()) && !Number.isNaN(b.getTime())) {
+        const opts = { day: 'numeric', month: 'short' }
+        return `${a.toLocaleDateString(undefined, opts)} – ${b.toLocaleDateString(undefined, opts)}`
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return item?.label || ''
+}
 
 /**
- * Premium CSS bar chart — density-aware, tooltip on focus/hover, no fake filler data.
+ * Premium CSS bar chart — styles co-located so Vehicle Stats / Analytics
+ * never render unstyled (concatenated) value strings.
  */
 const RevenueChart = ({
   data = [],
-  currency = '',
-  height = 240,
-  showValues = true,
+  currency = 'MAD',
+  height = 220,
+  showValues = false,
   emptyHint,
   sparseHint,
 }) => {
@@ -40,7 +65,7 @@ const RevenueChart = ({
   const max = Math.max(0, ...series.map((d) => d.value))
   const hasRevenue = nonZero.length > 0
   const chartHeight = hasRevenue
-    ? Math.min(height, Math.max(160, 120 + series.length * 8))
+    ? Math.min(Math.max(height, 180), Math.max(180, 100 + series.length * 6))
     : 120
 
   const ticks = useMemo(() => {
@@ -69,9 +94,13 @@ const RevenueChart = ({
   }
 
   const tip = active
-    ? `${active.label}: ${formatMoney(active.value, currency)}${
-        active.count ? ` · ${active.count}` : ''
-      }`
+    ? [
+        periodCaption(active) || active.label,
+        formatChartMoney(active.value, currency),
+        active.count ? t('admin.analytics.rentalsCount', { count: active.count }) : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     : null
 
   return (
@@ -92,11 +121,11 @@ const RevenueChart = ({
         </div>
       )}
 
-      <div className="ax-chart__frame" style={{ minHeight: chartHeight }}>
+      <div className="ax-chart__frame" style={{ '--ax-chart-h': `${chartHeight}px` }}>
         <div className="ax-chart__yaxis" aria-hidden>
           {ticks.map((tick) => (
             <span key={tick} className="ax-chart__tick">
-              {formatMoney(tick, currency)}
+              {formatChartMoney(tick, currency)}
             </span>
           ))}
         </div>
@@ -111,36 +140,41 @@ const RevenueChart = ({
           <div
             className={`ax-chart__bars${sparseMode ? ' is-sparse' : ''}`}
             style={{
-              minWidth: series.length > 10 ? `${series.length * 2.75}rem` : undefined,
-              height: chartHeight,
+              minWidth: series.length > 12 ? `${series.length * 2.5}rem` : undefined,
             }}
             onMouseLeave={() => setActive(null)}
           >
             {series.map((item) => {
               const pct =
                 max > 0 && item.value > 0
-                  ? Math.max(8, Math.round((item.value / max) * 100))
+                  ? Math.max(4, Math.round((item.value / max) * 100))
                   : 0
-              const isActive = active && (active.key || active.label) === (item.key || item.label)
+              const id = item.key || item.label
+              const isActive = active && (active.key || active.label) === id
               return (
                 <button
-                  key={item.key || item.label}
+                  key={id}
                   type="button"
-                  className={`ax-chart__col${isActive ? ' is-active' : ''}`}
+                  className={`ax-chart__col${isActive ? ' is-active' : ''}${
+                    item.value <= 0 ? ' is-zero' : ''
+                  }`}
                   onMouseEnter={() => setActive(item)}
                   onFocus={() => setActive(item)}
                   onBlur={() => setActive(null)}
-                  aria-label={`${item.label}: ${formatMoney(item.value, currency)}`}
+                  aria-label={`${periodCaption(item) || item.label}: ${formatChartMoney(
+                    item.value,
+                    currency,
+                  )}`}
                 >
-                  {showValues && item.value > 0 ? (
-                    <span className="ax-chart__val">{formatMoney(item.value, currency)}</span>
-                  ) : (
-                    <span className="ax-chart__val ax-chart__val--spacer" aria-hidden />
-                  )}
-                  <div
-                    className="ax-chart__bar is-filled"
-                    style={{ height: `${pct}%` }}
-                  />
+                  <div className="ax-chart__track">
+                    {showValues && item.value > 0 ? (
+                      <span className="ax-chart__val">{formatChartMoney(item.value, currency)}</span>
+                    ) : null}
+                    <div
+                      className={`ax-chart__bar${item.value > 0 ? ' is-filled' : ''}`}
+                      style={{ height: `${pct}%` }}
+                    />
+                  </div>
                   <span className="ax-chart__label">{item.label}</span>
                 </button>
               )
@@ -155,7 +189,7 @@ const RevenueChart = ({
 /** Horizontal ranking bars for vehicles / categories / locations */
 export const RankBars = ({
   rows = [],
-  currency = '',
+  currency = 'MAD',
   valueKey = 'revenue',
   labelFn,
   maxRows = 6,
@@ -186,7 +220,7 @@ export const RankBars = ({
               <span className="ax-rank__label" title={label}>
                 {label}
               </span>
-              <span className="ax-rank__value tabular-nums">{formatMoney(value, currency)}</span>
+              <span className="ax-rank__value tabular-nums">{formatChartMoney(value, currency)}</span>
             </div>
             <div className="ax-rank__track" aria-hidden>
               <div className="ax-rank__fill" style={{ width: `${pct}%` }} />
@@ -204,7 +238,7 @@ export const RankBars = ({
 }
 
 /** Part-to-whole channel / status / payment distribution */
-export const ShareBars = ({ rows = [], currency = '', labelFn, valueKey = 'revenue', emptyHint }) => {
+export const ShareBars = ({ rows = [], currency = 'MAD', labelFn, valueKey = 'revenue', emptyHint }) => {
   const { t } = useI18n()
   const list = (rows || []).filter((r) => (Number(r[valueKey]) || Number(r.count) || 0) > 0)
   const total = list.reduce((s, r) => s + (Number(r[valueKey]) || 0), 0)
@@ -229,7 +263,7 @@ export const ShareBars = ({ rows = [], currency = '', labelFn, valueKey = 'reven
               key={row._id || row.id || i}
               className={`ax-share__seg ax-share__seg--${i % 4}`}
               style={{ width: `${pct}%` }}
-              title={`${labelFn?.(row) || row._id}: ${formatMoney(value, currency)}`}
+              title={`${labelFn?.(row) || row._id}: ${formatChartMoney(value, currency)}`}
             />
           )
         })}
@@ -246,7 +280,7 @@ export const ShareBars = ({ rows = [], currency = '', labelFn, valueKey = 'reven
                 <span className="ax-share__count tabular-nums">{row.count}</span>
               ) : null}
               <span className="ax-share__pct tabular-nums">{pct}%</span>
-              <span className="ax-share__amt tabular-nums">{formatMoney(value, currency)}</span>
+              <span className="ax-share__amt tabular-nums">{formatChartMoney(value, currency)}</span>
             </li>
           )
         })}
